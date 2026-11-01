@@ -159,6 +159,48 @@ checker measures the original geometry. This recovers geometric DoF at
 C1 contacts where original Jacobian nullity overcounts it. Unsupported
 singularities retain an infinitesimal interpretation (ADR-0002).
 
+### LM engine
+
+The internal LM engine solves scaled damped normal equations
+`(JᵀJ + λI) Δ = −Jᵀf` by dense Cholesky (`nalgebra`, `libm-force`).
+Products accumulate in equation order. Identity damping gives the unique
+minimum-norm damped step without adding null-space motion in exact
+arithmetic. Coordinates use the frozen component origin and common scale;
+fixed and untouched parameters retain their bits. A non-finite transform,
+factorization or trial cannot certify convergence.
+
+The numerical defaults, exercised by `laman`'s `solve::tests`, are:
+
+| Setting | Value | Purpose |
+|---|---:|---|
+| Initial damping | 1e-3 times max(1, largest diagonal of JᵀJ) | Regularizes deficient systems while allowing rapid convergence |
+| Accepted-step damping | divide dimensionless damping by 3 | Reduces damping after strict objective decrease |
+| Rejected-step damping | multiply by 10 | Shortens the next attempted step |
+| Damping floor | 1e-15 | Keeps regularization representable near unit Jacobians |
+| Iterations / evaluations | 128 / 256, across all components | Hard bounds, including rejected and non-finite trials |
+| New-iterate target | 0.1 times geometric tolerance | Resolves coordinate-error accumulation in coupled geometry |
+
+A satisfied input takes no step. A newly converged iterate must meet the
+stricter target, the original tangent residuals and stored side domain.
+Vector constraints use their geometric norm (including the doubled
+midpoint-to-axis error for symmetry), not two separate scalar tests.
+An initial evaluation costs one evaluation; each attempted step costs one
+iteration and one evaluation, even if its factorization or trial is refused.
+Empty components cost neither. Rejection retains the last, lowest-objective
+finite iterate; zero steps above tolerance are stagnation, not convergence.
+
+From the C1 guesses, triangle and belt each take 5 iterations / 6 evaluations,
+and the slotted plate takes 6 / 7, with no rejected trials. All are checker
+clean, inside the unchanged coordinate bounds, and bit-identical on a
+zero-step re-solve. The coupled stopping regression needed one additional
+iteration: stopping at geometric acceptance alone missed E2.y's coordinate
+bound. Contradictory fixes retain their analytic midpoint and exhaust the
+128-iteration cap with 125 rejected trials. Construction properties exercise
+radial solves over scales 1e-6 through 1e6; extremes include nonzero motion
+at 1e300 and unrepresentable differences. These are measured examples,
+not a general convergence guarantee. Conflict certification and public
+status mapping are separate stages still to be implemented.
+
 ## Branches
 
 A constraint system has discrete solutions: a circle tangent to a line on

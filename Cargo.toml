@@ -16,6 +16,8 @@ homepage = "https://github.com/arris-labs/laman"
 readme = "README.md"
 
 [workspace.dependencies]
+# Dense deterministic steps; 0.33 supports the workspace MSRV.
+nalgebra = { version = "=0.33.2", default-features = false, features = ["std", "libm-force"] }
 # Internal crates: path plus an exact version pin, so a version bump that
 # misses one fails `cargo check` (.agents/rules/git.md §The version).
 laman = { path = "crates/laman", version = "=0.1.0-dev" }

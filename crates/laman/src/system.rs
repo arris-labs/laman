@@ -98,6 +98,15 @@ impl<'a> System<'a> {
     }
 
     pub fn evaluate(&self, component: &Component, coordinates: &Coordinates) -> Evaluation {
+        self.evaluate_to(component, coordinates, 1.0)
+    }
+
+    pub fn evaluate_to(
+        &self,
+        component: &Component,
+        coordinates: &Coordinates,
+        target: f64,
+    ) -> Evaluation {
         let scale = component.scale.max(tolerance::LENGTH_FLOOR);
         let mut out = Evaluation {
             values: vec![],
@@ -128,7 +137,8 @@ impl<'a> System<'a> {
                 Unit::Length => tolerance::length(component.scale),
                 Unit::Ratio => tolerance::ANGLE,
             };
-            out.satisfied &= !original.is_degenerate() && original.value().abs() <= threshold;
+            out.satisfied &=
+                !original.is_degenerate() && original.value().abs() <= target * threshold;
             out.valid &= !original.is_degenerate();
             let (value, terms, domain) = if let Some(contact) = &eq.contact {
                 contact.evaluate(coordinates, tolerance::length(component.scale))
@@ -140,12 +150,12 @@ impl<'a> System<'a> {
                 )
             };
             out.valid &= domain;
-            out.satisfied &= domain && value.abs() <= threshold;
+            out.satisfied &= domain && value.abs() <= target * threshold;
             let value = value / divisor;
             let row: Vec<_> = component
                 .params
                 .iter()
-                .map(|p| terms.get(p).copied().unwrap_or(0.0) * scale / divisor)
+                .map(|p| terms.get(p).copied().unwrap_or(0.0) * (scale / divisor))
                 .collect();
             out.valid &= value.is_finite() && row.iter().all(|x| x.is_finite());
             out.values.push(value);

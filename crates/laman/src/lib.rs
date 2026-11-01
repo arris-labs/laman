@@ -22,6 +22,7 @@
 pub mod model;
 pub mod residual;
 mod rigidity;
+mod solve;
 mod system;
 
 pub use rigidity::{Rigidity, RigidityError, rigidity};
