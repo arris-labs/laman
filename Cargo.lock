@@ -25,14 +25,14 @@ dependencies = [
 
 [[package]]
 name = "laman"
-version = "0.0.1"
+version = "0.1.0-dev"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "laman-py"
-version = "0.0.1"
+version = "0.1.0-dev"
 dependencies = [
  "laman",
  "pyo3",
