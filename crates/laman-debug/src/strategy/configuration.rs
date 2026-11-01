@@ -34,9 +34,11 @@
 
 use std::f64::consts::{PI, TAU};
 
+use std::collections::BTreeSet;
+
 use laman::model::{
-    Constraint, ConstraintId, ConstraintKind, Contact, Line, ModelError, Point, Round, Sense,
-    Sketch, Span,
+    Constraint, ConstraintId, ConstraintKind, Contact, Entity, EntityId, Line, ModelError, Point,
+    Round, Sense, Sketch, Span,
 };
 use proptest::array::{uniform8, uniform32};
 use proptest::prelude::*;
@@ -298,6 +300,86 @@ pub struct Configuration {
     pub constraint: ConstraintId,
     /// The sketch's size: the largest coordinate magnitude, radii included.
     pub size: f64,
+}
+
+impl Configuration {
+    /// The lengths a local scale counts: the lines' and the radii of the
+    /// entities the constraint names, and the distances between the points
+    /// among them and the rounds' centres (a shared point is one point). An
+    /// arc's radius is its start's distance from its centre.
+    ///
+    /// ```
+    /// use laman_debug::strategy::configuration::{configuration, Variant};
+    /// use proptest::prelude::*;
+    /// use proptest::strategy::ValueTree;
+    /// use proptest::test_runner::TestRunner;
+    ///
+    /// let mut runner = TestRunner::deterministic();
+    /// let c = configuration(Variant::Distance).new_tree(&mut runner).unwrap().current();
+    /// assert!(c.lengths().iter().all(|l| *l > 0.0));
+    /// ```
+    pub fn lengths(&self) -> Vec<f64> {
+        let sk = &self.sketch;
+        let xy = |id: EntityId| match sk.entity(id) {
+            Some(Entity::Point { x, y }) => Some([*x, *y]),
+            Some(Entity::Line { .. } | Entity::Circle { .. } | Entity::Arc { .. }) | None => None,
+        };
+        let apart = |a: EntityId, b: EntityId| {
+            let (p, q) = (xy(a)?, xy(b)?);
+            Some(length(sub(p, q)))
+        };
+        let mut points = BTreeSet::new();
+        let mut out = Vec::new();
+        let named = sk
+            .constraint(self.constraint)
+            .map(|c| c.entities())
+            .unwrap_or_default();
+        for id in named {
+            match sk.entity(id) {
+                Some(Entity::Point { .. }) => {
+                    points.insert(id);
+                }
+                Some(Entity::Line { a, b }) => {
+                    points.insert(a.id());
+                    points.insert(b.id());
+                    out.extend(apart(a.id(), b.id()));
+                }
+                Some(Entity::Circle { c, r }) => {
+                    points.insert(c.id());
+                    out.push(*r);
+                }
+                Some(Entity::Arc { c, s, .. }) => {
+                    points.insert(c.id());
+                    out.extend(apart(c.id(), s.id()));
+                }
+                None => {}
+            }
+        }
+        let points: Vec<_> = points.into_iter().collect();
+        for (i, a) in points.iter().enumerate() {
+            for b in points.iter().skip(i + 1) {
+                out.extend(apart(*a, *b));
+            }
+        }
+        out
+    }
+
+    /// The equations' local scale (`laman_debug::fd`): the shortest of
+    /// [`lengths`](Self::lengths), capped by the size.
+    ///
+    /// ```
+    /// use laman_debug::strategy::configuration::{configuration, Variant};
+    /// use proptest::prelude::*;
+    /// use proptest::strategy::ValueTree;
+    /// use proptest::test_runner::TestRunner;
+    ///
+    /// let mut runner = TestRunner::deterministic();
+    /// let c = configuration(Variant::Fix).new_tree(&mut runner).unwrap().current();
+    /// assert!(c.local_scale() <= c.size);
+    /// ```
+    pub fn local_scale(&self) -> f64 {
+        self.lengths().into_iter().fold(self.size, f64::min)
+    }
 }
 
 type Pt = (Point, [f64; 2]);

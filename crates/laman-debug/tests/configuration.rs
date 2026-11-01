@@ -7,7 +7,6 @@
 
 use std::collections::BTreeSet;
 
-use laman::model::{Entity, EntityId, Sketch};
 use laman_debug::strategy::configuration::{
     Configuration, MIN_LENGTH, Mode, configuration, configuration_in, variants,
 };
@@ -21,53 +20,6 @@ fn draws<S: Strategy<Value = Configuration>>(strategy: S, n: usize) -> Vec<Confi
     (0..n)
         .map(|_| strategy.new_tree(&mut runner).unwrap().current())
         .collect()
-}
-
-fn xy(sk: &Sketch, id: EntityId) -> [f64; 2] {
-    match sk.entity(id) {
-        Some(Entity::Point { x, y }) => [*x, *y],
-        _ => panic!("{id} is not a point"),
-    }
-}
-
-/// The lengths a local scale counts: the sketch's lines and radii, and the
-/// distances between the points the constraint names and the centres of
-/// the rounds it reads. A point shared between entities is one point.
-fn counted_lengths(c: &Configuration) -> Vec<f64> {
-    let sk = &c.sketch;
-    let mut points = BTreeSet::new();
-    let mut out = Vec::new();
-    let named = sk.constraint(c.constraint).unwrap().entities();
-    for id in named {
-        match sk.entity(id).unwrap() {
-            Entity::Point { .. } => {
-                points.insert(id);
-            }
-            Entity::Line { a, b } => {
-                points.insert(a.id());
-                points.insert(b.id());
-                let (p, q) = (xy(sk, a.id()), xy(sk, b.id()));
-                out.push(libm::hypot(p[0] - q[0], p[1] - q[1]));
-            }
-            Entity::Circle { c, r } => {
-                points.insert(c.id());
-                out.push(*r);
-            }
-            Entity::Arc { c, s, .. } => {
-                points.insert(c.id());
-                let (p, q) = (xy(sk, c.id()), xy(sk, s.id()));
-                out.push(libm::hypot(p[0] - q[0], p[1] - q[1]));
-            }
-        }
-    }
-    let points: Vec<_> = points.into_iter().collect();
-    for (i, a) in points.iter().enumerate() {
-        for b in &points[i + 1..] {
-            let (p, q) = (xy(sk, *a), xy(sk, *b));
-            out.push(libm::hypot(p[0] - q[0], p[1] - q[1]));
-        }
-    }
-    out
 }
 
 #[test]
@@ -115,9 +67,7 @@ fn every_counted_length_is_at_least_a_millionth_of_the_size() {
         for mode in v.modes() {
             for c in draws(configuration_in(v, mode), DRAWS) {
                 assert!(c.size.is_finite() && c.size > 0.0, "{}", v.name());
-                let least = counted_lengths(&c)
-                    .into_iter()
-                    .fold(f64::INFINITY, f64::min);
+                let least = c.lengths().into_iter().fold(f64::INFINITY, f64::min);
                 assert!(
                     least >= MIN_LENGTH * c.size,
                     "{} in {mode:?}: a length {least:e} of size {:e}",
@@ -138,7 +88,7 @@ fn the_short_line_mode_reaches_the_short_end_of_the_bound() {
         }
         let least = draws(configuration_in(v, Mode::ShortLine), DRAWS)
             .iter()
-            .map(|c| counted_lengths(c).into_iter().fold(f64::INFINITY, f64::min) / c.size)
+            .map(|c| c.lengths().into_iter().fold(f64::INFINITY, f64::min) / c.size)
             .fold(f64::INFINITY, f64::min);
         assert!(
             least < 1.0e-5,

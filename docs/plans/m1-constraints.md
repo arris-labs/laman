@@ -86,7 +86,7 @@ established here.
   error each fail. The bound and why it is enough go in the module doc.
 - [x] Step 2 **[2]** — `strategy::configuration` (delta 5), with a test
   that every variant's sketch builds and every mode is reached.
-- [ ] Step 3 **[2]** — `laman::residual` skeleton (deltas 1–3) with the
+- [x] Step 3 **[2]** — `laman::residual` skeleton (deltas 1–3) with the
   point-only kinds: `coincident`, `fix`, `horizontal`/`vertical` (both
   spans), `midpoint`, `distance`, and the arc's intrinsic equation. FD
   property at 1 000 cases each; rustdoc example on `equations`.
@@ -133,9 +133,13 @@ the test); the fixture test of step 6 green on all ten C1 directories
 
 ## Open questions
 
-- `⚠ OPEN 1:` exact degeneracy (delta 3): finite value, missing terms,
-  flag. The agent decides by step 3; the alternative (a subgradient, e.g.
-  the direction of the previous iterate) needs state the residual has not.
+- **Settled 1** (step 3): exact degeneracy (delta 3) is a finite value, the
+  undefined terms left out and `Equation::is_degenerate`; a subgradient
+  would need state (the previous iterate) the residual has not. Taken as
+  written in `laman::residual`'s module doc. The FD property treats a
+  degenerate or non-finite equation as a failure: no strategy draws one.
+  Step 3 also gave `Configuration` its `lengths()` and `local_scale()`
+  (moved from the strategy's test), which the FD properties use.
 - **Settled 2** (step 1): the FD rule's numbers (delta 4). The planned
   `h = 1e-6 ℓ` three-point stencil rounds to `2e-4` of the bound at `X/ℓ
   = 1e6`; a five-point stencil at `1e-2 ℓ` truncates to `2e-6` where a
