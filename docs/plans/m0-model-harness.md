@@ -92,7 +92,7 @@ locally first), so the plan stays on `main`.
   defaults omitted, load via the builder); the `laman-debug` skeleton with
   `strategy`. The byte-for-byte round-trip property over 1 000 cases, and a
   test per malformed file naming its id.
-- [ ] Step 4 **[2]**: `laman-check`: every constraint and the arc's
+- [x] Step 4 **[2]**: `laman-check`: every constraint and the arc's
   intrinsic equation, each tested on a satisfied and a violated hand-built
   configuration; degenerate entities. `tools/check-layers.sh` in the gate,
   proven red once on a planted import.

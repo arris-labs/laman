@@ -9,11 +9,12 @@ stage() {
   echo "gate: $name"
   "$@" || red+=("$name")
 }
+stage layers tools/check-layers.sh
 stage fmt cargo fmt --all -- --check
 stage clippy cargo clippy --workspace --all-targets -- -D warnings
 stage test cargo test --workspace --quiet
 stage rustdoc env RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --quiet
-stage wasm32 cargo build -p laman --target wasm32-unknown-unknown --quiet
+stage wasm32 cargo build -p laman -p laman-check --target wasm32-unknown-unknown --quiet
 if [ ${#red[@]} -gt 0 ]; then
   echo "gate: RED: ${red[*]}" >&2
   exit 1

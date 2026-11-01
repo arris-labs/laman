@@ -1,0 +1,18 @@
+[package]
+name = "laman-check"
+description = "Laman's independent checker: re-measures every constraint of a sketch at given coordinates"
+# Until the solver's first release (docs/ARCHITECTURE.md §Crates, docs/BACKLOG.md).
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# The model only: tools/check-layers.sh refuses any other `laman::` path.
+laman.workspace = true
+libm.workspace = true
+
+[lints]
+workspace = true
