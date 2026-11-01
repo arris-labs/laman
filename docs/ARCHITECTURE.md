@@ -12,7 +12,7 @@ Entity parametrisations and constraint equations are in
 | Crate | Holds | Published | Depends on |
 |---|---|---|---|
 | `laman` | the sketch, entities, constraints and their residuals, the solver, diagnostics, drag sessions, `rigidity` | crates.io `laman` | `nalgebra`, `libm`, `thiserror`; `serde` behind the `serde` feature |
-| `laman-check` | the checker: every constraint re-evaluated from solved coordinates | crates.io, from the solver's first release (`docs/BACKLOG.md`) | `laman`'s **model** only |
+| `laman-check` | the checker: every constraint re-evaluated from solved coordinates | no (`publish = false`) until the solver's first release (`docs/BACKLOG.md`) | `laman`'s **model** only |
 | `laman-debug` | text and SVG dumps, the fixture loader, `proptest` strategies, the digest, benchmarks | no (`publish = false`) | `laman`, `laman-check` |
 | `laman-py` | the PyO3 binding, `laman` and `laman.check` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check` |
 
@@ -220,7 +220,9 @@ wasm32 (SEED.md §4, §9):
 - Floats parse and print through `serde_json` with `float_roundtrip`.
 
 The **digest** is SHA-256 over a solution's coordinates (little-endian
-`f64` bits in compiled order), status and diagnostics. CI computes the
+`f64` bits in compiled order), status and diagnostics. Until `Solution`
+exists it covers the sketch's serde text and the checker's report at a
+fixture's expected coordinates (floats in the report by their bits). CI computes the
 digests of the fixture corpus on Linux natively and on `wasm32-wasip1`
 under wasmtime, and fails if any differ; `laman-debug` holds the blessed
 digests. A change that moves a solution's bits re-blesses them in the same

@@ -49,6 +49,8 @@ on sketches whose answers are known by hand.
 ### M0 — the model and the harness
 
 *Goal: everything needed to judge a solve exists before the solver.*
+*Status: landed. The senses taken from the drawing moved here from M1: the
+builder's signature must not change when the residuals arrive.*
 
 - In: the `model` module (sketch, ids, handles, entities, constraint
   descriptions, tags, payloads, revision, validation and `ModelError`);
@@ -72,7 +74,7 @@ on sketches whose answers are known by hand.
 that agree with finite differences.*
 
 - In: `laman::residual` for every row of DATA-MODEL.md §Constraints and
-  the arc's intrinsic equation; senses taken from the drawing on `add`;
+  the arc's intrinsic equation;
   the finite-difference check (central differences, step `1e-6` of the
   sketch's size, agreement within `1e-6` relative) over `proptest`
   strategies of random non-degenerate and near-degenerate configurations.

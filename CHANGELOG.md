@@ -6,6 +6,16 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- `laman::model`: build a sketch of points, lines, circles and arcs with
+  ids, tags, fixed parameters, construction flags and opaque payloads, and
+  add all 18 constraints between them. A malformed request (an unknown id,
+  the wrong kind of entity, a repeated entity, a non-finite or out-of-range
+  value, removing an entity a constraint uses) is refused with a
+  `ModelError` naming your ids. Tangent and circle-contact constraints take
+  their side from the drawing.
+- A sketch saves to and loads from JSON (feature `serde`, on by default),
+  versioned; a malformed file is refused with an error naming the id.
+
 ## 0.0.1 — 2026-11-01
 
 - `laman::rigidity(points, bars)` (Python: `laman.rigidity`): the generic

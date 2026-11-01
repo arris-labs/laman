@@ -19,10 +19,9 @@ agent's eyes during work; a picture is never a test (`docs/README.md`).
   above tolerance in red, free directions as arrows, a drag's path as a
   trail. Written under `target/inspect/<slug>/`, then read with the Read
   tool, which shows the image.
-- Both live in `laman-debug` and arrive with the harness plan (SEED.md §6
-  cycle 1, item 6). Until they exist, print the coordinates and residuals
-  from the test and reason from the numbers; never claim to have looked at
-  a picture that was not made.
+- Both live in `laman-debug` (`dump::text`, `dump::svg`). Until the solver
+  exists they show the checker's report, not residuals; never claim to have
+  looked at a picture that was not made.
 
 Look for: a tangent circle on the wrong side, an arc swept through its
 centre, a point that moved during a drag although no constraint reaches

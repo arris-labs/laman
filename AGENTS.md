@@ -35,7 +35,10 @@ parametrisation is closed (ADR-0001). C1 is laid out as M0–M4 with its
 acceptance fixtures as numbers (`docs/ROADMAP.md`).
 C1 goes ahead as planned; the claim rests on the Python gap, the checker
 and deterministic branch-keeping drag (`docs/COMPARISON.md`, SEED.md §3 note).
-**Next:** `/plan` M0 (the model and the harness).
+**M0 landed** (the model, serde form, checker, `laman-debug`, the four C1
+fixtures with twins, the digest corpus identical on wasm32-wasip1, the fuzz
+target): everything to judge a solve exists before the solver.
+**Next:** `/plan` M1 (constraints: residuals and Jacobians).
 
 ## Rules that are not derivable from the code
 

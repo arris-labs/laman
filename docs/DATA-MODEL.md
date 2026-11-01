@@ -72,6 +72,11 @@ stored with it (ARCHITECTURE.md §Branches).
 | `radius` | circle or arc `X`, value `ρ > 0` | `r(X) − ρ` | 1 |
 | `angle` | lines `L1`, `L2`, value `θ ∈ (0, π)` | `(cross(u1, u2) cos θ − dot(u1, u2) sin θ) / (|u1| |u2|)`, i.e. `sin(φ − θ)` for the angle `φ` from `L1` to `L2` (dimensionless) | 1 |
 
+- **Senses** are computed when the constraint is added, from the sketch's
+  coordinates. A centre exactly on the line takes `σ = +1`. A circle–circle
+  contact is external when `|c_X − c_Y|` is nearer `r(X) + r(Y)` than
+  `|r(X) − r(Y)|`, and a tie is external; an internal contact takes `σ`
+  from the sign of `r(X) − r(Y)`, a tie `+1`.
 - **Distance 0 is coincidence**: `distance` and `point_line_distance`
   refuse `d ≤ 0` (`ModelError::DimensionOutOfRange`, naming `coincident`
   and `point_on_line`), because `|q − p|` has no gradient at `p = q`.
@@ -211,6 +216,6 @@ JSON (or any serde format) with this shape:
   than `laman.sketch` is `WrongFormat`; a payload that is not base64 is
   `InvalidPayload`.
 
-`Solution` and the checker's `Report` serialise in the same style
-(`"format": "laman.solution"`, `"laman.report"`), for the dumps and for
-agents that read them.
+`Solution` serialises in the same style (`"format": "laman.solution"`),
+for the dumps and for agents that read it. The checker's `Report` has no
+serde form yet; `laman-debug`'s dumps render it.

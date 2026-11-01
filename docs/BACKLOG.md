@@ -13,6 +13,12 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - The GitHub repository `arris-labs/laman` (the crates' `repository` URL and the README's SEED link point there); the human's
 - `/retro`'s session digest: port arris's `session-digest` script when the first plan has sessions to mine
 - Determinism on more than one OS: CI's test job on macOS and Windows beside Linux, once the digest exists
+- Digest of the sketch hashes its JSON text, so a `serde_json` float-printing change would move every blessed digest; hash the f64 bits instead (M2, when `Solution` joins the digest)
+- Checker gaps: it does not compare fixed parameters with the sketch's values; `laman-debug`'s runner fills missing expected coordinates with the guesses; `tools/check-layers.sh` is evaded by `use laman as l` or a renamed dependency (a `cargo tree` check would close it)
+- Malformed file shapes (an untagged tangent or span form matching no variant) arrive as a serde error without the id; a span with both `line` and `a`/`b` silently takes `line`
+- Fuzz target: also call `to_form` and `check(&sk, &sk.coordinates())`; the serde property only mints dense ids, so `to_form`'s dependency-first reordering is covered by one hand test
+- The checker's `ANGLE` is absolute; short lines far from the origin can fail it at rounding level: input to the M2 tolerance ADR
+- SVG of `sss-triangle` and the belt was not looked at in M0 (only the plate and its conflicting twin); look when M2 first solves them
 
 ## Findings
 
