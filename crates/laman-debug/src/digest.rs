@@ -1,0 +1,271 @@
+//! The digest: SHA-256 over a run's bits (`docs/ARCHITECTURE.md`
+//! §Determinism). Two targets that agree on the digest agree on every bit
+//! it covers.
+//!
+//! The byte stream is fixed and written by [`Builder`] alone:
+//!
+//! - a `u32` is 4 bytes little-endian, a `u64` is 8;
+//! - a float is the 8 little-endian bytes of its IEEE bits, so `-0.0` and
+//!   `0.0` differ;
+//! - text and other bytes are a `u64` length, then the bytes, so
+//!   `("ab", "c")` and `("a", "bc")` differ;
+//! - an optional text is a flag byte (0 or 1), then the text when present.
+//!
+//! In M0 a run is its sketch (as the serde form's text, whose floats print to
+//! the shortest text that reads back to the same bits) and the checker's
+//! report at the expected coordinates. M2 feeds it the `Solution`.
+
+use crate::fixture::coordinate_name;
+use crate::json::sketch_to_string;
+use laman::model::Sketch;
+use laman_check::{Degeneracy, Report, Source, Subject};
+use sha2::{Digest as _, Sha256};
+use std::fmt;
+
+/// A SHA-256 digest of a run.
+///
+/// ```
+/// use laman_debug::digest::Builder;
+/// let digest = Builder::new().finish();
+/// assert_eq!(digest.to_string().len(), 64);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Digest([u8; 32]);
+
+impl Digest {
+    /// The 32 bytes of the digest.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// assert_eq!(Builder::new().finish().as_bytes().len(), 32);
+    /// ```
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl fmt::Display for Digest {
+    /// Lower-case hexadecimal, 64 characters: the form `expected.json` holds.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// assert!(Builder::new().finish().to_string().chars().all(|c| c.is_ascii_hexdigit()));
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+/// Feeds values into a digest in the fixed byte layout of this module.
+///
+/// ```
+/// use laman_debug::digest::Builder;
+/// let mut a = Builder::new();
+/// a.text("ab");
+/// a.text("c");
+/// let mut b = Builder::new();
+/// b.text("a");
+/// b.text("bc");
+/// assert_ne!(a.finish(), b.finish());
+/// ```
+#[derive(Default)]
+pub struct Builder {
+    hash: Sha256,
+}
+
+impl Builder {
+    /// An empty builder.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let _ = Builder::new().finish();
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Feeds a `u32` as 4 little-endian bytes.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let mut b = Builder::new();
+    /// b.u32(1);
+    /// let _ = b.finish();
+    /// ```
+    pub fn u32(&mut self, value: u32) {
+        self.hash.update(value.to_le_bytes());
+    }
+
+    /// Feeds a `u64` as 8 little-endian bytes.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let mut b = Builder::new();
+    /// b.u64(1);
+    /// let _ = b.finish();
+    /// ```
+    pub fn u64(&mut self, value: u64) {
+        self.hash.update(value.to_le_bytes());
+    }
+
+    /// Feeds an `f64` by its IEEE bits, so `-0.0` and `0.0` differ.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let (mut a, mut b) = (Builder::new(), Builder::new());
+    /// a.float(-0.0);
+    /// b.float(0.0);
+    /// assert_ne!(a.finish(), b.finish());
+    /// ```
+    pub fn float(&mut self, value: f64) {
+        self.u64(value.to_bits());
+    }
+
+    /// Feeds text: its length as a `u64`, then its UTF-8 bytes.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let mut b = Builder::new();
+    /// b.text("sss-triangle");
+    /// let _ = b.finish();
+    /// ```
+    pub fn text(&mut self, value: &str) {
+        self.u64(len_of(value.len()));
+        self.hash.update(value.as_bytes());
+    }
+
+    /// Feeds an optional text: a flag byte, then the text when present.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let mut b = Builder::new();
+    /// b.optional_text(None);
+    /// b.optional_text(Some("apex"));
+    /// let _ = b.finish();
+    /// ```
+    pub fn optional_text(&mut self, value: Option<&str>) {
+        match value {
+            None => self.hash.update([0_u8]),
+            Some(text) => {
+                self.hash.update([1_u8]);
+                self.text(text);
+            }
+        }
+    }
+
+    /// The digest of everything fed so far.
+    ///
+    /// ```
+    /// use laman_debug::digest::Builder;
+    /// let _ = Builder::new().finish();
+    /// ```
+    pub fn finish(self) -> Digest {
+        Digest(self.hash.finalize().into())
+    }
+}
+
+/// The digest of a run: the loaded sketch, then the checker's report at the
+/// coordinates the run was checked at. Equal sketches and reports give equal
+/// digests, and any difference in a covered bit changes it.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman_check::check;
+/// use laman_debug::digest::of_run;
+///
+/// let mut sk = Sketch::new();
+/// let a = sk.point(0.0, 0.0)?;
+/// let b = sk.point(3.0, 4.0)?;
+/// sk.distance(a, b, 5.0)?;
+/// let report = check(&sk, &sk.coordinates());
+/// assert_eq!(of_run(&sk, &report), of_run(&sk, &report));
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_run(sketch: &Sketch, report: &Report) -> Digest {
+    let mut b = Builder::new();
+    b.text(&sketch_to_string(sketch));
+
+    b.u64(len_of(report.violations.len()));
+    for v in &report.violations {
+        match v.id {
+            Source::Constraint(id) => {
+                b.u32(0);
+                b.u32(id.0);
+            }
+            Source::Arc(id) => {
+                b.u32(1);
+                b.u32(id.0);
+            }
+        }
+        b.optional_text(v.tag.as_deref());
+        b.text(&subject_name(v.kind));
+        b.float(v.measured);
+        b.float(v.wanted);
+    }
+
+    b.u64(len_of(report.degenerate.len()));
+    for d in &report.degenerate {
+        b.u32(d.id.0);
+        b.optional_text(d.tag.as_deref());
+        b.text(&d.kind.to_string());
+        b.text(degeneracy_name(d.what));
+        b.float(d.size);
+    }
+
+    b.u64(len_of(report.missing.len()));
+    for m in &report.missing {
+        b.u32(m.id.0);
+        match m.coordinate {
+            None => b.optional_text(None),
+            Some(c) => b.optional_text(Some(coordinate_name(c))),
+        }
+    }
+
+    b.finish()
+}
+
+fn len_of(n: usize) -> u64 {
+    // A length past u64 is unreachable on any target; saturating keeps the
+    // function total without a panic.
+    u64::try_from(n).unwrap_or(u64::MAX)
+}
+
+fn subject_name(subject: Subject) -> String {
+    match subject {
+        Subject::Constraint(kind) => kind.to_string(),
+        Subject::ArcIntrinsic => "arc_intrinsic".to_owned(),
+    }
+}
+
+fn degeneracy_name(what: Degeneracy) -> &'static str {
+    match what {
+        Degeneracy::ZeroLengthLine => "zero_length_line",
+        Degeneracy::ZeroRadius => "zero_radius",
+        Degeneracy::ZeroRadiusArc => "zero_radius_arc",
+        Degeneracy::EmptyArc => "empty_arc",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The layout above, computed outside this crate: the bytes are
+    /// `u32 7`, `float 1.5`, `text "ab"`, `optional_text Some("")`, hashed
+    /// with `sha256sum`. A change to the layout moves this digest.
+    #[test]
+    fn pinned_test_vector() {
+        let mut b = Builder::new();
+        b.u32(7);
+        b.float(1.5);
+        b.text("ab");
+        b.optional_text(Some(""));
+        assert_eq!(
+            b.finish().to_string(),
+            "aec34e774dafd4cb7aaeab66536174ab778d6baaa88b7b0eb4432ef01a7caf88"
+        );
+    }
+}

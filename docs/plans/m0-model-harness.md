@@ -96,7 +96,7 @@ locally first), so the plan stays on `main`.
   intrinsic equation, each tested on a satisfied and a violated hand-built
   configuration; degenerate entities. `tools/check-layers.sh` in the gate,
   proven red once on a planted import.
-- [ ] Step 5 **[1]**: `laman-debug` `fixture` loader, `digest` (with a
+- [x] Step 5 **[1]**: `laman-debug` `fixture` loader, `digest` (with a
   pinned test vector), and the runner that loads, checks and digests.
 - [ ] Step 6 **[2]**: `dump::text` (snapshot-tested) and `dump::svg` (view
   box from the bounds, arcs counter-clockwise from `s` to `e`).
