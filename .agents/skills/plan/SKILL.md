@@ -31,7 +31,9 @@ and the human can read in two minutes: under ~150 lines and ~10 steps.
      signature, and crate boundary that changes. A non-obvious decision
      becomes an ADR — list it as a step. A `⚠ OPEN:` in a design doc that
      this plan closes is listed here with the ADR that closes it. A new
-     term is named with its glossary entry.
+     term is named with its glossary entry. A numeric constant the plan
+     cannot derive in closed form (a step size, a tolerance) is written
+     "measured by step N", and that step is graded [2] or higher.
    - *Steps* are commit-sized: each has an observable result and its own
      test or fixture, could be reverted alone, and is a
      few lines long (its detail lives in *Design deltas* or its ADR). Order
