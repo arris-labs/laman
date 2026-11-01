@@ -105,7 +105,9 @@ impl Equation {
                         term.1 += g;
                     }
                 }
-                _ if eq.len == MAX_TERMS => {}
+                _ if eq.len == MAX_TERMS => {
+                    debug_assert!(false, "an equation with more than MAX_TERMS parameters");
+                }
                 _ => {
                     let i = at.unwrap_or(eq.len);
                     eq.terms.copy_within(i..eq.len, i + 1);
@@ -199,6 +201,8 @@ impl Raw {
         if let Some(slot) = self.items.get_mut(self.len) {
             *slot = ((entity, coordinate), g);
             self.len += 1;
+        } else {
+            debug_assert!(false, "more than 2 * MAX_TERMS gradient contributions");
         }
     }
 
@@ -293,12 +297,15 @@ fn push_radius(
 
 /// `|v|`, its unit direction (zero where `|v| = 0`), and whether it was zero.
 fn unit_vector(v: [f64; 2]) -> (f64, [f64; 2], bool) {
-    let n = (v[0] * v[0] + v[1] * v[1]).sqrt();
-    if n == 0.0 {
-        (0.0, [0.0, 0.0], true)
-    } else {
-        (n, [v[0] / n, v[1] / n], false)
+    // Scaled by the larger component so the squares cannot overflow (or
+    // underflow to zero): |v| = m * |v / m| with |v / m| in [1, sqrt 2].
+    let m = v[0].abs().max(v[1].abs());
+    if m == 0.0 {
+        return (0.0, [0.0, 0.0], true);
     }
+    let (sx, sy) = (v[0] / m, v[1] / m);
+    let s = (sx * sx + sy * sy).sqrt();
+    (m * s, [sx / s, sy / s], false)
 }
 
 /// `|to − from|` as an equation term: the length, and its gradient pushed
@@ -333,18 +340,20 @@ fn push_side(
     if degenerate {
         return (0.0, true);
     }
-    let cross = u[0] * w[1] - u[1] * w[0];
-    let f = cross / n;
-    // d cross / d(point, a, b), then the quotient rule with d|u| = ±u/n.
-    let dp = [-u[1], u[0]];
-    let da = [-w[1] + u[1], w[0] - u[0]];
-    let db = [w[1], -w[0]];
+    // cross(u, w) / |u| = cross(e, w), without the product u * w that can
+    // overflow where the quotient is representable.
+    let f = e[0] * w[1] - e[1] * w[0];
+    // d cross / d(point, a, b) over |u|, then the quotient rule with
+    // d|u| = ±e.
+    let dp = [-e[1], e[0]];
+    let da = [-w[1] / n + e[1], w[0] / n - e[0]];
+    let db = [w[1] / n, -w[0] / n];
     for (i, axis) in [Coordinate::X, Coordinate::Y].into_iter().enumerate() {
         for &(holder, weight) in holders {
-            raw.push(holder.id(), axis, weight * dp[i] / n);
+            raw.push(holder.id(), axis, weight * dp[i]);
         }
-        raw.push(a.id(), axis, da[i] / n + f * e[i] / n);
-        raw.push(b.id(), axis, db[i] / n - f * e[i] / n);
+        raw.push(a.id(), axis, da[i] + f * e[i] / n);
+        raw.push(b.id(), axis, db[i] - f * e[i] / n);
     }
     (f, false)
 }
@@ -389,16 +398,17 @@ fn quotient_of_lines(
     if d1 || d2 {
         return (0.0, true);
     }
-    let cross = u1[0] * u2[1] - u1[1] * u2[0];
-    let dot = u1[0] * u2[0] + u1[1] * u2[1];
-    let f = (ca * cross + cb * dot) / (n1 * n2);
+    // On the unit directions, so no product of two lengths can overflow.
+    let cross = e1[0] * e2[1] - e1[1] * e2[0];
+    let dot = e1[0] * e2[0] + e1[1] * e2[1];
+    let f = ca * cross + cb * dot;
     let g1 = [
-        (ca * u2[1] + cb * u2[0]) / (n1 * n2) - f * e1[0] / n1,
-        (-ca * u2[0] + cb * u2[1]) / (n1 * n2) - f * e1[1] / n1,
+        (ca * e2[1] + cb * e2[0] - f * e1[0]) / n1,
+        (-ca * e2[0] + cb * e2[1] - f * e1[1]) / n1,
     ];
     let g2 = [
-        (-ca * u1[1] + cb * u1[0]) / (n1 * n2) - f * e2[0] / n2,
-        (ca * u1[0] + cb * u1[1]) / (n1 * n2) - f * e2[1] / n2,
+        (-ca * e1[1] + cb * e1[0] - f * e2[0]) / n2,
+        (ca * e1[0] + cb * e1[1] - f * e2[1]) / n2,
     ];
     for (i, axis) in [Coordinate::X, Coordinate::Y].into_iter().enumerate() {
         raw.push(first.1.id(), axis, g1[i]);
@@ -407,6 +417,22 @@ fn quotient_of_lines(
         raw.push(second.0.id(), axis, -g2[i]);
     }
     (f, false)
+}
+
+/// `horizontal` / `vertical`: the span's ends agree on `axis`, whose index
+/// in an `[x, y]` pair is the second element.
+fn axis_aligned(rd: &Reader<'_>, span: Span, (axis, i): (Coordinate, usize)) -> Option<Equations> {
+    let (a, b) = rd.ends(span)?;
+    let (pa, pb) = (rd.xy(a)?, rd.xy(b)?);
+    let mut raw = Raw::new();
+    raw.push(b.id(), axis, 1.0);
+    raw.push(a.id(), axis, -1.0);
+    Some(Equations::one(Equation::new(
+        pb[i] - pa[i],
+        Unit::Length,
+        false,
+        &raw,
+    )))
 }
 
 /// The equations of constraint `id`, at `values` (a parameter `values`
@@ -458,18 +484,8 @@ pub fn equations(sketch: &Sketch, values: &Coordinates, id: ConstraintId) -> Opt
             ey.push(p.id(), Coordinate::Y, 1.0);
             Some(Equations::two(length(a[0] - x, &ex), length(a[1] - y, &ey)))
         }
-        Constraint::Horizontal(span) | Constraint::Vertical(span) => {
-            let (a, b) = rd.ends(span)?;
-            let (pa, pb) = (rd.xy(a)?, rd.xy(b)?);
-            let (axis, i) = match c {
-                Constraint::Horizontal(_) => (Coordinate::Y, 1),
-                _ => (Coordinate::X, 0),
-            };
-            let mut raw = Raw::new();
-            raw.push(b.id(), axis, 1.0);
-            raw.push(a.id(), axis, -1.0);
-            Some(Equations::one(length(pb[i] - pa[i], &raw)))
-        }
+        Constraint::Horizontal(span) => axis_aligned(&rd, span, (Coordinate::Y, 1)),
+        Constraint::Vertical(span) => axis_aligned(&rd, span, (Coordinate::X, 0)),
         Constraint::Midpoint { p, line } => {
             let (a, b) = rd.ends(Span::Line(line))?;
             let (pp, pa, pb) = (rd.xy(p)?, rd.xy(a)?, rd.xy(b)?);
@@ -562,9 +578,9 @@ pub fn equations(sketch: &Sketch, values: &Coordinates, id: ConstraintId) -> Opt
             let mut perp = Raw::new();
             let mut f_perp = 0.0;
             if !d_perp {
-                f_perp = (u[0] * r[0] + u[1] * r[1]) / n;
+                f_perp = e[0] * r[0] + e[1] * r[1];
                 for (i, axis) in [Coordinate::X, Coordinate::Y].into_iter().enumerate() {
-                    let gu = r[i] / n - f_perp * e[i] / n;
+                    let gu = (r[i] - f_perp * e[i]) / n;
                     perp.push(q.id(), axis, e[i]);
                     perp.push(p.id(), axis, -e[i]);
                     perp.push(b.id(), axis, gu);
@@ -885,5 +901,47 @@ mod tests {
         assert!(eq.is_degenerate());
         assert_eq!(eq.value(), -5.0);
         assert!(eq.terms().iter().all(|(k, _)| k.0 != e.id()));
+    }
+
+    /// Squaring a coordinate difference of 1e200 overflows; the equations
+    /// of a sketch at that scale stay finite, values and gradients.
+    #[test]
+    fn huge_finite_coordinates_stay_finite() {
+        const BIG: f64 = 1e200;
+        let mut sk = Sketch::new();
+        let o = sk.point(0.0, 0.0).unwrap();
+        let a = sk.point(BIG, 0.0).unwrap();
+        let b = sk.point(0.0, BIG).unwrap();
+        let c = sk.point(BIG, BIG).unwrap();
+        let m = sk.point(BIG / 2.0, BIG / 4.0).unwrap();
+        let l1 = sk.line(o, a).unwrap();
+        let l2 = sk.line(o, b).unwrap();
+        let l3 = sk.line(b, c).unwrap();
+        let circle = sk.circle(m, BIG / 8.0).unwrap();
+        let ids = [
+            sk.distance(o, a, BIG).unwrap(),
+            sk.point_on_line(m, l1).unwrap(),
+            sk.point_line_distance(m, l1, BIG / 4.0).unwrap(),
+            sk.parallel(l1, l3).unwrap(),
+            sk.perpendicular(l1, l2).unwrap(),
+            sk.angle(l1, l2, 1.0).unwrap(),
+            sk.tangent_line_circle(l1, circle).unwrap(),
+            sk.equal_length(l1, l2).unwrap(),
+            sk.midpoint(m, l1).unwrap(),
+            sk.symmetric(o, b, l1).unwrap(),
+        ];
+        for id in ids {
+            for eq in eqs(&sk, id) {
+                assert!(eq.value().is_finite(), "{:?}", sk.constraint(id));
+                assert!(!eq.is_degenerate());
+                for (_, g) in eq.terms() {
+                    assert!(g.is_finite(), "{:?}", sk.constraint(id));
+                }
+            }
+        }
+        // Known values: |oa| = 1e200, m is BIG/4 above l1, l1 ⟂ l2.
+        assert_eq!(eqs(&sk, ids[0])[0].value(), 0.0);
+        assert_eq!(eqs(&sk, ids[1])[0].value(), BIG / 4.0);
+        assert_eq!(eqs(&sk, ids[4])[0].value(), 0.0);
     }
 }
