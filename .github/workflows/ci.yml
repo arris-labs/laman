@@ -19,6 +19,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: tools/gate.sh
 
+  # The determinism corpus (tools/digest-wasm.sh): the digest of every
+  # fixture and twin, natively and on wasm32-wasip1 under wasmtime, must
+  # be identical.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - run: tools/digest-wasm.sh
+
   # The Python binding: maturin, pytest, mypy.stubtest (tools/py-test.sh).
   python:
     runs-on: ubuntu-latest

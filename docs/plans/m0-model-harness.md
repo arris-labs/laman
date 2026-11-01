@@ -109,7 +109,7 @@ locally first), so the plan stays on `main`.
   `slot-r2`) and `slotted-plate-drag` (`drag.json` with k = 1…10, the
   checker passing each closed-form step). Each fixture's SVG is looked at
   once (`inspect`).
-- [ ] Step 9 **[2]**: the digest corpus test with its digests blessed in
+- [x] Step 9 **[2]**: the digest corpus test with its digests blessed in
   `laman-debug`; `tools/digest-wasm.sh`; the CI `wasm` job; `wasm32-wasip1`
   in `rust-toolchain.toml`. Green locally under `wasmtime`.
 - [ ] Step 10 **[1]**: `fuzz/` with `load_sketch`, seeded from the fixture
@@ -152,7 +152,8 @@ locally first), so the plan stays on `main`.
   (the C1 fixtures are ~100 units across, so this is close to ROADMAP.md's
   "1e-9 of the sketch's size"), and `ANGLE = 1e-12` rad for the
   dimensionless rows. The M2 ADR replaces both.
-- `⚠ OPEN:` `wasmtime` is not on this machine. Agent's pick: in step 9,
-  install its release binary locally; CI uses
-  `bytecodealliance/actions/wasmtime/setup`. The CI job is first green on
-  the human's next push.
+- `⚠ OPEN:` `wasmtime` is not on this machine. Settled: the human
+  installed it (`~/.wasmtime/bin`); `tools/digest-wasm.sh` needs it on PATH.
+  CI uses `bytecodealliance/actions/wasmtime/setup`; the job is first green
+  on the human's next push. `proptest` lost its `fork` and `timeout`
+  features (wait-timeout does not build for wasi).

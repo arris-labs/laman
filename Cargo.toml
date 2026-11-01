@@ -32,7 +32,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 # Payloads are base64 bytes in the serde form.
 base64 = "0.22"
-proptest = "1"
+# No fork or timeout: they pull wait-timeout, which does not build for wasm32-wasip1.
+proptest = { version = "1", default-features = false, features = ["std", "bit-set"] }
 # The digest (docs/ARCHITECTURE.md §Determinism); `laman-debug` only.
 sha2 = "0.10"
 # `laman-py` only, and never on wasm32. Pinned to the minor, as in arris.
