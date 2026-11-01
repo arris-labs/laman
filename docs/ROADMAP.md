@@ -72,6 +72,7 @@ builder's signature must not change when the residuals arrive.*
 
 *Goal: every cycle-1 constraint has residuals and an analytic Jacobian
 that agree with finite differences.*
+*Status: landed.*
 
 - In: `laman::residual` for every row of DATA-MODEL.md §Constraints and
   the arc's intrinsic equation;

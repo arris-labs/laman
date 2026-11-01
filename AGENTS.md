@@ -38,7 +38,9 @@ and deterministic branch-keeping drag (`docs/COMPARISON.md`, SEED.md §3 note).
 **M0 landed** (the model, serde form, checker, `laman-debug`, the four C1
 fixtures with twins, the digest corpus identical on wasm32-wasip1, the fuzz
 target): everything to judge a solve exists before the solver.
-**Next:** `/plan` M1 (constraints: residuals and Jacobians).
+**M1 landed** (`laman::residual`: every constraint's equations and analytic
+gradients, held against finite differences and the checker at the fixtures).
+**Next:** `/plan` M2 (the solver and its diagnostics).
 
 ## Rules that are not derivable from the code
 

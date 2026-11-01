@@ -34,7 +34,7 @@ it in this list:
 | Module | Holds |
 |---|---|
 | `model` | `Sketch`, ids, `Entity`, `Constraint` (descriptions, no maths), `Coordinates`, tags and payloads, the serde form |
-| `residual` | each constraint's residual equations and their analytic Jacobian rows (DATA-MODEL.md §Constraints) |
+| `residual` | `equations(sketch, values, constraint)` and `intrinsic(sketch, values, entity)`: each an `Equation` (value, `Unit`, a degenerate flag, and its analytic gradient as terms keyed by `(EntityId, Coordinate)`, merged and sorted, at most 8) at any coordinates; total, no `Result` (DATA-MODEL.md §Constraints) |
 | `system` | a sketch compiled for one solve: the dense vector of free parameters, the equation list in order, the components |
 | `solve` | Levenberg–Marquardt and DogLeg over a `System`, warm start, priorities |
 | `diagnose` | rank, DoF per entity, free directions, redundant and conflicting sets, branches |
@@ -114,7 +114,8 @@ The pipeline, each stage deterministic:
 1. **Compile** the sketch into a `System`: the free parameters in (entity
    id, coordinate) order as a dense vector; the equations in (constraint
    id, equation index) order, intrinsic equations under their entity's id
-   first; each equation's priority.
+   first; each equation's priority. The equations and their gradient terms
+   come from `residual`; the columns of fixed parameters are dropped.
 2. **Decompose** into components: free parameters connected through shared
    equations, found by union–find and numbered by their smallest parameter.
    Cycle 2 refines this into rigid clusters (SEED.md §6).

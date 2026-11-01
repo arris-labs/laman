@@ -148,6 +148,12 @@ A hash of a solution's bits, compared between native and wasm32 to hold
 determinism.
 _Avoid_: checksum, fingerprint
 
+**Equation**:
+One residual `f = 0` that a constraint or an entity contributes, with its
+unit and its analytic gradient over the parameters it reads
+(`laman::residual`, DATA-MODEL.md §Constraints).
+_Avoid_: row, residual (as a noun for the whole thing)
+
 **Local scale**:
 The shortest length among the lines, radii and point pairs an equation
 reads: the length its gradient varies over, which sets the

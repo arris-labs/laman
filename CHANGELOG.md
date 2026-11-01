@@ -13,6 +13,11 @@ release by release. Written in the commit that makes the change, under
   value, removing an entity a constraint uses) is refused with a
   `ModelError` naming your ids. Tangent and circle-contact constraints take
   their side from the drawing.
+- `laman::residual`: evaluate each constraint's equations, and an arc's own
+  equation, at any coordinates: the value, its unit (length or
+  dimensionless) and its gradient over the parameters it reads. A
+  coordinate you do not supply is read from the sketch; an undefined point
+  (a zero-length line) gives a finite value flagged degenerate, never NaN.
 - A sketch saves to and loads from JSON (feature `serde`, on by default),
   versioned; a malformed file is refused with an error naming the id.
 

@@ -89,11 +89,20 @@ stored with it (ARCHITECTURE.md §Branches).
 - **Transcendentals**: only `angle` uses any, `cos θ` and `sin θ` of its
   constant value, through `libm`, once when the system is compiled.
 - **Jacobians** are analytic, written beside each residual in
-  `laman::residual`, and checked against central finite differences for
-  every constraint over random non-degenerate configurations and the
-  near-degenerate ones a strategy can reach (a line of length `1e-6` times
-  the sketch's size, a point on the line, tangent circles of nearly equal
-  radius) (`.agents/rules/solver.md`).
+  `laman::residual`. An equation's gradient is a list of terms keyed by
+  `(EntityId, Coordinate)`, merged by parameter (two lines sharing a point
+  sum into one term) and sorted; it covers fixed parameters too. At an
+  exactly undefined point (a zero-length line, a point on a centre,
+  coincident centres) the undefined quotient is taken as 0, its gradient
+  terms are left out, the value stays finite and the equation is flagged
+  degenerate; lengths are computed scale-safely, so finite input never
+  gives NaN or infinity. Each is checked against central finite
+  differences (an eighth-order stencil, step `5e-3` of the equation's
+  local scale, agreement within `1e-6` of the gradient's size;
+  `laman_debug::fd`) for every constraint over random non-degenerate
+  configurations and the near-degenerate ones a strategy can reach (a line
+  of length `1e-6` times the sketch's size, a point on the line, tangent
+  circles of nearly equal radius) (`.agents/rules/solver.md`).
 - **Not in cycle 1**: point–circle distance, concentric, collinear (two
   `point_on_line`), diameter (a `radius` of half), arc length, sweep
   angle, ellipses, splines (SEED.md §6, later cycles). A kind enters when
