@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use laman in your research, please cite it as below."
+title: "laman: a deterministic 2D geometric constraint solver in pure Rust"
+type: software
+authors:
+  - family-names: Sergienko
+    given-names: Sergei
+repository-code: "https://github.com/arris-labs/laman"
+url: "https://github.com/arris-labs/laman"
+license:
+  - MIT
+  - Apache-2.0
+abstract: >-
+  laman is a 2D geometric constraint solver written in pure Rust, for Rust
+  and Python: points, lines, circles and arcs under geometric and
+  dimensional constraints, a damped least-squares solve, and diagnostics
+  that give the exact remaining degrees of freedom and name the redundant
+  and conflicting constraints. Every solve is deterministic across
+  platforms and checked by an independent verifier.
+keywords:
+  - geometric constraint solving
+  - CAD
+  - sketch
+  - rigidity
+  - Laman's theorem
+  - Rust

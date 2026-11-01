@@ -143,6 +143,10 @@ fn rigidity_matches_greedy_laman_sparsity() {
         let r = rigidity(n, &bars).unwrap();
         assert_eq!(r.independent, expected, "n = {n}, bars = {bars:?}");
         assert_eq!(r.independent.len() + r.redundant.len(), m);
-        assert_eq!(r.dof, 2 * n - expected.len() - 3, "n = {n}, bars = {bars:?}");
+        assert_eq!(
+            r.dof,
+            2 * n - expected.len() - 3,
+            "n = {n}, bars = {bars:?}"
+        );
     }
 }

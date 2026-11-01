@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# main is always green: the gate before every commit that can change what it
+# tests. Installed once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+staged=$(git diff --cached --name-only --diff-filter=ACMRD)
+[ -n "$staged" ] || exit 0
+# Prose only (Markdown, the agents' steering files, docs/): nothing the gate
+# tests changed. A README is a doctest, so it is not prose here.
+if ! grep -qvE '^(docs/.*|\.agents/.*|\.claude/.*|[A-Z]+[A-Z-]*\.md|CITATION\.cff)$' <<<"$staged" &&
+  ! grep -qx 'README.md' <<<"$staged"; then
+  echo "pre-commit: prose only, gate skipped"
+  exit 0
+fi
+exec tools/gate.sh

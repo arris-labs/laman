@@ -1,0 +1,45 @@
+# Plan: <slug>
+
+- Started: YYYY-MM-DD
+- Milestone: M? (cycle C?, docs/ROADMAP.md)
+- Idea: docs/ideas/<slug>.md (absorbed, or its <part> absorbed), or verbatim from the human: "…"
+
+Under ~150 lines and ~10 steps; larger work is milestone plans.
+
+## Goal
+One paragraph: what is true when this plan is done.
+
+## Non-goals
+What this plan deliberately does not touch, so scope cannot creep silently.
+
+## Design deltas
+Which design docs / types / crate boundaries change, and how. If a decision
+here is non-obvious, it becomes an ADR (list it).
+
+## Steps
+Complexity grades; a step's grade is its tier, the model that executes it
+(`.agents/tiers.md`), and `**[1, tier 3]**` overrides the tier: **[1]**
+routine — the design says exactly what to write and the tests are
+mechanical; **[2]** careful — a numeric or geometric case to get right
+within a given design; **[3]** unproven — an algorithm whose robustness, convergence or
+bound has to be established here. **[CI]** after the grade: the step's
+only test is a CI run, which needs a push, so the plan runs on
+`plan/<slug>` (say so in the header).
+
+- [ ] Step 1 **[1]** — …
+- [ ] Step 2 **[1]** — …
+Each step is one commit-sized unit with its own test or fixture.
+
+## Acceptance
+The executable check that closes the plan: which fixtures, which numbers (coordinates, DoF, conflict sets, digests, frame budgets), which property tests.
+
+## Docs to update on completion
+- `docs/ARCHITECTURE.md` §… — …
+- `AGENTS.md` current state — …
+- `GLOSSARY.md` — a term this plan introduces or sharpens
+Written at planning time; executed before the plan is deleted.
+
+## Open questions
+`⚠ OPEN:` items, each with who decides and by which step: the agent by
+default; the human only for a cycle's scope, positioning, or what publishes
+or costs money.
