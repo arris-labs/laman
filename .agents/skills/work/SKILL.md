@@ -25,7 +25,9 @@ miss); reporting after one step and waiting for another `/work` is a bug.
 2. Implement the step with its test or fixture, the docs it changes and
    rustdoc on every new public item. A new constraint kind brings its
    finite-difference Jacobian check; a public API change brings the
-   binding, its stub and `tools/py-test.sh`.
+   binding, its stub and `tools/py-test.sh`. A new public item is in
+   the plan's *Design deltas* (add it if missing) and its new word gets
+   its `GLOSSARY.md` entry, in the same commit.
 3. Run the step's own tests (`cargo test -p <crate> --test <file>`) and
    `cargo fmt --all`. The hook runs the gate at the commit. A run expected
    past a minute goes with `run_in_background`, and the step goes on with
