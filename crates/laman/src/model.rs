@@ -21,6 +21,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+mod constraint;
+pub mod tolerance;
+
+pub use constraint::{Constraint, ConstraintKind, Contact, Round, Sense, Span};
+
 /// The identifier of an entity, stable for the life of its sketch.
 ///
 /// The sketch mints ids itself, or a caller that persists its own passes
@@ -273,13 +278,28 @@ pub enum ModelError {
     /// Every id the sketch can mint is used.
     #[error("the sketch has no ids left to mint")]
     IdsExhausted,
-    /// An entity names the same point twice where it needs distinct ones.
+    /// An entity or constraint names the same entity twice where it needs
+    /// distinct ones.
     #[error("{id} is named twice in one {kind}")]
     RepeatedEntity {
-        /// The repeated point.
+        /// The repeated entity.
         id: EntityId,
-        /// The kind of entity being built.
+        /// For an entity being built (a line from a point to itself), the
+        /// kind being built; for a constraint, the kind of the repeated
+        /// entity.
         kind: EntityKind,
+    },
+    /// A constraint id names no constraint of the sketch.
+    #[error("{id} is not in the sketch")]
+    UnknownConstraint {
+        /// The id given.
+        id: ConstraintId,
+    },
+    /// A constraint id the caller passed is already in use.
+    #[error("{id} is already in the sketch")]
+    DuplicateConstraintId {
+        /// The id given.
+        id: ConstraintId,
     },
     /// The parameter does not exist on that entity.
     #[error("{id} has no {coordinate:?} parameter")]
@@ -331,7 +351,11 @@ pub struct Sketch {
     construction: BTreeSet<EntityId>,
     tags: BTreeMap<EntityId, String>,
     payloads: BTreeMap<EntityId, Payload>,
+    constraints: BTreeMap<ConstraintId, Constraint>,
+    constraint_tags: BTreeMap<ConstraintId, String>,
+    constraint_payloads: BTreeMap<ConstraintId, Payload>,
     next_entity: u64,
+    next_constraint: u64,
     revision: u64,
 }
 
@@ -890,8 +914,8 @@ impl Sketch {
 
     /// Removes an entity nothing uses. Its id is never minted again.
     ///
-    /// Refuses an unknown id (`UnknownId`) and an entity that others still
-    /// use (`InUse`, naming them).
+    /// Refuses an unknown id (`UnknownId`) and an entity that others, or
+    /// constraints, still use (`InUse`, naming them).
     ///
     /// ```
     /// use laman::model::{ModelError, Sketch};
@@ -907,11 +931,12 @@ impl Sketch {
     pub fn remove(&mut self, id: EntityId) -> Result<(), ModelError> {
         self.kind_of(id)?;
         let entities = self.dependents(id);
-        if !entities.is_empty() {
+        let constraints = self.constraints_using(&BTreeSet::from([id]));
+        if !entities.is_empty() || !constraints.is_empty() {
             return Err(ModelError::InUse {
                 id,
                 entities,
-                constraints: Vec::new(),
+                constraints,
             });
         }
         self.forget(id);
@@ -919,8 +944,9 @@ impl Sketch {
         Ok(())
     }
 
-    /// Removes an entity and everything that depends on it, transitively,
-    /// and returns what went.
+    /// Removes an entity and everything that depends on it, transitively
+    /// (entities, then the constraints that name any of them), and returns
+    /// what went.
     ///
     /// Refuses an unknown id (`UnknownId`).
     ///
@@ -945,13 +971,17 @@ impl Sketch {
                 }
             }
         }
+        let constraints = self.constraints_using(&gone);
+        for c in &constraints {
+            self.forget_constraint(*c);
+        }
         for g in &gone {
             self.forget(*g);
         }
         self.revision += 1;
         Ok(Removed {
             entities: gone.into_iter().collect(),
-            constraints: Vec::new(),
+            constraints,
         })
     }
 }

@@ -84,7 +84,7 @@ locally first), so the plan stays on `main`.
   storage, points/lines/circles/arcs, fixed parameters, tags, payloads,
   construction, `revision`, `remove`/`InUse`/cascade. A unit test per
   entity-level `ModelError`; doctests on every public item.
-- [ ] Step 2 **[2]**: the 18 constraint kinds, their builders and refusals
+- [x] Step 2 **[2]**: the 18 constraint kinds, their builders and refusals
   (`WrongKind`, `RepeatedEntity`, `DimensionOutOfRange` naming
   `coincident`/`point_on_line`, `NonFinite`), senses from the drawing,
   `model::tolerance`. A test per refusal and per sense rule, ties included.
