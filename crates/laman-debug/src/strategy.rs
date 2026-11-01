@@ -5,6 +5,11 @@
 //! resolved against what exists. An operation the builder refuses is
 //! skipped, so every sketch drawn is well-formed by construction, and the
 //! failing recipe shrinks to a short list.
+//!
+//! [`configuration`] is the other kind: one constraint and the few entities
+//! it reads, at coordinates drawn to reach the places a gradient is wrong.
+
+pub mod configuration;
 
 use laman::model::{
     ConstraintKind, Coordinate, Entity, EntityId, EntityKind, Payload, Point, Sketch,

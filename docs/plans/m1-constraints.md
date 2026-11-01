@@ -84,7 +84,7 @@ established here.
   `cross(u, p − a)/|u|` at `|u| = 1e-6`, `1e-6` and `1e3` scales): exact
   gradients pass, a negated term, a dropped term and a `1e-4` relative
   error each fail. The bound and why it is enough go in the module doc.
-- [ ] Step 2 **[2]** — `strategy::configuration` (delta 5), with a test
+- [x] Step 2 **[2]** — `strategy::configuration` (delta 5), with a test
   that every variant's sketch builds and every mode is reached.
 - [ ] Step 3 **[2]** — `laman::residual` skeleton (deltas 1–3) with the
   point-only kinds: `coincident`, `fix`, `horizontal`/`vertical` (both

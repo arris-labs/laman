@@ -8,7 +8,8 @@
 //! - [`dump`]: a sketch as text or SVG, to read and to look at.
 //! - [`digest`]: the SHA-256 over a run's bits.
 //! - [`fd`]: the finite-difference rule an analytic gradient is held to.
-//! - [`strategy`]: `proptest` strategies for well-formed sketches.
+//! - [`strategy`]: `proptest` strategies for well-formed sketches and for
+//!   one constraint at a time ([`strategy::configuration`]).
 #![forbid(unsafe_code)]
 
 pub mod digest;
