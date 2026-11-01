@@ -148,6 +148,12 @@ A hash of a solution's bits, compared between native and wasm32 to hold
 determinism.
 _Avoid_: checksum, fingerprint
 
+**Local scale**:
+The shortest length among the lines, radii and point pairs an equation
+reads: the length its gradient varies over, which sets the
+finite-difference step (`laman_debug::fd`).
+_Avoid_: characteristic length, step size
+
 **Oracle**:
 Another solver (SolveSpace, PlaneGCS) run out of process when analytic
 expectations run out; compared on DoF and conflict sets, not coordinates.

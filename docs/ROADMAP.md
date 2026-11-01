@@ -75,9 +75,11 @@ that agree with finite differences.*
 
 - In: `laman::residual` for every row of DATA-MODEL.md §Constraints and
   the arc's intrinsic equation;
-  the finite-difference check (central differences, step `1e-6` of the
-  sketch's size, agreement within `1e-6` relative) over `proptest`
-  strategies of random non-degenerate and near-degenerate configurations.
+  the finite-difference check (an eighth-order central stencil, step
+  `5e-3` of the equation's local scale, agreement within `1e-6` of the
+  gradient's size; sound to a line `1e-6` of the sketch's size anywhere in
+  it, `laman_debug::fd`) over `proptest` strategies of random
+  non-degenerate and near-degenerate configurations.
 - Out: the solve.
 - Accept: the finite-difference property at 1 000 cases per constraint,
   green; each residual is zero at its fixture's expected coordinates.
