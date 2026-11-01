@@ -27,19 +27,19 @@ fn covered(variant: Variant) -> bool {
         | Variant::Vertical(_)
         | Variant::Midpoint
         | Variant::Fix
-        | Variant::Distance => true,
-        Variant::PointOnLine
-        | Variant::PointOnCircle(_)
+        | Variant::Distance
+        | Variant::PointOnLine
         | Variant::Parallel
         | Variant::Perpendicular
         | Variant::EqualLength
+        | Variant::Symmetric
+        | Variant::PointLineDistance(_)
+        | Variant::Angle => true,
+        Variant::PointOnCircle(_)
         | Variant::EqualRadius(..)
         | Variant::TangentLineCircle(..)
         | Variant::TangentCircles(..)
-        | Variant::Symmetric
-        | Variant::PointLineDistance(_)
-        | Variant::Radius(_)
-        | Variant::Angle => false,
+        | Variant::Radius(_) => false,
     }
 }
 

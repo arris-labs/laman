@@ -90,7 +90,7 @@ established here.
   point-only kinds: `coincident`, `fix`, `horizontal`/`vertical` (both
   spans), `midpoint`, `distance`, and the arc's intrinsic equation. FD
   property at 1 000 cases each; rustdoc example on `equations`.
-- [ ] Step 4 **[2]** — line kinds: `point_on_line`, `parallel`,
+- [x] Step 4 **[2]** — line kinds: `point_on_line`, `parallel`,
   `perpendicular`, `equal_length`, `symmetric`, `point_line_distance`
   (both senses), `angle`. FD property at 1 000 cases each, shared-point
   and near-parallel modes included.

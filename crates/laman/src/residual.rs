@@ -24,7 +24,7 @@
 //! stands.
 
 use crate::model::{
-    Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Point, Sketch, Span,
+    Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Line, Point, Sketch, Span,
 };
 
 /// One parameter of the sketch: an entity and which of its coordinates.
@@ -271,13 +271,107 @@ fn push_length(raw: &mut Raw, from: Point, to: Point, v: [f64; 2], k: f64) -> (f
     (n, degenerate)
 }
 
+/// The signed distance `cross(u, w) / |u|` from the infinite line `a → b`
+/// of the point at `at`, with its gradient pushed onto `raw`. The point is
+/// one parameter pair per `(Point, weight)` of `holders` (a single point
+/// with weight 1, or the two ends of a midpoint with weight 1/2 each);
+/// `pa`, `pb` are the line's end coordinates. A zero-length line has value
+/// `0`, no terms, and is reported degenerate.
+fn push_side(
+    raw: &mut Raw,
+    (holders, at): (&[(Point, f64)], [f64; 2]),
+    (a, pa): (Point, [f64; 2]),
+    (b, pb): (Point, [f64; 2]),
+) -> (f64, bool) {
+    let u = diff(pa, pb);
+    let w = diff(pa, at);
+    let (n, e, degenerate) = unit_vector(u);
+    if degenerate {
+        return (0.0, true);
+    }
+    let cross = u[0] * w[1] - u[1] * w[0];
+    let f = cross / n;
+    // d cross / d(point, a, b), then the quotient rule with d|u| = ±u/n.
+    let dp = [-u[1], u[0]];
+    let da = [-w[1] + u[1], w[0] - u[0]];
+    let db = [w[1], -w[0]];
+    for (i, axis) in [Coordinate::X, Coordinate::Y].into_iter().enumerate() {
+        for &(holder, weight) in holders {
+            raw.push(holder.id(), axis, weight * dp[i] / n);
+        }
+        raw.push(a.id(), axis, da[i] / n + f * e[i] / n);
+        raw.push(b.id(), axis, db[i] / n - f * e[i] / n);
+    }
+    (f, false)
+}
+
+/// `to − from`.
+fn diff(from: [f64; 2], to: [f64; 2]) -> [f64; 2] {
+    [to[0] - from[0], to[1] - from[1]]
+}
+
+/// The equation `(A cross(u1, u2) + B dot(u1, u2)) / (|u1| |u2|)` of two
+/// lines, dimensionless (`parallel`, `perpendicular`, `angle`).
+fn ratio_of_lines(rd: &Reader<'_>, l1: Line, l2: Line, coeffs: (f64, f64)) -> Option<Equations> {
+    let (first, second) = (rd.ends(Span::Line(l1))?, rd.ends(Span::Line(l2))?);
+    let at = [
+        rd.xy(first.0)?,
+        rd.xy(first.1)?,
+        rd.xy(second.0)?,
+        rd.xy(second.1)?,
+    ];
+    let mut raw = Raw::new();
+    let (f, degenerate) = quotient_of_lines(&mut raw, first, second, at, coeffs);
+    Some(Equations::one(Equation::new(
+        f,
+        Unit::Ratio,
+        degenerate,
+        &raw,
+    )))
+}
+
+/// `(A cross(u1, u2) + B dot(u1, u2)) / (|u1| |u2|)` over lines `a1 → b1`
+/// and `a2 → b2`, with its gradient. A zero-length line: value `0`, no terms.
+fn quotient_of_lines(
+    raw: &mut Raw,
+    first: (Point, Point),
+    second: (Point, Point),
+    at: [[f64; 2]; 4],
+    (ca, cb): (f64, f64),
+) -> (f64, bool) {
+    let u1 = [at[1][0] - at[0][0], at[1][1] - at[0][1]];
+    let u2 = [at[3][0] - at[2][0], at[3][1] - at[2][1]];
+    let ((n1, e1, d1), (n2, e2, d2)) = (unit_vector(u1), unit_vector(u2));
+    if d1 || d2 {
+        return (0.0, true);
+    }
+    let cross = u1[0] * u2[1] - u1[1] * u2[0];
+    let dot = u1[0] * u2[0] + u1[1] * u2[1];
+    let f = (ca * cross + cb * dot) / (n1 * n2);
+    let g1 = [
+        (ca * u2[1] + cb * u2[0]) / (n1 * n2) - f * e1[0] / n1,
+        (-ca * u2[0] + cb * u2[1]) / (n1 * n2) - f * e1[1] / n1,
+    ];
+    let g2 = [
+        (-ca * u1[1] + cb * u1[0]) / (n1 * n2) - f * e2[0] / n2,
+        (ca * u1[0] + cb * u1[1]) / (n1 * n2) - f * e2[1] / n2,
+    ];
+    for (i, axis) in [Coordinate::X, Coordinate::Y].into_iter().enumerate() {
+        raw.push(first.1.id(), axis, g1[i]);
+        raw.push(first.0.id(), axis, -g1[i]);
+        raw.push(second.1.id(), axis, g2[i]);
+        raw.push(second.0.id(), axis, -g2[i]);
+    }
+    (f, false)
+}
+
 /// The equations of constraint `id`, at `values` (a parameter `values`
 /// lacks is read from the sketch), in `docs/DATA-MODEL.md`'s order.
 ///
 /// `None`: the sketch has no such constraint. Never panics; never NaN or
 /// infinite on finite input.
 ///
-/// The point-only kinds are evaluated; the line and round kinds follow.
+/// The point-only and line kinds are evaluated; the round kinds follow.
 ///
 /// ```
 /// use laman::model::{Coordinate, Sketch};
@@ -357,19 +451,95 @@ pub fn equations(sketch: &Sketch, values: &Coordinates, id: ConstraintId) -> Opt
                 &raw,
             )))
         }
-        // The line and round kinds: the following steps of the plan.
-        Constraint::PointOnLine { .. }
-        | Constraint::PointOnCircle { .. }
-        | Constraint::Parallel { .. }
-        | Constraint::Perpendicular { .. }
-        | Constraint::EqualLength { .. }
+        Constraint::PointOnLine { p, line } => {
+            let (a, b) = rd.ends(Span::Line(line))?;
+            let mut raw = Raw::new();
+            let (f, degenerate) = push_side(
+                &mut raw,
+                (&[(p, 1.0)], rd.xy(p)?),
+                (a, rd.xy(a)?),
+                (b, rd.xy(b)?),
+            );
+            Some(Equations::one(Equation::new(
+                f,
+                Unit::Length,
+                degenerate,
+                &raw,
+            )))
+        }
+        Constraint::PointLineDistance {
+            p,
+            line,
+            value,
+            sense,
+        } => {
+            let (a, b) = rd.ends(Span::Line(line))?;
+            let mut raw = Raw::new();
+            let (f, degenerate) = push_side(
+                &mut raw,
+                (&[(p, 1.0)], rd.xy(p)?),
+                (a, rd.xy(a)?),
+                (b, rd.xy(b)?),
+            );
+            let f = f - sense.sign() * value;
+            Some(Equations::one(Equation::new(
+                f,
+                Unit::Length,
+                degenerate,
+                &raw,
+            )))
+        }
+        Constraint::Parallel { a, b } => ratio_of_lines(&rd, a, b, (1.0, 0.0)),
+        Constraint::Perpendicular { a, b } => ratio_of_lines(&rd, a, b, (0.0, 1.0)),
+        Constraint::Angle { a, b, value } => {
+            ratio_of_lines(&rd, a, b, (libm::cos(value), -libm::sin(value)))
+        }
+        Constraint::EqualLength { a, b } => {
+            let ((a1, b1), (a2, b2)) = (rd.ends(Span::Line(a))?, rd.ends(Span::Line(b))?);
+            let mut raw = Raw::new();
+            let (n1, d1) = push_length(&mut raw, a1, b1, diff(rd.xy(a1)?, rd.xy(b1)?), 1.0);
+            let (n2, d2) = push_length(&mut raw, a2, b2, diff(rd.xy(a2)?, rd.xy(b2)?), -1.0);
+            Some(Equations::one(Equation::new(
+                n1 - n2,
+                Unit::Length,
+                d1 || d2,
+                &raw,
+            )))
+        }
+        Constraint::Symmetric { p, q, axis } => {
+            let (a, b) = rd.ends(Span::Line(axis))?;
+            let (pp, pq, pa, pb) = (rd.xy(p)?, rd.xy(q)?, rd.xy(a)?, rd.xy(b)?);
+            let m = [(pp[0] + pq[0]) / 2.0, (pp[1] + pq[1]) / 2.0];
+            // The midpoint of p and q on the axis.
+            let mut on = Raw::new();
+            let (f_on, d_on) = push_side(&mut on, (&[(p, 0.5), (q, 0.5)], m), (a, pa), (b, pb));
+            // q − p perpendicular to the axis: dot(u, q − p) / |u|.
+            let u = diff(pa, pb);
+            let r = diff(pp, pq);
+            let (n, e, d_perp) = unit_vector(u);
+            let mut perp = Raw::new();
+            let mut f_perp = 0.0;
+            if !d_perp {
+                f_perp = (u[0] * r[0] + u[1] * r[1]) / n;
+                for (i, axis) in [Coordinate::X, Coordinate::Y].into_iter().enumerate() {
+                    let gu = r[i] / n - f_perp * e[i] / n;
+                    perp.push(q.id(), axis, e[i]);
+                    perp.push(p.id(), axis, -e[i]);
+                    perp.push(b.id(), axis, gu);
+                    perp.push(a.id(), axis, -gu);
+                }
+            }
+            Some(Equations::two(
+                Equation::new(f_on, Unit::Length, d_on, &on),
+                Equation::new(f_perp, Unit::Length, d_perp, &perp),
+            ))
+        }
+        // The round kinds: the following step of the plan.
+        Constraint::PointOnCircle { .. }
         | Constraint::EqualRadius { .. }
         | Constraint::TangentLineCircle { .. }
         | Constraint::TangentCircles { .. }
-        | Constraint::Symmetric { .. }
-        | Constraint::PointLineDistance { .. }
-        | Constraint::Radius { .. }
-        | Constraint::Angle { .. } => Some(Equations::none()),
+        | Constraint::Radius { .. } => Some(Equations::none()),
     }
 }
 
@@ -459,6 +629,50 @@ mod tests {
             },
             [(80.0_f64).sqrt() - 4.0]
         );
+    }
+
+    #[test]
+    fn line_kinds_follow_the_data_model() {
+        let mut sk = Sketch::new();
+        let o = sk.point(0.0, 0.0).unwrap();
+        let a = sk.point(2.0, 0.0).unwrap();
+        let b = sk.point(0.0, 3.0).unwrap();
+        let (l1, l2) = (sk.line(o, a).unwrap(), sk.line(o, b).unwrap());
+        let v = |sk: &Sketch, id| eqs(sk, id).iter().map(Equation::value).collect::<Vec<_>>();
+        let id = sk.perpendicular(l1, l2).unwrap();
+        assert_eq!(v(&sk, id), [0.0]);
+        let id = sk.parallel(l1, l2).unwrap();
+        assert_eq!(v(&sk, id), [1.0]); // cross(u1, u2) / (|u1||u2|) = sin 90°
+        let id = sk.equal_length(l1, l2).unwrap();
+        assert_eq!(v(&sk, id), [-1.0]);
+        let id = sk.angle(l1, l2, std::f64::consts::FRAC_PI_2).unwrap();
+        assert!(v(&sk, id)[0].abs() < 1e-15);
+        let id = sk.point_on_line(b, l1).unwrap();
+        assert_eq!(v(&sk, id), [3.0]); // left of o → a: positive
+        let id = sk.point_line_distance(b, l1, 1.0).unwrap();
+        assert_eq!(v(&sk, id), [2.0]);
+        // b mirrored across l1 is (0, −3); the midpoint (0, 0) is on it.
+        let m = sk.point(0.0, -3.0).unwrap();
+        let id = sk.symmetric(b, m, l1).unwrap();
+        assert_eq!(v(&sk, id), [0.0, 0.0]); // q − p = (0, −6) ⟂ u
+    }
+
+    #[test]
+    fn a_zero_length_line_is_degenerate_not_nan() {
+        let mut sk = Sketch::new();
+        let (o, a, p) = (
+            sk.point(0.0, 0.0).unwrap(),
+            sk.point(1.0, 0.0).unwrap(),
+            sk.point(1.0, 1.0).unwrap(),
+        );
+        let l = sk.line(o, a).unwrap();
+        let id = sk.point_on_line(p, l).unwrap();
+        let mut at = sk.coordinates();
+        at.insert((a.id(), Coordinate::X), 0.0);
+        let eq = equations(&sk, &at, id).unwrap().as_slice()[0];
+        assert!(eq.is_degenerate());
+        assert_eq!(eq.value(), 0.0);
+        assert!(eq.terms().is_empty());
     }
 
     #[test]
