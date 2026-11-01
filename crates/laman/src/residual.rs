@@ -44,7 +44,7 @@ pub const MAX_EQUATIONS: usize = 2;
 /// (`laman::model::tolerance`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
-    /// A length: compared with `tolerance::LENGTH`.
+    /// A length: compared with the frozen component length tolerance.
     Length,
     /// Dimensionless (`parallel`, `perpendicular`, `angle`): compared with
     /// `tolerance::ANGLE`.

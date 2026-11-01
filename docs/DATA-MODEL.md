@@ -160,9 +160,9 @@ as diagnostics; none of them changes it. `Unsatisfiable` takes precedence
 over `UnderConstrained`: a sketch can conflict in one place and be free in
 another, and the diagnostics say both.
 
-Tolerance and ordering policy: ADR-0003. The checker retains its legacy
-absolute tolerances until the M2 compiler step adopts the shared model
-policy; fixture coordinate acceptance stays unchanged.
+Tolerance and ordering policy: ADR-0003. The compiler and checker use frozen
+component-relative length tolerances from `model::tolerance::Tolerances`;
+fixture coordinate acceptance stays unchanged.
 
 ## The serde form
 

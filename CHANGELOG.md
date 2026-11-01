@@ -6,6 +6,10 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- Checking uses translation-independent, component-relative length tolerances,
+  with an absolute floor; unrelated geometry cannot loosen acceptance. Rust
+  callers can inspect the frozen policy through `model::tolerance::Tolerances`.
+
 - `laman::model`: build a sketch of points, lines, circles and arcs with
   ids, tags, fixed parameters, construction flags and opaque payloads, and
   add all 18 constraints between them. A malformed request (an unknown id,

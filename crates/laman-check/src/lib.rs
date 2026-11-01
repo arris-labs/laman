@@ -27,7 +27,7 @@
 //! ```
 #![forbid(unsafe_code)]
 
-use laman::model::tolerance::{ANGLE, LENGTH};
+use laman::model::tolerance::{ANGLE, Tolerances};
 use laman::model::{
     Constraint, ConstraintId, ConstraintKind, Contact, Coordinate, Coordinates, Entity, EntityId,
     EntityKind, Line, Point, Round, Sketch, Span,
@@ -85,7 +85,7 @@ pub struct Degenerate {
 }
 
 /// How an entity is degenerate at the checked coordinates (length below
-/// `laman::model::tolerance::LENGTH`).
+/// the component-relative length tolerance).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Degeneracy {
     /// A line whose end points coincide: its direction, and every equation
@@ -146,12 +146,12 @@ struct Measure {
 
 impl Measure {
     /// A length against the length it should be.
-    fn length(measured: f64, wanted: f64) -> Measure {
+    fn length(measured: f64, wanted: f64, tolerance: f64) -> Measure {
         Measure {
             measured,
             wanted,
             deviation: (measured - wanted).abs(),
-            tolerance: LENGTH,
+            tolerance,
         }
     }
 
@@ -179,6 +179,7 @@ type Xy = (f64, f64);
 struct View<'a> {
     sketch: &'a Sketch,
     values: &'a Coordinates,
+    tolerance: f64,
 }
 
 impl View<'_> {
@@ -247,7 +248,7 @@ impl View<'_> {
 /// Euclidean distance.
 fn dist(p: Xy, q: Xy) -> f64 {
     let (dx, dy) = (q.0 - p.0, q.1 - p.1);
-    (dx * dx + dy * dy).sqrt()
+    libm::hypot(dx, dy)
 }
 
 fn sub(p: Xy, q: Xy) -> Xy {
@@ -293,25 +294,26 @@ fn off_zero(phi: f64) -> f64 {
 }
 
 fn measure(view: &View<'_>, c: &Constraint) -> Result<Measure, Missing> {
+    let length = |a, b| Measure::length(a, b, view.tolerance);
     Ok(match *c {
-        Constraint::Coincident { p, q } => Measure::length(dist(view.at(p)?, view.at(q)?), 0.0),
+        Constraint::Coincident { p, q } => length(dist(view.at(p)?, view.at(q)?), 0.0),
         Constraint::PointOnLine { p, line } => {
             let p = view.at(p)?;
-            Measure::length(dist(p, foot(p, view.ends(line)?)), 0.0)
+            length(dist(p, foot(p, view.ends(line)?)), 0.0)
         }
         Constraint::PointOnCircle { p, on } => {
             let (centre, r) = view.round(on)?;
-            Measure::length(dist(view.at(p)?, centre), r)
+            length(dist(view.at(p)?, centre), r)
         }
         // A line is horizontal when its end points are at one height; the
         // offset is a length.
         Constraint::Horizontal(span) => {
             let (a, b) = view.two_points(span)?;
-            Measure::length((b.1 - a.1).abs(), 0.0)
+            length((b.1 - a.1).abs(), 0.0)
         }
         Constraint::Vertical(span) => {
             let (a, b) = view.two_points(span)?;
-            Measure::length((b.0 - a.0).abs(), 0.0)
+            length((b.0 - a.0).abs(), 0.0)
         }
         Constraint::Parallel { a, b } => {
             let phi = between(sub_line(view.ends(a)?), sub_line(view.ends(b)?));
@@ -323,12 +325,12 @@ fn measure(view: &View<'_>, c: &Constraint) -> Result<Measure, Missing> {
         }
         Constraint::EqualLength { a, b } => {
             let (a, b) = (view.ends(a)?, view.ends(b)?);
-            Measure::length(dist(a.0, a.1), dist(b.0, b.1))
+            length(dist(a.0, a.1), dist(b.0, b.1))
         }
-        Constraint::EqualRadius { a, b } => Measure::length(view.round(a)?.1, view.round(b)?.1),
+        Constraint::EqualRadius { a, b } => length(view.round(a)?.1, view.round(b)?.1),
         Constraint::TangentLineCircle { line, round, sense } => {
             let (centre, r) = view.round(round)?;
-            Measure::length(signed_distance(centre, view.ends(line)?), sense.sign() * r)
+            length(signed_distance(centre, view.ends(line)?), sense.sign() * r)
         }
         Constraint::TangentCircles { a, b, contact } => {
             let ((ca, ra), (cb, rb)) = (view.round(a)?, view.round(b)?);
@@ -336,12 +338,12 @@ fn measure(view: &View<'_>, c: &Constraint) -> Result<Measure, Missing> {
                 Contact::External => ra + rb,
                 Contact::Internal(sense) => sense.sign() * (ra - rb),
             };
-            Measure::length(dist(ca, cb), wanted)
+            length(dist(ca, cb), wanted)
         }
         Constraint::Midpoint { p, line } => {
             let (a, b) = view.ends(line)?;
             let mid = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
-            Measure::length(dist(view.at(p)?, mid), 0.0)
+            length(dist(view.at(p)?, mid), 0.0)
         }
         // `q` is the mirror image of `p`: reflect `p` through its foot on
         // the axis and see how far the image is from `q`.
@@ -349,22 +351,20 @@ fn measure(view: &View<'_>, c: &Constraint) -> Result<Measure, Missing> {
             let (p, q) = (view.at(p)?, view.at(q)?);
             let f = foot(p, view.ends(axis)?);
             let image = (2.0 * f.0 - p.0, 2.0 * f.1 - p.1);
-            Measure::length(dist(image, q), 0.0)
+            length(dist(image, q), 0.0)
         }
-        Constraint::Fix { p, x, y } => Measure::length(dist(view.at(p)?, (x, y)), 0.0),
-        Constraint::Distance { p, q, value } => {
-            Measure::length(dist(view.at(p)?, view.at(q)?), value)
-        }
+        Constraint::Fix { p, x, y } => length(dist(view.at(p)?, (x, y)), 0.0),
+        Constraint::Distance { p, q, value } => length(dist(view.at(p)?, view.at(q)?), value),
         Constraint::PointLineDistance {
             p,
             line,
             value,
             sense,
-        } => Measure::length(
+        } => length(
             signed_distance(view.at(p)?, view.ends(line)?),
             sense.sign() * value,
         ),
-        Constraint::Radius { round, value } => Measure::length(view.round(round)?.1, value),
+        Constraint::Radius { round, value } => length(view.round(round)?.1, value),
         // The angle from the first line to the second, taken mod π: the
         // second root (antiparallel) is the same pair of lines.
         Constraint::Angle { a, b, value } => {
@@ -405,9 +405,15 @@ fn sub_line((a, b): (Xy, Xy)) -> Xy {
 /// # Ok::<(), laman::model::ModelError>(())
 /// ```
 pub fn check(sketch: &Sketch, values: &Coordinates) -> Report {
-    let view = View { sketch, values };
+    let tolerances = Tolerances::new(sketch);
+    let mut view = View {
+        sketch,
+        values,
+        tolerance: 0.0,
+    };
     let mut report = Report::default();
     for (id, c) in sketch.constraints() {
+        view.tolerance = tolerances.constraint(id);
         match measure(&view, c) {
             Ok(m) if !m.holds() => report.violations.push(Violation {
                 id: Source::Constraint(id),
@@ -421,6 +427,7 @@ pub fn check(sketch: &Sketch, values: &Coordinates) -> Report {
         }
     }
     for (id, entity) in sketch.entities() {
+        view.tolerance = tolerances.entity(id);
         match entity {
             Entity::Point { .. } => {}
             Entity::Line { .. } => {
@@ -429,7 +436,7 @@ pub fn check(sketch: &Sketch, values: &Coordinates) -> Report {
                 }
             }
             Entity::Circle { .. } => match view.value(id, Coordinate::R) {
-                Ok(r) if too_small(r) => report.degenerate.push(degenerate(
+                Ok(r) if too_small(r, view.tolerance) => report.degenerate.push(degenerate(
                     sketch,
                     id,
                     EntityKind::Circle,
@@ -446,8 +453,8 @@ pub fn check(sketch: &Sketch, values: &Coordinates) -> Report {
 }
 
 /// Below the length tolerance; a `NaN` size is too small to trust.
-fn too_small(length: f64) -> bool {
-    length < LENGTH || length.is_nan()
+fn too_small(length: f64, tolerance: f64) -> bool {
+    length < tolerance || !length.is_finite()
 }
 
 fn line_of(sketch: &Sketch, id: EntityId) -> Option<Line> {
@@ -480,7 +487,7 @@ fn degenerate_line(view: &View<'_>, report: &mut Report, line: Line) {
     match view.ends(line) {
         Ok((a, b)) => {
             let length = dist(a, b);
-            if too_small(length) {
+            if too_small(length, view.tolerance) {
                 report.degenerate.push(degenerate(
                     view.sketch,
                     line.id(),
@@ -505,7 +512,7 @@ fn arc(view: &View<'_>, report: &mut Report, id: EntityId, (c, s, e): (Point, Po
             return;
         }
     };
-    let m = Measure::length(dist(centre, end), dist(centre, start));
+    let m = Measure::length(dist(centre, end), dist(centre, start), view.tolerance);
     if !m.holds() {
         report.violations.push(Violation {
             id: Source::Arc(id),
@@ -516,7 +523,7 @@ fn arc(view: &View<'_>, report: &mut Report, id: EntityId, (c, s, e): (Point, Po
         });
     }
     let radius = dist(centre, start);
-    if too_small(radius) {
+    if too_small(radius, view.tolerance) {
         report.degenerate.push(degenerate(
             view.sketch,
             id,
@@ -526,7 +533,7 @@ fn arc(view: &View<'_>, report: &mut Report, id: EntityId, (c, s, e): (Point, Po
         ));
     }
     let chord = dist(start, end);
-    if too_small(chord) {
+    if too_small(chord, view.tolerance) {
         report.degenerate.push(degenerate(
             view.sketch,
             id,

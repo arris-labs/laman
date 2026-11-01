@@ -145,10 +145,12 @@ sketch returns the same bits (SEED.md §8).
 The M2 numerical contract is fixed by [ADR-0002](adr/0002-regularize-structural-tangent-contacts.md)
 (contact regularization) and [ADR-0003](adr/0003-scale-relative-tolerances-and-rank-order.md)
 (component-relative lengths with an absolute floor, dimensionless rank and
-angular thresholds, and deterministic rank/null-space ordering). Analytic
-experiments establish the contract; runtime adoption follows in the M2
-compiler and solver. The existing checker still uses the legacy absolute
-constants in `laman::model::tolerance`.
+angular thresholds, and deterministic rank/null-space ordering). The compiler and checker use the shared model
+`Tolerances` policy, frozen from input geometry and dimensions. Components
+connect structural free-parameter reads, including zero derivatives; ground
+references alone do not join them. Fixed-only equations retain source order.
+Multi-equation constraints are kept together. The legacy `LENGTH` constant
+remains available for compatibility; it no longer controls checker acceptance.
 
 A structurally shared tangent contact uses the perpendicular radius
 equation, retaining membership, original sense and source provenance.
