@@ -112,7 +112,7 @@ locally first), so the plan stays on `main`.
 - [x] Step 9 **[2]**: the digest corpus test with its digests blessed in
   `laman-debug`; `tools/digest-wasm.sh`; the CI `wasm` job; `wasm32-wasip1`
   in `rust-toolchain.toml`. Green locally under `wasmtime`.
-- [ ] Step 10 **[1]**: `fuzz/` with `load_sketch`, seeded from the fixture
+- [x] Step 10 **[1]**: `fuzz/` with `load_sketch`, seeded from the fixture
   `sketch.json` files. A 10-minute nightly run with no panic; any crash
   becomes a regression fixture.
 
