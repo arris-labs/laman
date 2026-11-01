@@ -19,6 +19,7 @@
 //! ```
 #![forbid(unsafe_code)]
 
+pub mod model;
 mod rigidity;
 
 pub use rigidity::{Rigidity, RigidityError, rigidity};

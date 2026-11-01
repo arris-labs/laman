@@ -80,7 +80,7 @@ exactly what to write; **[2]** careful, a numeric or geometric case to get
 right; **[3]** unproven. No step's only test is CI (the wasm script runs
 locally first), so the plan stays on `main`.
 
-- [ ] Step 1 **[2]**: `laman::model` entities: ids, handles, `BTreeMap`
+- [x] Step 1 **[2]**: `laman::model` entities: ids, handles, `BTreeMap`
   storage, points/lines/circles/arcs, fixed parameters, tags, payloads,
   construction, `revision`, `remove`/`InUse`/cascade. A unit test per
   entity-level `ModelError`; doctests on every public item.
