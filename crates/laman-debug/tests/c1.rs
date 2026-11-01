@@ -6,11 +6,13 @@
 //! and wait for the solver (M2).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
-use laman::model::{Coordinate, Coordinates, EntityId, Sketch};
-use laman_check::check;
+use laman::model::{ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch, tolerance};
+use laman::residual::{Unit, equations, intrinsic};
+use laman_check::{Source, check};
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
 use laman_debug::runner::run;
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 fn dir(name: &str) -> PathBuf {
@@ -195,6 +197,107 @@ fn the_conflict_sets_are_the_ones_the_roadmap_names() {
             "top-length"
         ]
     );
+}
+
+/// The values a fixture is checked at: its sketch's, each expected
+/// coordinate replacing its guess, as `laman_debug::runner::run` does.
+fn expected_values(fixture: &Fixture) -> Coordinates {
+    let mut values = fixture.sketch.coordinates();
+    for (key, value) in &fixture.expected.coordinates {
+        values.insert(*key, *value);
+    }
+    values
+}
+
+/// The tolerance an equation of `unit` is held to (`laman::model::tolerance`).
+fn tolerance_of(unit: Unit) -> f64 {
+    match unit {
+        Unit::Length => tolerance::LENGTH,
+        Unit::Ratio => tolerance::ANGLE,
+    }
+}
+
+/// The constraints with an equation outside its unit's tolerance at
+/// `values`, by the residual's own equations (not the checker's).
+fn residual_off(sketch: &Sketch, values: &Coordinates) -> BTreeSet<ConstraintId> {
+    let mut off = BTreeSet::new();
+    for (id, _) in sketch.constraints() {
+        let eqs = equations(sketch, values, id).unwrap();
+        assert!(!eqs.is_empty(), "{id:?} has no equations");
+        for eq in eqs.as_slice() {
+            assert!(
+                !eq.is_degenerate(),
+                "{id:?} is degenerate at the expected coordinates"
+            );
+            if eq.value().abs() > tolerance_of(eq.unit()) {
+                off.insert(id);
+            }
+        }
+    }
+    off
+}
+
+/// At every fixture's expected coordinates the residual's equations and the
+/// checker agree constraint by constraint: a constraint has an equation out
+/// of tolerance exactly when the checker reports it. Every arc's intrinsic
+/// equation holds, and the checker reports no arc.
+#[test]
+fn the_residual_agrees_with_the_checker_at_every_fixture() {
+    for name in FIXTURES {
+        let fixture = load(name);
+        let sketch = &fixture.sketch;
+        let values = expected_values(&fixture);
+        let report = check(sketch, &values);
+        assert!(report.degenerate.is_empty(), "{name}: degenerate");
+        assert!(report.missing.is_empty(), "{name}: missing");
+
+        let checker: BTreeSet<ConstraintId> = report
+            .violations
+            .iter()
+            .filter_map(|v| match v.id {
+                Source::Constraint(id) => Some(id),
+                Source::Arc(_) => None,
+            })
+            .collect();
+        assert!(
+            report
+                .violations
+                .iter()
+                .all(|v| matches!(v.id, Source::Constraint(_))),
+            "{name}: the checker reports an arc"
+        );
+        assert_eq!(residual_off(sketch, &values), checker, "{name}");
+
+        for (id, entity) in sketch.entities() {
+            if let Entity::Arc { .. } = entity {
+                let eq = intrinsic(sketch, &values, id).unwrap();
+                assert!(!eq.is_degenerate(), "{name}: {id:?} is degenerate");
+                assert!(
+                    eq.value().abs() <= tolerance_of(eq.unit()),
+                    "{name}: {id:?} intrinsic {}",
+                    eq.value()
+                );
+            }
+        }
+    }
+}
+
+/// In each conflicting twin the one constraint it added, and only it, is out
+/// of tolerance at the base's expected coordinates.
+#[test]
+fn each_conflicting_twin_puts_off_only_the_constraint_it_added() {
+    for (name, added) in [
+        ("sss-triangle-conflicting", "apex"),
+        ("belt-conflicting", "top-length"),
+        ("slotted-plate-conflicting", "slot-r2"),
+    ] {
+        let fixture = load(name);
+        let off: Vec<&str> = residual_off(&fixture.sketch, &expected_values(&fixture))
+            .into_iter()
+            .map(|id| fixture.sketch.constraint_tag_of(id).unwrap_or(""))
+            .collect();
+        assert_eq!(off, [added], "{name}");
+    }
 }
 
 /// The solve from the guesses lands on the expected coordinates (checked

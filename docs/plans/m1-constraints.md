@@ -98,7 +98,7 @@ established here.
   `equal_radius`, `radius`, `tangent` line–circle (±), `tangent` circles
   (external, internal ±). FD property at 1 000 cases each, the
   nearly-equal-radius internal contact included.
-- [ ] Step 6 **[1]** — the fixture test (`laman-debug/tests/c1.rs`): at
+- [x] Step 6 **[1]** — the fixture test (`laman-debug/tests/c1.rs`): at
   every C1 fixture's and twin's expected coordinates, each constraint's
   equations are all within their unit's tolerance iff the checker reports
   no violation for it; every intrinsic equation is within tolerance; in
