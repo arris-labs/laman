@@ -6,7 +6,8 @@
 //! and wait for the solver (M2).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
-use laman::model::{Coordinates, Sketch};
+use laman::model::{Coordinate, Coordinates, EntityId, Sketch};
+use laman_check::check;
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
 use laman_debug::runner::run;
@@ -40,13 +41,17 @@ fn solve(sketch: &Sketch) -> Coordinates {
     sketch.coordinates()
 }
 
-const FIXTURES: [&str; 6] = [
+const FIXTURES: [&str; 10] = [
     "sss-triangle",
     "sss-triangle-redundant",
     "sss-triangle-conflicting",
     "belt",
     "belt-redundant",
     "belt-conflicting",
+    "slotted-plate",
+    "slotted-plate-redundant",
+    "slotted-plate-conflicting",
+    "slotted-plate-drag",
 ];
 
 #[test]
@@ -65,6 +70,9 @@ fn the_bases_and_redundant_twins_check_clean_at_their_expected_coordinates() {
         "sss-triangle-redundant",
         "belt",
         "belt-redundant",
+        "slotted-plate",
+        "slotted-plate-redundant",
+        "slotted-plate-drag",
     ] {
         let result = run(&load(name));
         assert!(result.report.is_clean(), "{name}: {:?}", result.report);
@@ -82,6 +90,64 @@ fn the_redundant_twins_name_what_they_added() {
         ["right-angle"]
     );
     assert_eq!(load("belt-redundant").expected.redundant, ["same-belt"]);
+    assert_eq!(
+        load("slotted-plate-redundant").expected.redundant,
+        ["level"]
+    );
+}
+
+#[test]
+fn the_slotted_plate_conflicting_twin_flags_only_slot_r2() {
+    assert_eq!(flagged("slotted-plate-conflicting"), ["slot-r2"]);
+    assert_eq!(
+        load("slotted-plate-conflicting").expected.conflicts,
+        [["same-ends", "slot-r", "slot-r2"]]
+    );
+}
+
+#[test]
+fn the_drag_fixture_is_the_plate_without_width_and_a_stray_point() {
+    let drag = load("slotted-plate-drag");
+    assert_eq!(drag.expected.status, "UnderConstrained");
+    assert_eq!(drag.expected.dof, 3);
+    let plate = load("slotted-plate");
+    let tags = |f: &Fixture| -> Vec<String> {
+        f.sketch
+            .constraints()
+            .filter_map(|(id, _)| f.sketch.constraint_tag_of(id).map(String::from))
+            .collect()
+    };
+    assert!(tags(&plate).contains(&"width".to_string()));
+    assert!(!tags(&drag).contains(&"width".to_string()));
+    assert_eq!(
+        drag.sketch.entities().count(),
+        plate.sketch.entities().count() + 1
+    );
+}
+
+/// Every one of the drag's ten closed-form steps is clean under the
+/// checker: the sketch at the expected coordinates, the step's overriding
+/// them, and the stray point where it was.
+#[test]
+fn the_checker_passes_each_closed_form_step_of_the_drag() {
+    let fixture = load("slotted-plate-drag");
+    let drag = fixture.drag.as_ref().unwrap();
+    assert_eq!(drag.targets.len(), 10);
+    assert_eq!(drag.after.len(), 10);
+    for (i, step) in drag.after.iter().enumerate() {
+        assert_eq!(step.step, i + 1);
+        let mut values = fixture.sketch.coordinates();
+        for (key, value) in &step.coordinates {
+            values.insert(*key, *value);
+        }
+        let report = check(&fixture.sketch, &values);
+        assert!(report.is_clean(), "step {}: {report:?}", step.step);
+    }
+    let last = &drag.after[9].coordinates;
+    let at = |name: u32, c: Coordinate| last[&(EntityId(name), c)];
+    let p2 = drag.dragged.0;
+    assert_eq!(at(p2, Coordinate::X), 150.0);
+    assert_eq!(at(p2, Coordinate::Y), 60.0);
 }
 
 #[test]
@@ -127,6 +193,8 @@ fn the_solve_reaches_the_expected_coordinates() {
         "sss-triangle-redundant",
         "belt",
         "belt-redundant",
+        "slotted-plate",
+        "slotted-plate-redundant",
     ] {
         let fixture = load(name);
         let solved = solve(&fixture.sketch);
@@ -135,6 +203,27 @@ fn the_solve_reaches_the_expected_coordinates() {
             assert!(
                 (got - want).abs() <= fixture.expected.tolerance,
                 "{name}: {key:?}: {got} vs {want}"
+            );
+        }
+    }
+}
+
+/// The drag, with the stub solve returning the guesses: each step's
+/// coordinates compare with the solution after pulling the point to its
+/// target. Runs when the real drag session exists.
+#[test]
+#[ignore = "drag: M3"]
+fn the_drag_follows_the_closed_form_steps() {
+    let fixture = load("slotted-plate-drag");
+    let drag = fixture.drag.as_ref().unwrap();
+    for step in &drag.after {
+        let solved = solve(&fixture.sketch);
+        for (key, want) in &step.coordinates {
+            let got = solved.get(key).copied().unwrap();
+            assert!(
+                (got - want).abs() <= fixture.expected.tolerance,
+                "step {}: {key:?}: {got} vs {want}",
+                step.step
             );
         }
     }

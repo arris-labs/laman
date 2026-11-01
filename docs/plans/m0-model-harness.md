@@ -105,7 +105,7 @@ locally first), so the plan stays on `main`.
   (the belt's to 17 digits from `s = 0.1`). `c1.rs`: the base and redundant
   twins pass at the expected coordinates; each conflicting twin flags only
   its added constraint (`apex`, `top-length`); the solve tests are ignored.
-- [ ] Step 8 **[2]**: fixtures `slotted-plate` (its conflicting twin flags
+- [x] Step 8 **[2]**: fixtures `slotted-plate` (its conflicting twin flags
   `slot-r2`) and `slotted-plate-drag` (`drag.json` with k = 1…10, the
   checker passing each closed-form step). Each fixture's SVG is looked at
   once (`inspect`).

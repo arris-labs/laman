@@ -1,0 +1,30 @@
+{
+  "status": "Unsatisfiable",
+  "dof": 0,
+  "coordinates": [
+    {"id": 1, "coordinate": "x", "value": 120.0},
+    {"id": 1, "coordinate": "y", "value": 0.0},
+    {"id": 2, "coordinate": "x", "value": 120.0},
+    {"id": 2, "coordinate": "y", "value": 60.0},
+    {"id": 3, "coordinate": "x", "value": 0.0},
+    {"id": 3, "coordinate": "y", "value": 60.0},
+    {"id": 8, "coordinate": "x", "value": 60.0},
+    {"id": 8, "coordinate": "y", "value": 0.0},
+    {"id": 9, "coordinate": "x", "value": 60.0},
+    {"id": 9, "coordinate": "y", "value": 60.0},
+    {"id": 11, "coordinate": "x", "value": 40.0},
+    {"id": 11, "coordinate": "y", "value": 30.0},
+    {"id": 12, "coordinate": "x", "value": 40.0},
+    {"id": 12, "coordinate": "y", "value": 35.0},
+    {"id": 13, "coordinate": "x", "value": 40.0},
+    {"id": 13, "coordinate": "y", "value": 25.0},
+    {"id": 15, "coordinate": "x", "value": 80.0},
+    {"id": 15, "coordinate": "y", "value": 30.0},
+    {"id": 16, "coordinate": "x", "value": 80.0},
+    {"id": 16, "coordinate": "y", "value": 25.0},
+    {"id": 17, "coordinate": "x", "value": 80.0},
+    {"id": 17, "coordinate": "y", "value": 35.0}
+  ],
+  "redundant": [],
+  "conflicts": [["same-ends", "slot-r", "slot-r2"]]
+}

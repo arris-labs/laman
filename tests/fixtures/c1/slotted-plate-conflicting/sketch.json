@@ -1,0 +1,265 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0,
+      "fixed": [
+        "x",
+        "y"
+      ],
+      "tag": "origin"
+    },
+    {
+      "id": 1,
+      "kind": "point",
+      "x": 115.0,
+      "y": 2.0
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 118.0,
+      "y": 63.0
+    },
+    {
+      "id": 3,
+      "kind": "point",
+      "x": -1.0,
+      "y": 58.0
+    },
+    {
+      "id": 4,
+      "kind": "line",
+      "a": 0,
+      "b": 1
+    },
+    {
+      "id": 5,
+      "kind": "line",
+      "a": 1,
+      "b": 2
+    },
+    {
+      "id": 6,
+      "kind": "line",
+      "a": 2,
+      "b": 3
+    },
+    {
+      "id": 7,
+      "kind": "line",
+      "a": 3,
+      "b": 0
+    },
+    {
+      "id": 8,
+      "kind": "point",
+      "x": 55.0,
+      "y": 1.0
+    },
+    {
+      "id": 9,
+      "kind": "point",
+      "x": 62.0,
+      "y": 59.0
+    },
+    {
+      "id": 10,
+      "kind": "line",
+      "a": 8,
+      "b": 9,
+      "construction": true,
+      "tag": "axis"
+    },
+    {
+      "id": 11,
+      "kind": "point",
+      "x": 38.0,
+      "y": 31.0
+    },
+    {
+      "id": 12,
+      "kind": "point",
+      "x": 39.0,
+      "y": 36.0
+    },
+    {
+      "id": 13,
+      "kind": "point",
+      "x": 41.0,
+      "y": 24.0
+    },
+    {
+      "id": 14,
+      "kind": "arc",
+      "c": 11,
+      "s": 12,
+      "e": 13
+    },
+    {
+      "id": 15,
+      "kind": "point",
+      "x": 83.0,
+      "y": 29.0
+    },
+    {
+      "id": 16,
+      "kind": "point",
+      "x": 82.0,
+      "y": 24.0
+    },
+    {
+      "id": 17,
+      "kind": "point",
+      "x": 79.0,
+      "y": 36.0
+    },
+    {
+      "id": 18,
+      "kind": "arc",
+      "c": 15,
+      "s": 16,
+      "e": 17
+    },
+    {
+      "id": 19,
+      "kind": "line",
+      "a": 17,
+      "b": 12
+    },
+    {
+      "id": 20,
+      "kind": "line",
+      "a": 13,
+      "b": 16
+    }
+  ],
+  "constraints": [
+    {
+      "id": 0,
+      "kind": "horizontal",
+      "line": 4
+    },
+    {
+      "id": 1,
+      "kind": "vertical",
+      "line": 5
+    },
+    {
+      "id": 2,
+      "kind": "horizontal",
+      "line": 6
+    },
+    {
+      "id": 3,
+      "kind": "vertical",
+      "line": 7
+    },
+    {
+      "id": 4,
+      "kind": "distance",
+      "a": 0,
+      "b": 1,
+      "value": 120.0,
+      "tag": "width"
+    },
+    {
+      "id": 5,
+      "kind": "distance",
+      "a": 0,
+      "b": 3,
+      "value": 60.0,
+      "tag": "height"
+    },
+    {
+      "id": 6,
+      "kind": "midpoint",
+      "point": 8,
+      "line": 4
+    },
+    {
+      "id": 7,
+      "kind": "midpoint",
+      "point": 9,
+      "line": 6
+    },
+    {
+      "id": 8,
+      "kind": "tangent",
+      "line": 19,
+      "circle": 14,
+      "sense": 1
+    },
+    {
+      "id": 9,
+      "kind": "tangent",
+      "line": 19,
+      "circle": 18,
+      "sense": 1
+    },
+    {
+      "id": 10,
+      "kind": "tangent",
+      "line": 20,
+      "circle": 14,
+      "sense": 1
+    },
+    {
+      "id": 11,
+      "kind": "tangent",
+      "line": 20,
+      "circle": 18,
+      "sense": 1
+    },
+    {
+      "id": 12,
+      "kind": "equal_radius",
+      "a": 14,
+      "b": 18,
+      "tag": "same-ends"
+    },
+    {
+      "id": 13,
+      "kind": "radius",
+      "circle": 14,
+      "value": 5.0,
+      "tag": "slot-r"
+    },
+    {
+      "id": 14,
+      "kind": "symmetric",
+      "a": 11,
+      "b": 15,
+      "axis": 10,
+      "tag": "centred"
+    },
+    {
+      "id": 15,
+      "kind": "distance",
+      "a": 11,
+      "b": 15,
+      "value": 40.0,
+      "tag": "slot-length"
+    },
+    {
+      "id": 16,
+      "kind": "point_line_distance",
+      "point": 11,
+      "line": 4,
+      "value": 30.0,
+      "sense": 1,
+      "tag": "slot-height"
+    },
+    {
+      "id": 17,
+      "kind": "radius",
+      "circle": 18,
+      "value": 6.0,
+      "tag": "slot-r2"
+    }
+  ]
+}
