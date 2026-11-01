@@ -7,7 +7,8 @@
 //! solutions by Householder transformations*, Numer. Math. 7, 1965) whose
 //! column norms are recomputed at every step and whose ties go to the lowest
 //! original parameter, so no library tie rule reaches a result. Every sum runs
-//! in index order. Redundancy, conflicts and degeneracy are separate stages.
+//! in index order. Status, redundancy, conflicts and degeneracy build on it
+//! in [`analysis`] (ADR-0005).
 #![allow(dead_code)] // Internal until the solve API lands in M2 step 7.
 
 use crate::model::tolerance::{self, Component, RANK};
@@ -16,6 +17,9 @@ use crate::system::System;
 use std::collections::BTreeMap;
 
 type Param = (EntityId, Coordinate);
+
+mod analysis;
+pub(crate) use analysis::*;
 
 /// The freedom left at some coordinates.
 #[derive(Clone, Debug, PartialEq)]

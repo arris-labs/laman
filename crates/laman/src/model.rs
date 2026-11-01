@@ -484,6 +484,24 @@ impl Sketch {
         out
     }
 
+    /// Overwrites every parameter `values` names (fixed ones included), for
+    /// an analysis copy that solves from another start. Keys the sketch does
+    /// not hold are ignored; the revision does not move, so a copy placed
+    /// this way is never mistaken for a caller's edit.
+    pub(crate) fn place(&mut self, values: &Coordinates) {
+        for (id, e) in self.entities.iter_mut() {
+            let get = |c| values.get(&(*id, c)).copied();
+            match e {
+                Entity::Point { x, y } => {
+                    *x = get(Coordinate::X).unwrap_or(*x);
+                    *y = get(Coordinate::Y).unwrap_or(*y);
+                }
+                Entity::Circle { r, .. } => *r = get(Coordinate::R).unwrap_or(*r),
+                Entity::Line { .. } | Entity::Arc { .. } => {}
+            }
+        }
+    }
+
     fn kind_of(&self, id: EntityId) -> Result<EntityKind, ModelError> {
         self.entities
             .get(&id)

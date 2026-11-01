@@ -42,6 +42,17 @@ pub const LENGTH_RELATIVE: f64 = 1e-11;
 /// Dimensionless independence threshold for unit-normalized Jacobians.
 pub const RANK: f64 = 1e-10;
 
+/// Dimensionless stationarity that certifies a least-squares residual as a
+/// conflict (ADR-0005): `|Jᵀf|` at most this times `|(f_i |J_i|)|`, rows and
+/// residuals scaled as the solver scales them. Not [`RANK`]: an iteration
+/// that compares costs locates a stationary point only to a few `√ε`
+/// (1.5e-8; the C1 conflicting twins stop at 1.6e-10 to 3.2e-8). Not larger
+/// either: a zero-residual solution approached across a quadratic
+/// singularity keeps a ratio of about `√(2 LENGTH_RELATIVE)` (4.5e-6) while
+/// its residual is still above tolerance, so a slow but satisfiable solve
+/// is never certified.
+pub(crate) const STATIONARY: f64 = 1e-6;
+
 /// Length acceptance at a nonnegative finite component scale (ADR-0003).
 ///
 /// ```

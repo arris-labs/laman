@@ -12,7 +12,7 @@ kickoff, each closed by an ADR (SEED.md §10.8): the arc parametrisation;
 absolute vs. scale-relative tolerances; how branch preservation is defined
 and tested; whether the minimal conflict set is exact or a bounded
 approximation on large sketches. The arc parametrisation is closed by
-ADR-0001.
+ADR-0001, tolerances by ADR-0003, the conflict set by ADR-0005.
 
 | # | Title | Status |
 |---|---|---|
@@ -20,3 +20,4 @@ ADR-0001.
 | [0002](0002-regularize-structural-tangent-contacts.md) | Regularize structural tangent contacts | accepted |
 | [0003](0003-scale-relative-tolerances-and-rank-order.md) | Scale-relative tolerances and deterministic rank ordering | accepted |
 | [0004](0004-checker-tolerance-at-checked-coordinates.md) | The checker measures its tolerance at the coordinates it checks | accepted |
+| [0005](0005-conflict-sets-by-certified-deletion.md) | Conflict sets by certified deletion, redundancy by removal | accepted |

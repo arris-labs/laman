@@ -117,14 +117,26 @@ An entity whose geometry collapsed at the solution: a zero-length line, a
 zero radius, an arc whose ends meet. A diagnostic, never an error.
 
 **Redundant**:
-A constraint the others already imply at the solution: removing it loses
-no DoF. A warning, never a conflict.
+A constraint the others already imply at the solution: removing it frees
+no DoF. Of two duplicates the later is named (ADR-0005). A warning, never
+a conflict.
 _Avoid_: duplicate, over-constraint
 
 **Conflicting**:
-A set of constraints that cannot hold together; the conflict set is the
-minimal one named to blame.
+A set of constraints that cannot hold together; the conflict set is an
+inclusion-minimal one named to blame: every member has a removal witness,
+and its unsatisfiability is a local certificate (ADR-0005).
 _Avoid_: inconsistent, failed
+
+**Removal witness**:
+A converged re-solve of a conflict set with one member removed: the proof
+that the member is needed in the set.
+
+**Conflict certificate**:
+A least-squares point, outside tolerance, at which the weighted residual
+is a left null vector of the Jacobian to `STATIONARY`. No first-order
+motion reduces the residual there. It is local evidence of a conflict,
+never a proof that no solution exists anywhere (ADR-0005).
 
 **Generic rigidity**:
 Rigidity of a bar framework for points in general position, decided by

@@ -258,6 +258,50 @@ which chooses FMA kernels by CPU at run time. Engine code therefore forms
 products with explicit loops. The Cholesky decomposition and SVD it calls
 do not use that path.
 
+### Diagnose
+
+The internal `diagnose` analysis reads a solve's coordinates and returns
+the status, the freedom above, the redundant constraints, the conflict
+sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)).
+
+- **Status** comes from geometric acceptance at the coordinates, not from
+  the engine's stricter polishing target. It is `Unsatisfiable` when any
+  conflict set stands, `NotConverged` when some component fails without
+  one, and otherwise follows the DoF.
+- **Redundancy** removes satisfied constraints in reverse source order,
+  with contacts and scales recompiled, and names those whose removal keeps
+  the geometric DoF. A constraint it names stays removed, so of two
+  duplicates the later is named. It costs no solve.
+- **Conflicts**: for each failed component, a deletion filter in source
+  order over its constraints. Each test re-solves a copy of the sketch that
+  holds only the tested constraints, from the best effort and then from the
+  guesses. A subset counts as unsatisfiable only when a re-solve ends at a
+  certified stationary least-squares point: `|Jᵀf| ≤ STATIONARY ·
+  |(f_i |J_i|)|`, with `STATIONARY = 1e-6`. It counts as satisfiable when a
+  re-solve converges. Anything else is inconclusive. Every member a set
+  keeps has a converged removal witness, so the set is inclusion-minimal;
+  its unsatisfiability is the local certificate. Once a set is found, its
+  greatest id is set aside and the rest is filtered again for a further
+  set.
+- **Bound**: at most 256 re-solves per analysis, each under the caller's
+  caps. Running out is inconclusive.
+- **Degeneracy**: entities collapsed below the length tolerance, measured
+  with `Tolerances::at` like the checker, each with the equations that read
+  it. Separately, the equations whose residual is undefined or non-finite.
+
+Measured under both engines: the C1 bases and redundant twins take no
+re-solve and name exactly `right-angle`, `same-belt` and `level`. The
+conflicting twins take 6, 14 and 19 re-solves. No test needs its second
+start. The belt and plate sets are the roadmap's. The triangle's is
+{`base`, `right`, `apex`}, which is inclusion-minimal; the roadmap's
+four-member set is the residual's support (ADR-0005 Consequences). The
+C1 twins' best efforts end with stationarity 1.6e-10 to 3.2e-8, and their
+subsets' re-solves with 1e-14 to 3e-9. Two contradictory fixes cost LM the
+whole shared iteration budget, so a second component it never reached is
+re-solved alone before it is judged. A conflict whose descent shrinks a
+tangent line toward zero length certifies nothing and stays
+`NotConverged`.
+
 ## Branches
 
 A constraint system has discrete solutions: a circle tangent to a line on
@@ -379,6 +423,6 @@ value.
 
 - `⚠ OPEN:` branch preservation's definition and test (§Branches). ADR in
   M3.
-- `⚠ OPEN:` whether the minimal conflict set is exact or a bounded
-  approximation on large sketches (DATA-MODEL.md §Diagnostics). ADR in M2,
-  measured on cycle 2's sizes.
+- Closed by ADR-0005: a conflict set is inclusion-minimal, found by a
+  bounded deletion filter with local certificates, never a minimum. Cycle 2
+  measures the 256-re-solve bound again on its sizes.

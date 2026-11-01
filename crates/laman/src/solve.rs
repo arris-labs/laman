@@ -65,6 +65,9 @@ pub(crate) struct Options {
     pub max_evaluations: usize,
     pub initial_damping: f64,
     pub initial_radius: f64,
+    /// Re-solves the conflict analysis may spend in all (`diagnose::analysis`);
+    /// exhausting it is inconclusive, never a conflict.
+    pub max_analysis_solves: usize,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -74,6 +77,7 @@ impl Default for Options {
             max_evaluations: MAX_EVALUATIONS,
             initial_damping: INITIAL_DAMPING,
             initial_radius: INITIAL_RADIUS,
+            max_analysis_solves: crate::diagnose::MAX_ANALYSIS_SOLVES,
         }
     }
 }
@@ -232,6 +236,14 @@ pub(crate) fn solve(sketch: &Sketch, options: Options) -> Outcome {
         out.converged &= current.satisfied;
     }
     out
+}
+
+/// Whether every equation of `component` holds at `values` with geometric
+/// acceptance: the test that lets a satisfied input take no step, and the one
+/// the analysis reads.
+pub(crate) fn satisfied(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
+    system.evaluate(component, values).satisfied
+        && vector_acceptance(system, component, values, 1.0)
 }
 
 // A vector condition has one geometric length tolerance. In symmetry, the

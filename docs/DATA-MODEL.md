@@ -113,8 +113,8 @@ stored with it (ARCHITECTURE.md §Branches).
 The M2 contract uses `J`, the Jacobian of required equations after
 structural contact regularization (ADR-0002), including intrinsic equations,
 with respect to the `n` free parameters. Rank, DoF, per-entity DoF and
-free directions are computed (internal `diagnose`, public with the solve
-API); redundant, conflicting and degenerate sets are the remaining M2 work.
+free directions, redundant, conflicting and degenerate sets are computed
+(internal `diagnose`, public with the solve API; ADR-0005).
 
 - **Rank** uses scaled, unit-normalized rows and column-pivoted QR of `J`,
   with deterministic ties and null-space ordering (ADR-0003).
@@ -132,18 +132,30 @@ API); redundant, conflicting and degenerate sets are the remaining M2 work.
   listed. A row that cannot be evaluated finitely adds no rank, so the
   DoF there is an upper estimate. For a human: "this point can still slide along x". For an agent:
   which dimension to add.
-- **Redundant**: a satisfied constraint implied by the others. Analyze in
-  source order, recompiling contacts and their provenance on removal;
-  dependence of an original tangent equation alone proves nothing.
-  A later duplicate is named. Redundancy is a warning, not a status.
-- **Conflicting**: constraints established to be jointly unsatisfiable.
-  Linear dependence or a failed numerical solve alone proves no conflict.
-  `⚠ OPEN:` evidence and bounded inclusion-minimal analysis policy; the
-  conflict ADR in M2 defines the guarantee. Minimal means no member can
-  be removed, not minimum cardinality.
-- **Degenerate entities**: a line shorter than the length tolerance, a
-  circle or arc of radius below it, an arc whose end meets its start. Named
-  with the equation they make ill-conditioned.
+- **Redundant**: a satisfied constraint, in a satisfied component, whose
+  removal leaves the geometric DoF unchanged. Constraints are analyzed in
+  reverse source order, with contacts and their provenance recompiled on
+  each removal, and a constraint named stays removed. So a later duplicate
+  is named, and dependence of an original tangent equation alone proves
+  nothing. A partly implied constraint is not named. Redundancy is a
+  warning, not a status.
+- **Conflicting**: constraints established to be jointly unsatisfiable
+  (ADR-0005). A subset is unsatisfiable when a re-solve of it ends at a
+  least-squares point that is evaluable, outside tolerance and certified
+  stationary (`|Jᵀf| ≤ STATIONARY · |(f_i |J_i|)|`). That certificate is
+  local: it rules out a solution near that point, not one in another
+  basin. Linear dependence or a failed numerical solve alone proves
+  nothing. Each set is inclusion-minimal: every member has a removal
+  witness, a converged re-solve of the set without it. Minimal means no
+  member can be removed, not minimum cardinality. Not every conflict is
+  listed, and sets may overlap. Ground and intrinsic equations are never
+  named; a `fix` can be. An inconclusive or over-budget analysis names no
+  set, and its status is `NotConverged`.
+- **Degenerate entities**: at the solution, a line shorter than the length
+  tolerance, a circle or arc of radius below it, or an arc whose end meets
+  its start. Each is named with the equations that read it, which it makes
+  ill-conditioned. Equations whose residual is undefined or non-finite at
+  the solution are listed too.
 - **Flips**: each observed orientation that changed from the start
   (ARCHITECTURE.md §Branches), by constraint or entity.
 
