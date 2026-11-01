@@ -103,9 +103,12 @@ established here.
   equations are all within their unit's tolerance iff the checker reports
   no violation for it; every intrinsic equation is within tolerance; in
   each conflicting twin the added constraint, and only it, is not.
-- [ ] Step 7 **[1]** — the gate's time measured with the 1 000-case
+- [x] Step 7 **[1]** — the gate's time measured with the 1 000-case
   properties; if the gate passes a minute, the case count moves behind an
   env var with CI running 1 000, and that is recorded here.
+  Measured (warm cache, `timeout 590 tools/gate.sh` in the foreground):
+  **23 s** wall, green; `residual` alone 11.4 s of it. Under a minute, so
+  no env-var fallback: the count stays at 1 000 everywhere.
 
 ## Acceptance
 
