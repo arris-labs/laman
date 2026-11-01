@@ -1,0 +1,39 @@
+# Virtual workspace manifest. The crates and the layer rule between them are
+# SEED.md §7 until docs/ARCHITECTURE.md is written (SEED.md §10.2).
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/arris-labs/laman"
+homepage = "https://github.com/arris-labs/laman"
+# Resolved relative to this manifest, so every member inherits the one
+# workspace README as its crates.io front page.
+readme = "README.md"
+
+[workspace.dependencies]
+# Internal crates: path plus an exact version pin, so a version bump that
+# misses one fails `cargo check` (.agents/rules/git.md §The version).
+laman = { path = "crates/laman", version = "=0.0.1" }
+
+# External crates, pinned here and used with `workspace = true` (SEED.md §7).
+thiserror = "2.0"
+# `laman-py` only, and never on wasm32. Pinned to the minor, as in arris.
+# `extension-module` is `laman-py`'s own feature, set by maturin.
+pyo3 = { version = "0.26", default-features = false, features = ["macros", "abi3-py310"] }
+
+# Every crate opts in with `[lints] workspace = true` (.agents/rules/solver.md §API).
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+# No panics on any input (SEED.md §5): the hook and CI run clippy with
+# `-D warnings`, so these are errors there. Tests may unwrap (clippy.toml).
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"

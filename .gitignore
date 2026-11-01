@@ -1,0 +1,19 @@
+/target
+# proptest's own regression files: a property failure becomes a fixture
+# with its seed instead (.agents/rules/solver.md).
+proptest-regressions/
+# `inspect` skill output: SVG and text dumps of sketches under work.
+/target/inspect
+# Python: the binding's environment, bytecode, and the module
+# `maturin develop` drops beside the package.
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+/crates/laman-py/python/laman/*.so
+# Private working notes: pondered, not published. What survives becomes an
+# idea, an ADR or a design-doc section.
+/docs/notes/
+# Personal scratch crates and notebooks.
+/scratch
+.claude/settings.local.json

@@ -1,0 +1,31 @@
+[package]
+name = "laman-py"
+description = "Laman: the Python binding (PyPI `laman`), a thin layer over the crate"
+# Published to PyPI as `laman`, never to crates.io (SEED.md §7).
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "laman_py"
+# The cdylib is the extension module; the rlib keeps `cargo test` and clippy
+# working over the workspace.
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Set by maturin (`pyproject.toml`), never by a Rust build: an extension
+# module must not link libpython, a test binary must.
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+laman.workspace = true
+
+# pyo3 does not build for wasm32-unknown-unknown, so the crate is empty there.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pyo3.workspace = true
+
+[lints]
+workspace = true

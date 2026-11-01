@@ -1,0 +1,36 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "laman"
+# maturin reads the version from Cargo.toml, which inherits the workspace's.
+dynamic = ["version"]
+description = "A deterministic 2D geometric constraint solver in pure Rust. Early release: the generic rigidity count of bar frameworks (Laman's theorem)"
+readme = "../../README.md"
+requires-python = ">=3.10"
+license = { text = "MIT OR Apache-2.0" }
+keywords = ["constraint solver", "cad", "sketch", "geometry", "rigidity"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/arris-labs/laman"
+
+[project.optional-dependencies]
+test = ["pytest>=8", "mypy>=1.18"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "laman._laman"
+features = ["extension-module"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

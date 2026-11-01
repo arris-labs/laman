@@ -1,0 +1,35 @@
+# Tests may unwrap: a failing unwrap is the test failing (SEED.md §5 holds
+# the library, not its tests).
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+
+# Transcendental functions go through `libm`, pinned exactly (SEED.md §7,
+# §9): the std methods are the platform's libm, and a last-place difference
+# between targets is a different solution. Not listed, because IEEE 754
+# makes them exact or correctly rounded everywhere: sqrt, mul_add, abs,
+# floor, ceil, round, trunc, rem_euclid, min, max, to_radians.
+disallowed-methods = [
+    { path = "f64::sin", reason = "use libm::sin (SEED.md §9, determinism)" },
+    { path = "f64::cos", reason = "use libm::cos (SEED.md §9, determinism)" },
+    { path = "f64::tan", reason = "use libm::tan (SEED.md §9, determinism)" },
+    { path = "f64::asin", reason = "use libm::asin (SEED.md §9, determinism)" },
+    { path = "f64::acos", reason = "use libm::acos (SEED.md §9, determinism)" },
+    { path = "f64::atan", reason = "use libm::atan (SEED.md §9, determinism)" },
+    { path = "f64::atan2", reason = "use libm::atan2 (SEED.md §9, determinism)" },
+    { path = "f64::sin_cos", reason = "use libm::sincos (SEED.md §9, determinism)" },
+    { path = "f64::sinh", reason = "use libm::sinh (SEED.md §9, determinism)" },
+    { path = "f64::cosh", reason = "use libm::cosh (SEED.md §9, determinism)" },
+    { path = "f64::tanh", reason = "use libm::tanh (SEED.md §9, determinism)" },
+    { path = "f64::exp", reason = "use libm::exp (SEED.md §9, determinism)" },
+    { path = "f64::exp_m1", reason = "use libm::expm1 (SEED.md §9, determinism)" },
+    { path = "f64::ln", reason = "use libm::log (SEED.md §9, determinism)" },
+    { path = "f64::ln_1p", reason = "use libm::log1p (SEED.md §9, determinism)" },
+    { path = "f64::log", reason = "use libm (SEED.md §9, determinism)" },
+    { path = "f64::log2", reason = "use libm::log2 (SEED.md §9, determinism)" },
+    { path = "f64::log10", reason = "use libm::log10 (SEED.md §9, determinism)" },
+    { path = "f64::cbrt", reason = "use libm::cbrt (SEED.md §9, determinism)" },
+    { path = "f64::hypot", reason = "use libm::hypot (SEED.md §9, determinism)" },
+    { path = "f64::powf", reason = "use libm::pow (SEED.md §9, determinism)" },
+    { path = "f64::powi", reason = "use libm::pow (SEED.md §9, determinism)" },
+]
