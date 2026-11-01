@@ -200,10 +200,12 @@ impl View<'_> {
     fn ends(&self, l: Line) -> Result<(Xy, Xy), Missing> {
         match self.sketch.entity(l.id()) {
             Some(Entity::Line { a, b }) => Ok((self.at(*a)?, self.at(*b)?)),
-            _ => Err(Missing {
-                id: l.id(),
-                coordinate: None,
-            }),
+            Some(Entity::Point { .. } | Entity::Circle { .. } | Entity::Arc { .. }) | None => {
+                Err(Missing {
+                    id: l.id(),
+                    coordinate: None,
+                })
+            }
         }
     }
 
@@ -218,7 +220,16 @@ impl View<'_> {
                 let (centre, start) = (self.at(*c)?, self.at(*s)?);
                 Ok((centre, dist(centre, start)))
             }
-            _ => Err(Missing {
+            (
+                Round::Circle(_) | Round::Arc(_),
+                Some(
+                    Entity::Point { .. }
+                    | Entity::Line { .. }
+                    | Entity::Circle { .. }
+                    | Entity::Arc { .. },
+                )
+                | None,
+            ) => Err(Missing {
                 id: x.id(),
                 coordinate: None,
             }),

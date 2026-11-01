@@ -601,12 +601,12 @@ impl Sketch {
                 let (c, s) = (self.xy(*c)?, self.xy(*s)?);
                 Ok((c, length(s, c)))
             }
-            (_, Some(other)) => Err(ModelError::WrongKind {
+            (Round::Circle(_) | Round::Arc(_), Some(other)) => Err(ModelError::WrongKind {
                 id: r.id(),
                 expected: r.kind(),
                 found: other.kind(),
             }),
-            (_, None) => Err(ModelError::UnknownId { id: r.id() }),
+            (Round::Circle(_) | Round::Arc(_), None) => Err(ModelError::UnknownId { id: r.id() }),
         }
     }
 
