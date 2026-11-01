@@ -117,7 +117,11 @@ alone.*
   (`docs/BACKLOG.md`).
 - Out: anything C2.
 - Accept: the C1 acceptance below, in full, from `cargo test` and pytest;
-  the comparison (COMPARISON.md) re-read against the code.
+  the comparison (COMPARISON.md) re-read against the code;
+  `sketch-solver`, `acs-solver` and `ezpz` run out of process
+  (`tools/oracle/`) on the four fixtures and their twins, with their
+  status, DoF and conflict sets (not coordinates) recorded in
+  COMPARISON.md.
 
 ### C1 acceptance
 

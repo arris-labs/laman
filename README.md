@@ -5,10 +5,14 @@ Python, built to be trusted.
 
 `laman` is a library for sketchers, code-CAD tools, mechanism designers and
 anything else that places points, lines, circles and arcs under geometric
-and dimensional constraints. Its aim: the exact remaining degrees of
-freedom of a sketch, the constraints to blame when it cannot be satisfied,
-smooth interactive dragging, and the same bits on every platform, under
-MIT OR Apache-2.0.
+and dimensional constraints. Its aim: the permissively licensed sketch
+solver Python does not have, built from the same Rust core as the crate;
+diagnostics in the caller's own ids and tags (the exact remaining degrees
+of freedom, per entity, and the constraints to blame when a sketch cannot
+be satisfied); dragging that keeps the solution the user is on and returns
+the same bits on every platform; and every solve re-checkable by an
+independent verifier that shares no code with the solver. MIT OR
+Apache-2.0.
 
 ## Status
 

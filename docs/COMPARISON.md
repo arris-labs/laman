@@ -21,9 +21,10 @@ named, MIT OR Apache-2.0. **For Python the gap stands**: the solvers on
 PyPI are GPL (SolveSpace's) or LGPL (PlaneGCS's), and none of the Rust
 solvers publishes a Python package.
 
-What that leaves laman, in SEED.md §4's order, is in §Where laman would
-differ. Whether it is still worth building as planned is the human's call
-(AGENTS.md "Current state").
+What that leaves laman is in §Where laman would differ, differences in
+kind first. Laman goes ahead as planned on those grounds (decided
+2026-11-01; SEED.md §3 carries a dated note). Being deterministic and pure
+Rust is now what a solver is expected to have, not a reason for laman.
 
 ## The field
 
@@ -53,23 +54,23 @@ claim about today.
 2. **An independent checker.** None of the surveyed solvers documents a
    verifier that shares no code with its residuals; laman's `laman-check`
    does (ARCHITECTURE.md §The checker).
-3. **Diagnostics as the product, named by the caller.** `sketch-solver`
-   and `acs-solver` already name redundant and conflicting constraints.
-   Laman adds the caller's tags and payloads in every item, per-entity DoF
-   and free directions mapped to entities, and minimal conflict sets
-   (DATA-MODEL.md §Diagnostics). The difference is degree, not kind.
-4. **Interactive and deterministic together.** `sketch-solver` is
+3. **Interactive and deterministic together.** `sketch-solver` is
    deterministic but stateless; `acs-solver` and `arael` drag but claim no
    determinism. Laman's drag session is warm-started, least-change and
    branch-keeping, and its digests are held equal on native and wasm32
    (ARCHITECTURE.md §Drag sessions, §Determinism).
+4. **Diagnostics as the product, named by the caller.** `sketch-solver`
+   and `acs-solver` already name redundant and conflicting constraints.
+   Laman adds the caller's tags and payloads in every item, per-entity DoF
+   and free directions mapped to entities, and minimal conflict sets
+   (DATA-MODEL.md §Diagnostics). The difference is degree, not kind.
 
 ## What is not claimed
 
-- No benchmark: nothing in this file was run. A comparison by numbers
-  would run each solver out of process on laman's fixture corpus
-  (`tools/oracle/`, SEED.md §7) and compare DoF and conflict sets, not
-  coordinates.
+- No benchmark: nothing in this file was run yet. C1's M4 runs
+  `sketch-solver`, `acs-solver` and `ezpz` out of process on laman's
+  fixture corpus (`tools/oracle/`, SEED.md §7; ROADMAP.md §M4) and records
+  their status, DoF and conflict sets here, not coordinates.
 - No capability laman does not yet have: today it is `laman::rigidity`.
 - The rows for other solvers come from their own documentation and
   registry metadata on the survey date; a project's documentation can

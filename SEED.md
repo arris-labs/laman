@@ -24,6 +24,8 @@ There is no permissively licensed, standalone 2D constraint solver of sketcher g
 * **Generic optimisers** (`scipy.optimize` and the like) are what code-CAD users fall back on. They minimise residuals but know nothing of degrees of freedom, redundancy or conflict, and the user writes the trigonometry by hand.
 * **In Rust** there is, as far as we know, no maintained crate at this level. This is surveyed and recorded in `docs/COMPARISON.md` before the first release (§10).
 
+> **Note (2026-11-01).** The re-survey (`docs/COMPARISON.md`) found the Rust half of this false: several MIT or MIT/Apache crates already offer DoF analysis, and one (`sketch-solver`) claims determinism across targets. The Python half stands. Cycle 1 goes ahead as planned. Laman's claim now rests on what no neighbour offers: a permissive Python package, the independent checker, and drag that is both deterministic and branch-keeping. Diagnostics in the caller's ids lead in degree.
+
 So the problem is not "minimise some residuals". It is: give a sketch an exact count of its remaining freedom, name the constraints that are to blame when it cannot be satisfied, behave smoothly under interactive editing, and return the same bits on every platform, under a licence nobody has to think about.
 
 ## 4. Competitive Landscape (as of November 2026; to be re-surveyed, §10)

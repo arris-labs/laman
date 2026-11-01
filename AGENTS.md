@@ -33,11 +33,9 @@ generic rigidity count of bar frameworks (`laman::rigidity`). The docs
 system, tooling and design docs are written (SEED.md §10.1–5); the arc
 parametrisation is closed (ADR-0001). C1 is laid out as M0–M4 with its
 acceptance fixtures as numbers (`docs/ROADMAP.md`).
-**Open for the human**: the re-survey (`docs/COMPARISON.md`) found
-permissive Rust solvers SEED.md §3 did not know of, one (`sketch-solver`)
-nearly identical in aim; the Python gap stands. Whether C1 goes ahead as
-planned is a positioning call.
-**Next:** that call, then `/plan` M0 (the model and the harness).
+C1 goes ahead as planned; the claim rests on the Python gap, the checker
+and deterministic branch-keeping drag (`docs/COMPARISON.md`, SEED.md §3 note).
+**Next:** `/plan` M0 (the model and the harness).
 
 ## Rules that are not derivable from the code
 
