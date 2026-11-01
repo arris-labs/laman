@@ -47,6 +47,8 @@ reasons are in `SEED.md` §5 and §9.
   Procedure: `inspect` skill.
 - **Property tests over hand-picked cases**: random sketches built by
   construction (`proptest`, `hypothesis`), shrinking to fixtures.
+- **A guarantee over all finite input is tested at f64's extremes**
+  (magnitudes near 1e±300), not only at sketch scales.
 - **No input panics** is tested by the fuzzer (`cargo fuzz`, outside the
   workspace), not asserted.
 

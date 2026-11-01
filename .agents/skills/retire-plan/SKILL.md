@@ -26,7 +26,8 @@ Deletion is the "done" signal; anything worth keeping moves first.
    `.agents/rules/solver.md`, `GLOSSARY.md`, and the plan's commits: `git
    log --format='%h %s' --grep='plans/<slug>'` (it reads each with `git
    show`). Report its findings by axis. Fix a hard finding in its own
-   commit (`fix(scope): … (plans/<slug> review)`). A judgement finding the
+   commit (`fix(scope): … (plans/<slug> review)`), with a test seen
+   failing on the unfixed code. A judgement finding the
    agent decides on the charter's terms (`SEED.md`), stating the decision
    and its reason in the reply; only a product question waits for the
    human. One left for later is a backlog line.
