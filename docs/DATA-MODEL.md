@@ -1,3 +1,195 @@
 # Data model
 
-Entity parametrisations (closing the arc ⚠ OPEN), each constraint's equations, DoF removed and intrinsic constraints, diagnostic semantics, the serde form and its versioning. To be written (SEED.md §10.3).
+What a sketch holds and what each part means as equations: entity
+parametrisations, every constraint's residuals and the DoF it removes,
+what the diagnostics report, and the serde form. How the pieces are
+stored and solved is [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Conventions
+
+- The plane is `(x, y)`, right-handed: counter-clockwise is positive.
+  Angles are radians, measured counter-clockwise from `+x`.
+- Units are the caller's (SEED.md §9). Every length a constraint carries
+  is in them.
+- `f64` throughout.
+- Notation below: a point `p = (x_p, y_p)`; a line `L` from `a` to `b` with
+  direction `u = b − a`; `cross(v, w) = v_x w_y − v_y w_x`; `|v|` the
+  Euclidean length (`sqrt`, correctly rounded). `r(X)` is the radius of a
+  circle or arc `X` (§Entities).
+
+## Entities
+
+| Entity | Defined by | Own parameters | Intrinsic equations | DoF (free, alone) |
+|---|---|---|---|---|
+| Point | — | `x`, `y` | — | 2 |
+| Line segment `L` | start point `a`, end point `b` | — | — | 4 (its points') |
+| Circle `C` | centre point `c` | radius `r` | — | 3 |
+| Arc `A` | centre `c`, start `s`, end `e` (ADR-0001) | — | `|e − c| − |s − c| = 0` | 5 |
+
+- Lines, circles and arcs **refer** to points; two entities that share a
+  point share its parameters. That is how a profile joins up: no
+  coincident constraint between a line's end and an arc's end that are the
+  same point.
+- `r(C)` is the circle's parameter; `r(A) = |s − c|`.
+- An arc runs counter-clockwise from `s` to `e`. Its sweep is
+  `atan2(cross(s − c, e − c), dot(s − c, e − c))`, taken in `(0, 2π)`. It
+  is observed, never an equation (ARCHITECTURE.md §Branches).
+- A line's end points are distinct, a circle's centre is not a point of
+  the circle, an arc's three points are distinct: the sketch refuses an
+  entity that names one point twice. At a solution they can still
+  coincide numerically; that is a **degenerate** entity (§Diagnostics).
+- A point with both coordinates fixed is **ground**. Any parameter can be
+  fixed alone (a circle's radius, a point's `x`).
+
+## Constraints
+
+Each constraint is one or more residual equations `f = 0`, written in
+length units (dimensionless ones where noted) so that one tolerance reads
+the same everywhere. "Removes" is the DoF the constraint takes away when
+its equations are independent of the rest; diagnostics measure the real
+number from the rank (§Diagnostics). A **sense** `σ ∈ {+1, −1}` is fixed
+when the constraint is added, from the sketch's current coordinates, and
+stored with it (ARCHITECTURE.md §Branches).
+
+| Constraint | Entities | Equations | Removes |
+|---|---|---|---|
+| `coincident` | points `p`, `q` | `x_p − x_q`, `y_p − y_q` | 2 |
+| `point_on_line` | point `p`, line `L` | `cross(u, p − a) / |u|` (signed distance to the infinite line) | 1 |
+| `point_on_circle` | point `p`, circle or arc `X` | `|p − c| − r(X)` (on the arc's whole circle; whether `p` is inside the sweep is observed) | 1 |
+| `horizontal` | line `L`, or points `p`, `q` | `y_b − y_a` | 1 |
+| `vertical` | line `L`, or points `p`, `q` | `x_b − x_a` | 1 |
+| `parallel` | lines `L1`, `L2` | `cross(u1, u2) / (|u1| |u2|)` (dimensionless) | 1 |
+| `perpendicular` | lines `L1`, `L2` | `dot(u1, u2) / (|u1| |u2|)` (dimensionless) | 1 |
+| `equal_length` | lines `L1`, `L2` | `|u1| − |u2|` | 1 |
+| `equal_radius` | circles or arcs `X`, `Y` | `r(X) − r(Y)` | 1 |
+| `tangent` (line–circle) | line `L`, circle or arc `X` | `cross(u, c − a) / |u| − σ r(X)`, σ the side of `L` the centre is on | 1 |
+| `tangent` (circle–circle) | circles or arcs `X`, `Y` | external: `|c_X − c_Y| − (r(X) + r(Y))`; internal: `|c_X − c_Y| − σ (r(X) − r(Y))`, the contact kind and σ from the drawing | 1 |
+| `midpoint` | point `p`, line `L` | `x_p − (x_a + x_b)/2`, `y_p − (y_a + y_b)/2` | 2 |
+| `symmetric` | points `p`, `q`, line `L` | `cross(u, m − a) / |u|` with `m = (p + q)/2`; `dot(u, q − p) / |u|` | 2 |
+| `fix` | point `p`, at `(x₀, y₀)` | `x_p − x₀`, `y_p − y₀` | 2 |
+| `distance` | points `p`, `q`, value `d > 0` | `|q − p| − d` | 1 |
+| `point_line_distance` | point `p`, line `L`, value `d > 0` | `cross(u, p − a) / |u| − σ d`, σ the side of `L` `p` is on | 1 |
+| `radius` | circle or arc `X`, value `ρ > 0` | `r(X) − ρ` | 1 |
+| `angle` | lines `L1`, `L2`, value `θ ∈ (0, π)` | `(cross(u1, u2) cos θ − dot(u1, u2) sin θ) / (|u1| |u2|)`, i.e. `sin(φ − θ)` for the angle `φ` from `L1` to `L2` (dimensionless) | 1 |
+
+- **Distance 0 is coincidence**: `distance` and `point_line_distance`
+  refuse `d ≤ 0` (`ModelError::DimensionOutOfRange`, naming `coincident`
+  and `point_on_line`), because `|q − p|` has no gradient at `p = q`.
+- **`fix` versus a fixed point**: `point_fixed` makes the coordinates
+  ground and removes them from the unknowns; `fix` keeps them unknown and
+  adds two equations. Only `fix` can be named in a conflict set.
+- **`angle` and `parallel` have a second root** (`φ = θ + π`; antiparallel
+  lines). The orientation of the two lines is observed, and its change is
+  a flip (ARCHITECTURE.md §Branches).
+- **Transcendentals**: only `angle` uses any, `cos θ` and `sin θ` of its
+  constant value, through `libm`, once when the system is compiled.
+- **Jacobians** are analytic, written beside each residual in
+  `laman::residual`, and checked against central finite differences for
+  every constraint over random non-degenerate configurations and the
+  near-degenerate ones a strategy can reach (a line of length `1e-6` times
+  the sketch's size, a point on the line, tangent circles of nearly equal
+  radius) (`.agents/rules/solver.md`).
+- **Not in cycle 1**: point–circle distance, concentric, collinear (two
+  `point_on_line`), diameter (a `radius` of half), arc length, sweep
+  angle, ellipses, splines (SEED.md §6, later cycles). A kind enters when
+  a consumer reaches it (SEED.md §8).
+
+## Diagnostics
+
+Computed at the solution from `J`, the Jacobian of every required equation
+(intrinsic equations included) with respect to the free parameters, in
+compiled order (ARCHITECTURE.md §Solve). `n` is the number of free
+parameters.
+
+- **Rank** by column-pivoted QR of `Jᵀ`: rows are taken in compiled order,
+  and a row is **dependent** when its component outside the span of the
+  rows before it is below the rank tolerance relative to the row's norm.
+  So of two constraints that say the same thing, the later one is named.
+- **DoF** `= n − rank`. It counts the motions of the whole sketch too: a
+  sketch with no ground has DoF ≥ 3.
+- **Per-entity DoF**: the null space `N` of `J` (an orthonormal basis from
+  the same factorisation); an entity's DoF is the rank of `N`'s rows for
+  its parameters (a line's: its two points'). A fully constrained entity
+  has 0.
+- **Free directions**: `N`'s columns, each mapped back to the motion of
+  every entity it moves (`[(EntityId, Coordinate, f64)]`), in compiled
+  order. For a human: "this point can still slide along x". For an agent:
+  which dimension to add.
+- **Redundant**: a constraint whose every equation is dependent, with
+  every residual within tolerance. Removing it loses no DoF. A warning:
+  the status stays what it would be without it.
+- **Conflicting**: a dependent equation whose residual stays above
+  tolerance at the best solution. Its **conflict set** is the constraint
+  itself and those whose rows enter its expression in terms of the
+  independent rows before it (the nonzero coefficients of the least-squares
+  combination, above the rank tolerance), deduplicated by constraint, in
+  id order. Removing any one member of a minimal set makes the rest
+  satisfiable.
+  `⚠ OPEN:` whether that set is exactly minimal or a bounded
+  approximation on large sketches (SEED.md §10.8); ADR in M2.
+- **Degenerate entities**: a line shorter than the length tolerance, a
+  circle or arc of radius below it, an arc whose end meets its start. Named
+  with the equation they make ill-conditioned.
+- **Flips**: each observed orientation that changed from the start
+  (ARCHITECTURE.md §Branches), by constraint or entity.
+
+Every item names constraints and entities as `(id, kind, tag)`; the caller's
+payload is reachable through the id.
+
+### Status
+
+| Status | Means |
+|---|---|
+| `FullyConstrained` | every required residual within tolerance, DoF 0 (so the sketch has ground or `fix`: the whole sketch's motions count) |
+| `UnderConstrained` | every required residual within tolerance, DoF above that |
+| `Unsatisfiable` | a conflict set exists; the coordinates are the least-squares best effort |
+| `NotConverged` | an iteration cap was hit with residuals above tolerance and no conflict proven |
+
+Redundant constraints, flips and degenerate entities ride on any status
+as diagnostics; none of them changes it. `Unsatisfiable` takes precedence
+over `UnderConstrained`: a sketch can conflict in one place and be free in
+another, and the diagnostics say both.
+
+`⚠ OPEN:` the rank tolerance and every residual tolerance, absolute or
+scale-relative (ARCHITECTURE.md §Solve).
+
+## The serde form
+
+JSON (or any serde format) with this shape:
+
+```json
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    { "id": 0, "kind": "point", "x": 0.0, "y": 0.0, "fixed": ["x", "y"], "tag": "origin" },
+    { "id": 1, "kind": "point", "x": 40.0, "y": 5.0 },
+    { "id": 2, "kind": "line", "a": 0, "b": 1, "construction": false },
+    { "id": 3, "kind": "circle", "c": 1, "r": 10.0 },
+    { "id": 4, "kind": "arc", "c": 1, "s": 5, "e": 6 }
+  ],
+  "constraints": [
+    { "id": 0, "kind": "horizontal", "line": 2 },
+    { "id": 1, "kind": "distance", "a": 0, "b": 1, "value": 50.0, "tag": "base" },
+    { "id": 2, "kind": "tangent", "line": 2, "circle": 3, "sense": -1 }
+  ]
+}
+```
+
+- Entities and constraints in id order; an entity's points before it.
+  Fields absent when default (`fixed: []`, no tag, no payload,
+  `construction: false`). A payload is base64 bytes.
+- Senses are stored, so a reloaded sketch keeps its branches. A missing
+  sense is taken from the coordinates at load, as on `add`.
+- Floats round-trip exactly (`float_roundtrip`); a fixture's 17 digits are
+  the solver's input bits.
+- **Versioning**: `version` is an integer. A reader loads every version up
+  to its own, migrating in code, and refuses a newer one with
+  `ModelError::FormatVersion { found, supported }`. A change a reader
+  could not ignore bumps it; adding an optional field does not.
+- Loading validates exactly as the builder does (ARCHITECTURE.md §The
+  sketch and its ids): a malformed file is a `ModelError` naming the id.
+
+`Solution` and the checker's `Report` serialise in the same style
+(`"format": "laman.solution"`, `"laman.report"`), for the dumps and for
+agents that read them.

@@ -29,13 +29,15 @@ rustup target add wasm32-unknown-unknown   # rust-toolchain.toml asks for it; th
 ## Current state
 
 **0.0.1 published** (2026-11-01) on crates.io and PyPI as `laman`: the
-generic rigidity count of bar frameworks (`laman::rigidity`, the (2,3)
-pebble game), reserving both names with a real release. The docs system and
-tooling are scaffolded; the design docs are stubs.
-**Next:** SEED.md §10 directives 2–5: `docs/ARCHITECTURE.md`,
-`docs/DATA-MODEL.md` (closing the arc parametrisation), `docs/COMPARISON.md`,
-`docs/ROADMAP.md` with cycle 1's acceptance as numbers; then `/plan` the
-harness (§10.6).
+generic rigidity count of bar frameworks (`laman::rigidity`). The docs
+system, tooling and design docs are written (SEED.md §10.1–5); the arc
+parametrisation is closed (ADR-0001). C1 is laid out as M0–M4 with its
+acceptance fixtures as numbers (`docs/ROADMAP.md`).
+**Open for the human**: the re-survey (`docs/COMPARISON.md`) found
+permissive Rust solvers SEED.md §3 did not know of, one (`sketch-solver`)
+nearly identical in aim; the Python gap stands. Whether C1 goes ahead as
+planned is a positioning call.
+**Next:** that call, then `/plan` M0 (the model and the harness).
 
 ## Rules that are not derivable from the code
 

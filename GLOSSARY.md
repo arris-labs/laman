@@ -23,10 +23,32 @@ A geometric object of a sketch built from parameters: a point, line
 segment, circle or arc.
 _Avoid_: primitive, element, shape
 
+**Ground**:
+A fixed parameter, or a point with both coordinates fixed: not an unknown,
+never blamed (DATA-MODEL.md §Entities). The `fix` constraint is not
+ground: it is an equation.
+_Avoid_: anchor, locked
+
+**Construction**:
+A flag on an entity: it solves like any other and is left out of profiles
+(ARCHITECTURE.md §The sketch and its ids).
+_Avoid_: helper geometry, reference geometry
+
 **Constraint**:
 A relation the solve must make true between entities, written as one or
 more residual equations. A dimension is a constraint with a value.
 _Avoid_: rule, relation
+
+**Intrinsic equation**:
+An equation an entity carries by its definition, not a constraint the
+caller added: an arc's end on its start's circle (ADR-0001).
+_Avoid_: internal constraint, implicit constraint
+
+**Sense**:
+The root of a multi-root constraint chosen from the drawing when it is
+added and stored with it: the side of a tangent, internal or external
+contact (ARCHITECTURE.md §Branches).
+_Avoid_: orientation (an observed orientation is not stored), flag
 
 **Dimension**:
 A constraint carrying a caller's value: distance, point–line distance,
@@ -65,6 +87,14 @@ Degrees of freedom left in a sketch or an entity, counted from the rank of
 the constraint Jacobian at the solution.
 _Avoid_: freedom count, mobility
 
+**Free direction**:
+A motion of the sketch the constraints allow at the solution, a null-space
+vector of the Jacobian mapped to the entities it moves.
+
+**Degenerate**:
+An entity whose geometry collapsed at the solution: a zero-length line, a
+zero radius, an arc whose ends meet. A diagnostic, never an error.
+
 **Redundant**:
 A constraint the others already imply at the solution: removing it loses
 no DoF. A warning, never a conflict.
@@ -86,6 +116,15 @@ A solve that starts from the previous solution's parameters.
 A sequence of solves that moves a target point while the rest of the
 sketch follows, by priority, with least change.
 _Avoid_: drag solve, interactive solve
+
+**Goal**:
+The priority of a drag target's equations: solved within the freedom the
+required constraints leave, never blamed in a conflict.
+_Avoid_: soft constraint, weight
+
+**Flip**:
+A change of branch between solves: an observed orientation that differs
+from the last solution's. Named in diagnostics.
 
 **Branch**:
 Which of a constraint system's discrete solutions a sketch sits on (which

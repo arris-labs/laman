@@ -8,7 +8,7 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 [Findings](#findings) below, in the fixed shape.
 
 - Release automation: a `release.yml` that publishes the crate and multi-platform abi3 wheels (Linux, macOS, Windows; manylinux older than 2_34) from a pushed `v*` tag, each behind an environment reviewer, and a `/release` skill, before the first 0.1.0. 0.0.1 went up by hand with one `manylinux_2_34_x86_64` wheel and the sdist
-- `laman-check` as a crates.io name: publish it with the solver's first release, or keep it `publish = false` and say why in ARCHITECTURE.md
+- `laman-check` on crates.io: ARCHITECTURE.md plans to publish it with the solver's first release (Python users get it as `laman.check`); reserve the name then
 - Trademark search for "LAMAN" in software classes (WIPO, EUIPO, USPTO) before the solver's first public release (SEED.md §2); the human's
 - The GitHub repository `arris-labs/laman` (the crates' `repository` URL and the README's SEED link point there); the human's
 - `/retro`'s session digest: port arris's `session-digest` script when the first plan has sessions to mine
