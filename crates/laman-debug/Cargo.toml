@@ -1,0 +1,19 @@
+[package]
+name = "laman-debug"
+description = "Laman's tooling: fixture loading, dumps, digests and proptest strategies"
+# Only ever a dev-dependency (docs/ARCHITECTURE.md §Crates).
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+laman.workspace = true
+serde_json.workspace = true
+proptest.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

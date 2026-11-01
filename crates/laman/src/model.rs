@@ -22,9 +22,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 mod constraint;
+#[cfg(feature = "serde")]
+mod form;
 pub mod tolerance;
 
 pub use constraint::{Constraint, ConstraintKind, Contact, Round, Sense, Span};
+#[cfg(feature = "serde")]
+pub use form::SketchForm;
 
 /// The identifier of an entity, stable for the life of its sketch.
 ///
@@ -308,6 +312,42 @@ pub enum ModelError {
         id: EntityId,
         /// The coordinate asked for.
         coordinate: Coordinate,
+    },
+    /// A file's `version` is newer than this reader loads, or is not a
+    /// version at all (0).
+    #[error("sketch format version {found} is not loadable here (supported: 1 to {supported})")]
+    FormatVersion {
+        /// The version the file declares.
+        found: u64,
+        /// The newest version this reader loads.
+        supported: u64,
+    },
+    /// A file's `format` is not `laman.sketch`.
+    #[error("format {found:?} is not a laman sketch (wanted \"laman.sketch\")")]
+    WrongFormat {
+        /// The format the file declares.
+        found: String,
+    },
+    /// A payload in a file is not valid base64.
+    #[error("payload is not valid base64")]
+    InvalidPayload,
+    /// Loading a file failed at this entity; `source` says why.
+    #[error("{id}: {source}")]
+    Entity {
+        /// The entity of the file being loaded.
+        id: EntityId,
+        /// What was wrong with it.
+        #[source]
+        source: Box<ModelError>,
+    },
+    /// Loading a file failed at this constraint; `source` says why.
+    #[error("{id}: {source}")]
+    Constraint {
+        /// The constraint of the file being loaded.
+        id: ConstraintId,
+        /// What was wrong with it.
+        #[source]
+        source: Box<ModelError>,
     },
     /// An entity is still used and the caller did not ask for the cascade.
     #[error("{id} is still used by {} entities and {} constraints", .entities.len(), .constraints.len())]

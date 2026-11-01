@@ -88,7 +88,7 @@ locally first), so the plan stays on `main`.
   (`WrongKind`, `RepeatedEntity`, `DimensionOutOfRange` naming
   `coincident`/`point_on_line`, `NonFinite`), senses from the drawing,
   `model::tolerance`. A test per refusal and per sense rule, ties included.
-- [ ] Step 3 **[2]**: the serde form (versioning, `FormatVersion`, base64,
+- [x] Step 3 **[2]**: the serde form (versioning, `FormatVersion`, base64,
   defaults omitted, load via the builder); the `laman-debug` skeleton with
   `strategy`. The byte-for-byte round-trip property over 1 000 cases, and a
   test per malformed file naming its id.

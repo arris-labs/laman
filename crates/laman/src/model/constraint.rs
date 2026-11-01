@@ -41,7 +41,7 @@ impl Sense {
     }
 
     /// The side a signed quantity is on; zero, exactly, is `Positive`.
-    fn of(value: f64) -> Sense {
+    pub(crate) fn of(value: f64) -> Sense {
         if value < 0.0 {
             Sense::Negative
         } else {
@@ -569,7 +569,7 @@ fn length(a: Xy, b: Xy) -> f64 {
 }
 
 impl Sketch {
-    fn xy(&self, p: Point) -> Result<Xy, ModelError> {
+    pub(crate) fn xy(&self, p: Point) -> Result<Xy, ModelError> {
         match self.entities.get(&p.id()) {
             Some(Entity::Point { x, y }) => Ok((*x, *y)),
             Some(other) => Err(ModelError::WrongKind {
@@ -594,7 +594,7 @@ impl Sketch {
     }
 
     /// Centre and radius of a circle, or of an arc's whole circle (`|s − c|`).
-    fn centre_radius(&self, r: Round) -> Result<(Xy, f64), ModelError> {
+    pub(crate) fn centre_radius(&self, r: Round) -> Result<(Xy, f64), ModelError> {
         match (r, self.entities.get(&r.id())) {
             (Round::Circle(_), Some(Entity::Circle { c, r })) => Ok((self.xy(*c)?, *r)),
             (Round::Arc(_), Some(Entity::Arc { c, s, .. })) => {

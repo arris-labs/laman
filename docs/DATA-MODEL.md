@@ -176,19 +176,40 @@ JSON (or any serde format) with this shape:
 }
 ```
 
-- Entities and constraints in id order; an entity's points before it.
-  Fields absent when default (`fixed: []`, no tag, no payload,
-  `construction: false`). A payload is base64 bytes.
+- Entities and constraints in id order, each entity after the points it
+  refers to. Members in the order shown: `id`, `kind`, the kind's own
+  fields, then `construction`, `fixed`, `tag`, `payload`. Fields absent
+  when default (`fixed: []`, no tag, no payload, `construction: false`). A
+  payload is standard base64 with padding.
+- Constraint fields by kind: `coincident`, `parallel`, `perpendicular`,
+  `equal_length`, `equal_radius`, `angle` (with `value`), `distance` (with
+  `value`) take `a`, `b`; `point_on_line` and `midpoint` take `point`,
+  `line`; `point_on_circle` takes `point`, `circle`; `horizontal` and
+  `vertical` take `line` or `a`, `b` (two points); `symmetric` takes `a`,
+  `b`, `axis`; `fix` takes `point`, `x`, `y`; `point_line_distance` takes
+  `point`, `line`, `value`, `sense`; `radius` takes `circle`, `value`.
+  Wherever a circle is named, an arc's id works too. `tangent` takes
+  `line`, `circle`, `sense` (line–circle), or `a`, `b`, `contact`
+  (`"external"` or `"internal"`) and, for internal, `sense` (circle–circle).
 - Senses are stored, so a reloaded sketch keeps its branches. A missing
-  sense is taken from the coordinates at load, as on `add`.
+  sense, or a missing `contact`, is taken from the coordinates at load, as
+  on `add` (a centre exactly on the line is `+1`; a contact tie is
+  external).
 - Floats round-trip exactly (`float_roundtrip`); a fixture's 17 digits are
   the solver's input bits.
 - **Versioning**: `version` is an integer. A reader loads every version up
   to its own, migrating in code, and refuses a newer one with
   `ModelError::FormatVersion { found, supported }`. A change a reader
-  could not ignore bumps it; adding an optional field does not.
+  could not ignore bumps it; adding an optional field does not. A reader
+  ignores members it does not know. Migration is one function per version
+  step in `laman::model`; with version 1 the only one, it has no steps yet.
 - Loading validates exactly as the builder does (ARCHITECTURE.md §The
   sketch and its ids): a malformed file is a `ModelError` naming the id.
+  An error found in an entity or constraint of the file arrives wrapped in
+  `ModelError::Entity` or `ModelError::Constraint` with that id, around the
+  builder's own error, which names the ids it refers to. A `format` other
+  than `laman.sketch` is `WrongFormat`; a payload that is not base64 is
+  `InvalidPayload`.
 
 `Solution` and the checker's `Report` serialise in the same style
 (`"format": "laman.solution"`, `"laman.report"`), for the dumps and for
