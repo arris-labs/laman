@@ -157,9 +157,11 @@ fn c1_conflicting_twins() {
         // {base, right, apex} cannot hold whatever `left` says. Each pair
         // can: base + right + left is the triangle, base + apex + left puts
         // b at 30 along the 60° line, right + apex leaves |oa| free. The
-        // roadmap's set adds `left`, which is not inclusion-minimal (plan
-        // open question). At the least-squares point all four rotation
-        // invariants share the residual; `horizontal` picks the rotation.
+        // roadmap used to list `left` too, which was not inclusion-minimal;
+        // the fixture now names the three. The second list is what the
+        // checker finds violated at the least-squares point, where all four
+        // rotation invariants share the residual; `horizontal` picks the
+        // rotation.
         (
             "sss-triangle-conflicting",
             vec!["base", "right", "apex"],

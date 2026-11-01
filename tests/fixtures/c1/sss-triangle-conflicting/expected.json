@@ -8,5 +8,5 @@
     {"id": 2, "coordinate": "y", "value": 24.0}
   ],
   "redundant": [],
-  "conflicts": [["base", "left", "right", "apex"]]
+  "conflicts": [["base", "right", "apex"]]
 }

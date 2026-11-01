@@ -180,7 +180,7 @@ fn the_belt_conflicting_twin_flags_only_top_length() {
 fn the_conflict_sets_are_the_ones_the_roadmap_names() {
     assert_eq!(
         load("sss-triangle-conflicting").expected.conflicts,
-        [["base", "left", "right", "apex"]]
+        [["base", "right", "apex"]]
     );
     let belt = &load("belt-conflicting").expected.conflicts;
     assert_eq!(belt.len(), 1);

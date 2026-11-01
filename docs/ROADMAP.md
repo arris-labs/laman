@@ -142,7 +142,7 @@ Four fixtures and their twins, under `tests/fixtures/c1/`. Ground points are
 | Constraints | `horizontal(base)`; `distance(o, a) = 50` tag `base`; `distance(o, b) = 30` tag `left`; `distance(a, b) = 40` tag `right` |
 | Expect | `a` = (50, 0), `b` = (18, 24); status `FullyConstrained`; DoF 0; per-entity DoF all 0; nothing redundant or conflicting |
 | Redundant twin | + `perpendicular(left, right)` tag `right-angle` (the 30–40–50 triangle is right-angled at `b`): same coordinates and status; redundant = [`right-angle`] |
-| Conflicting twin | + `angle(base, left) = 60°` tag `apex` (the triangle's is atan2(24, 18) = 53.130°): status `Unsatisfiable`; one conflict set = {`base`, `left`, `right`, `apex`} (`horizontal` is not in it: every member is invariant under rotation about `o`, `horizontal` is not) |
+| Conflicting twin | + `angle(base, left) = 60°` tag `apex` (the triangle's is atan2(24, 18) = 53.130°): status `Unsatisfiable`; one conflict set = {`base`, `right`, `apex`}, inclusion-minimal (`horizontal` is not in it: every member is invariant under rotation about `o`, `horizontal` is not; neither is `left`: with `base` and `apex` fixing `b` on the 60° line through `o`, `a` lies 50·sin 60° = 43.3 from it, more than the 40 `right` allows, whatever `left` says) |
 
 **2. The belt** (`belt`): two circles and both external tangents.
 

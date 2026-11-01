@@ -14,7 +14,7 @@
 //!   "dof": 0,
 //!   "coordinates": [{"id": 1, "coordinate": "x", "value": 50.0}],
 //!   "redundant": ["right-angle"],
-//!   "conflicts": [["base", "left", "right", "apex"]],
+//!   "conflicts": [["base", "right", "apex"]],
 //!   "tolerance": 1e-9,
 //!   "digest": "aec3…"
 //! }
