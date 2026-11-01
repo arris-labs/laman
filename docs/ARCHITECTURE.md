@@ -126,8 +126,9 @@ The pipeline, each stage deterministic:
    tolerance. A component that hits a cap returns its best iterate and is
    reported `NotConverged`, never an error and never a hang.
 4. **Diagnose** at the solution: the Jacobian of all equations, rank by
-   column-pivoted QR, DoF, free directions, the redundant and conflicting
-   sets, degenerate entities, branch flips (DATA-MODEL.md §Diagnostics).
+   column-pivoted QR with the scaling and tie order of ADR-0003, DoF, free
+   directions, redundant and conflicting sets, degenerate entities and branch
+   flips (DATA-MODEL.md §Diagnostics).
 
 **Priorities**: every equation has one. Constraints are `Required` (the
 default); a drag target is `Goal`. Required equations are solved first; a
@@ -141,10 +142,20 @@ the minimum-norm one, and a component with nothing to change takes no
 step, so its bits are the start's bits. A solve of an already solved
 sketch returns the same bits (SEED.md §8).
 
-`⚠ OPEN:` tolerances absolute in the caller's units, or relative to the
-sketch's size (SEED.md §9). Closed by an ADR in the cycle-1 solver
-milestone (ROADMAP.md §M2); until then every tolerance is one named
-constant in `laman::model::tolerance`.
+The M2 numerical contract is fixed by [ADR-0002](adr/0002-regularize-structural-tangent-contacts.md)
+(contact regularization) and [ADR-0003](adr/0003-scale-relative-tolerances-and-rank-order.md)
+(component-relative lengths with an absolute floor, dimensionless rank and
+angular thresholds, and deterministic rank/null-space ordering). Analytic
+experiments establish the contract; runtime adoption follows in the M2
+compiler and solver. The existing checker still uses the legacy absolute
+constants in `laman::model::tolerance`.
+
+A structurally shared tangent contact uses the perpendicular radius
+equation, retaining membership, original sense and source provenance.
+Both solve and diagnostics use this regularized system; the independent
+checker measures the original geometry. This recovers geometric DoF at
+C1 contacts where original Jacobian nullity overcounts it. Unsupported
+singularities retain an infinitesimal interpretation (ADR-0002).
 
 ## Branches
 
@@ -265,7 +276,6 @@ value.
 
 ## Open questions
 
-- `⚠ OPEN:` absolute or scale-relative tolerances (§Solve). ADR in M2.
 - `⚠ OPEN:` branch preservation's definition and test (§Branches). ADR in
   M3.
 - `⚠ OPEN:` whether the minimal conflict set is exact or a bounded

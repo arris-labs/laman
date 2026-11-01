@@ -110,17 +110,16 @@ stored with it (ARCHITECTURE.md §Branches).
 
 ## Diagnostics
 
-Computed at the solution from `J`, the Jacobian of every required equation
-(intrinsic equations included) with respect to the free parameters, in
-compiled order (ARCHITECTURE.md §Solve). `n` is the number of free
-parameters.
+The M2 contract uses `J`, the Jacobian of required equations after
+structural contact regularization (ADR-0002), including intrinsic equations,
+with respect to the `n` free parameters. The analytic rank experiments
+exist; runtime diagnostics are the remaining M2 work.
 
-- **Rank** by column-pivoted QR of `Jᵀ`: rows are taken in compiled order,
-  and a row is **dependent** when its component outside the span of the
-  rows before it is below the rank tolerance relative to the row's norm.
-  So of two constraints that say the same thing, the later one is named.
-- **DoF** `= n − rank`. It counts the motions of the whole sketch too: a
-  sketch with no ground has DoF ≥ 3.
+- **Rank** uses scaled, unit-normalized rows and column-pivoted QR of `J`,
+  with deterministic ties and null-space ordering (ADR-0003).
+- **DoF** `= n − rank`: geometric freedom for regular configurations and
+  the supported C1 contacts, an infinitesimal estimate at other
+  singularities. Whole-sketch motions count; a free rigid shape has 3.
 - **Per-entity DoF**: the null space `N` of `J` (an orthonormal basis from
   the same factorisation); an entity's DoF is the rank of `N`'s rows for
   its parameters (a line's: its two points'). A fully constrained entity
@@ -129,18 +128,15 @@ parameters.
   every entity it moves (`[(EntityId, Coordinate, f64)]`), in compiled
   order. For a human: "this point can still slide along x". For an agent:
   which dimension to add.
-- **Redundant**: a constraint whose every equation is dependent, with
-  every residual within tolerance. Removing it loses no DoF. A warning:
-  the status stays what it would be without it.
-- **Conflicting**: a dependent equation whose residual stays above
-  tolerance at the best solution. Its **conflict set** is the constraint
-  itself and those whose rows enter its expression in terms of the
-  independent rows before it (the nonzero coefficients of the least-squares
-  combination, above the rank tolerance), deduplicated by constraint, in
-  id order. Removing any one member of a minimal set makes the rest
-  satisfiable.
-  `⚠ OPEN:` whether that set is exactly minimal or a bounded
-  approximation on large sketches (SEED.md §10.8); ADR in M2.
+- **Redundant**: a satisfied constraint implied by the others. Analyze in
+  source order, recompiling contacts and their provenance on removal;
+  dependence of an original tangent equation alone proves nothing.
+  A later duplicate is named. Redundancy is a warning, not a status.
+- **Conflicting**: constraints established to be jointly unsatisfiable.
+  Linear dependence or a failed numerical solve alone proves no conflict.
+  `⚠ OPEN:` evidence and bounded inclusion-minimal analysis policy; the
+  conflict ADR in M2 defines the guarantee. Minimal means no member can
+  be removed, not minimum cardinality.
 - **Degenerate entities**: a line shorter than the length tolerance, a
   circle or arc of radius below it, an arc whose end meets its start. Named
   with the equation they make ill-conditioned.
@@ -164,8 +160,9 @@ as diagnostics; none of them changes it. `Unsatisfiable` takes precedence
 over `UnderConstrained`: a sketch can conflict in one place and be free in
 another, and the diagnostics say both.
 
-`⚠ OPEN:` the rank tolerance and every residual tolerance, absolute or
-scale-relative (ARCHITECTURE.md §Solve).
+Tolerance and ordering policy: ADR-0003. The checker retains its legacy
+absolute tolerances until the M2 compiler step adopts the shared model
+policy; fixture coordinate acceptance stays unchanged.
 
 ## The serde form
 

@@ -74,18 +74,37 @@ _Avoid_: result (an `Err` is a result)
 
 **Status**:
 The verdict on a sketch: fully constrained, under-constrained,
-over-constrained but consistent, or unsatisfiable. A status, never an
-error (SEED.md §9).
+unsatisfiable or not converged. Redundancy is a diagnostic, not a separate
+status. A status is never an error (DATA-MODEL.md §Diagnostics).
 
 **Malformed**:
-A sketch `solve` refuses with `Err`: a dangling id, a constraint on the
-wrong kind of entity, a non-finite input. The only errors.
+A sketch description a builder or loader refuses with a typed error:
+a dangling id, a constraint on the wrong kind of entity, a non-finite
+input. A constructed sketch is well-formed; `solve` returns a Solution.
 _Avoid_: invalid sketch (an unsatisfiable sketch is well-formed)
 
 **DoF**:
-Degrees of freedom left in a sketch or an entity, counted from the rank of
-the constraint Jacobian at the solution.
+Degrees of freedom left in a sketch or an entity: geometric freedom at
+regular configurations and supported C1 contacts, an infinitesimal estimate
+at other singularities (ADR-0002).
 _Avoid_: freedom count, mobility
+
+**Geometric freedom**:
+The dimension of locally possible finite motions satisfying the geometry.
+At a singular contact it can be smaller than infinitesimal freedom.
+
+**Infinitesimal freedom**:
+The nullity of the original constraint Jacobian, which describes motions
+allowed to first order only.
+
+**Contact regularization**:
+Replacing a structurally recognized tangent equation by perpendicular
+radius contact, retaining membership, sense and source provenance
+(ADR-0002). It recovers geometric freedom for C1 contacts.
+
+**Component scale**:
+The frozen, translation-independent extent of one structural component,
+including its radii and dimensions; sets its length tolerance (ADR-0003).
 
 **Free direction**:
 A motion of the sketch the constraints allow at the solution, a null-space

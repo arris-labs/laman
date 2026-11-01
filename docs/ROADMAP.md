@@ -91,7 +91,8 @@ that agree with finite differences.*
 with the right status, DoF and named constraints.*
 
 - In: compile, components, Levenberg–Marquardt and DogLeg with caps,
-  warm start, least change; rank, DoF, per-entity DoF, free directions,
+  warm start, least change; rank, geometric DoF for regular configurations
+  and C1 contacts (ADR-0002), per-entity DoF, free directions,
   redundant and conflicting sets, degenerate entities; `Sketch::apply`.
   The ADRs closing **tolerances** (absolute or scale-relative) and the
   **conflict set** (exact or bounded).
@@ -149,7 +150,7 @@ Four fixtures and their twins, under `tests/fixtures/c1/`. Ground points are
 |---|---|
 | Entities | `c1` (0, 0) ground; circle `C1` centre `c1`, radius guess 18; `c2` guess (95, 3); circle `C2` centre `c2`, radius guess 12; `t1` guess (0, 22), `t2` guess (100, 12), line `top` = t1→t2; `t3` guess (0, −22), `t4` guess (100, −12), line `bottom` = t3→t4 |
 | Constraints | `radius(C1) = 20` tag `r1`; `radius(C2) = 10` tag `r2`; `horizontal(c1, c2)`; `distance(c1, c2) = 100` tag `span`; for `top`: `point_on_circle(t1, C1)`, `point_on_circle(t2, C2)`, `tangent(top, C1)`, `tangent(top, C2)`, tags `top-*`; the same four for `bottom` |
-| Expect | with `s` = (20 − 10)/100 = 0.1 and `k` = √(1 − s²) = 0.99498743710662: `c2` = (100, 0); `t1` = (20s, 20k) = (2, 19.8997487421324); `t2` = (100 + 10s, 10k) = (101, 9.9498743710662); `t3`, `t4` their mirrors in `y`; status `FullyConstrained`; DoF 0 (12 free parameters, 12 independent equations) |
+| Expect | with `s` = (20 − 10)/100 = 0.1 and `k` = √(1 − s²) = 0.99498743710662: `c2` = (100, 0); `t1` = (20s, 20k) = (2, 19.8997487421324); `t2` = (100 + 10s, 10k) = (101, 9.9498743710662); `t3`, `t4` their mirrors in `y`; status `FullyConstrained`; DoF 0 (12 free parameters; original Jacobian rank 8 at contact, regularized rank 12, ADR-0002) |
 | Redundant twin | + `equal_length(top, bottom)` tag `same-belt` (both are √9900 = 99.498743710662 by symmetry): redundant = [`same-belt`] |
 | Conflicting twin | + `distance(t1, t2) = 100` tag `top-length`: status `Unsatisfiable`; conflict set = {`r1`, `r2`, `span`, the four `top-*`, `top-length`} (the tangent length is √(span² − (r1 − r2)²), whatever the rotation, and `bottom`'s parameters enter no member) |
 
@@ -160,7 +161,7 @@ Four fixtures and their twins, under `tests/fixtures/c1/`. Ground points are
 | Plate | `P0` (0, 0) ground; `P1` guess (115, 2), `P2` (118, 63), `P3` (−1, 58); lines `bottom` P0→P1, `right` P1→P2, `top` P2→P3, `left` P3→P0; `horizontal(bottom)`, `vertical(right)`, `horizontal(top)`, `vertical(left)`, `distance(P0, P1) = 120` tag `width`, `distance(P0, P3) = 60` tag `height` |
 | Centreline | `Mb` guess (55, 1), `Mt` (62, 59); construction line `axis` Mb→Mt; `midpoint(Mb, bottom)`, `midpoint(Mt, top)` |
 | Slot | `K1` guess (38, 31), `S1` (39, 36), `E1` (41, 24): arc `A1` (centre K1, S1 → E1, the left end); `K2` guess (83, 29), `S2` (82, 24), `E2` (79, 36): arc `A2` (centre K2, S2 → E2, the right end); lines `upper` E2→S1, `lower` E1→S2; `tangent` of each line to each arc (4); `equal_radius(A1, A2)` tag `same-ends`; `radius(A1) = 5` tag `slot-r`; `symmetric(K1, K2, axis)` tag `centred`; `distance(K1, K2) = 40` tag `slot-length`; `point_line_distance(K1, bottom, 30)` tag `slot-height` |
-| Expect | `P1` (120, 0), `P2` (120, 60), `P3` (0, 60); `Mb` (60, 0), `Mt` (60, 60); `K1` (40, 30), `S1` (40, 35), `E1` (40, 25); `K2` (80, 30), `S2` (80, 25), `E2` (80, 35); each arc's sweep π; status `FullyConstrained`; DoF 0 (22 free parameters: 6 + 4 + 2 intrinsic + 4 + 6 equations) |
+| Expect | `P1` (120, 0), `P2` (120, 60), `P3` (0, 60); `Mb` (60, 0), `Mt` (60, 60); `K1` (40, 30), `S1` (40, 35), `E1` (40, 25); `K2` (80, 30), `S2` (80, 25), `E2` (80, 35); each arc's sweep π; status `FullyConstrained`; DoF 0 (22 free parameters: 6 + 4 + 2 intrinsic + 4 + 6 equations; original Jacobian rank 18, regularized rank 22, ADR-0002) |
 | Redundant twin | + `horizontal(K1, K2)` tag `level`: redundant = [`level`] (`centred` already holds K1K2 perpendicular to the vertical axis) |
 | Conflicting twin | + `radius(A2) = 6` tag `slot-r2`: conflict set = {`same-ends`, `slot-r`, `slot-r2`} |
 
