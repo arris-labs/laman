@@ -30,7 +30,6 @@ fn flagged(report: &laman_check::Report) -> Vec<Source> {
 }
 
 #[test]
-#[ignore = "check takes its length tolerance from the sketch's guesses, so a far guess (1e6) accepts a 1e-6 error on a length-1 distance"]
 fn check_guess_scale() {
     let f = load("check-guess-scale");
     let far = EntityId(1);

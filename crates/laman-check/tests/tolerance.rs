@@ -56,3 +56,32 @@ fn common_ground_does_not_join_independent_equations() {
         tolerance::length(1.0)
     );
 }
+
+#[test]
+fn checked_coordinates_not_guesses_set_the_scale() {
+    let mut sk = Sketch::new();
+    let o = sk.point_fixed(0.0, 0.0).unwrap();
+    let far = sk.point(1e6, 0.0).unwrap();
+    let other = sk.point(0.0, 1.0).unwrap();
+    let unit = sk.distance(o, far, 1.0).unwrap();
+    sk.distance(o, other, 1.0).unwrap();
+    let mut values = sk.coordinates();
+    values.insert((far.id(), Coordinate::X), 1.0);
+    assert_eq!(
+        Tolerances::new(&sk).constraint(unit),
+        tolerance::length(1e6)
+    );
+    assert_eq!(
+        Tolerances::at(&sk, &values).constraint(unit),
+        tolerance::length(1.0)
+    );
+    // A non-finite value enters no extent: it cannot loosen its component.
+    values.insert((far.id(), Coordinate::X), f64::INFINITY);
+    assert_eq!(
+        Tolerances::at(&sk, &values).constraint(unit),
+        tolerance::length(1.0)
+    );
+    values.insert((other.id(), Coordinate::Y), 1.0 + 1e-6);
+    let report = check(&sk, &values);
+    assert_eq!(report.violations.len(), 2, "{report:?}");
+}

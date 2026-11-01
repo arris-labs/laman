@@ -19,3 +19,4 @@ ADR-0001.
 | [0001](0001-an-arc-is-a-centre-and-two-endpoints.md) | An arc is a centre and two endpoints, counter-clockwise, its radius implied | accepted |
 | [0002](0002-regularize-structural-tangent-contacts.md) | Regularize structural tangent contacts | accepted |
 | [0003](0003-scale-relative-tolerances-and-rank-order.md) | Scale-relative tolerances and deterministic rank ordering | accepted |
+| [0004](0004-checker-tolerance-at-checked-coordinates.md) | The checker measures its tolerance at the coordinates it checks | accepted |

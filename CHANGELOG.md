@@ -7,8 +7,10 @@ release by release. Written in the commit that makes the change, under
 ## Unreleased
 
 - Checking uses translation-independent, component-relative length tolerances,
-  with an absolute floor; unrelated geometry cannot loosen acceptance. Rust
-  callers can inspect the frozen policy through `model::tolerance::Tolerances`.
+  with an absolute floor, measured at the coordinates being checked: neither
+  unrelated geometry nor the sketch's starting guesses can loosen acceptance.
+  Rust callers can inspect the policy through `model::tolerance::Tolerances`
+  (`new` at the sketch's coordinates, `at` at any others).
 
 - `laman::model`: build a sketch of points, lines, circles and arcs with
   ids, tags, fixed parameters, construction flags and opaque payloads, and

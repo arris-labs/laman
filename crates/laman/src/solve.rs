@@ -5,7 +5,7 @@
 //! schedule and geometric stopping policy here are measured in
 //! docs/ARCHITECTURE.md, “LM engine”; no reference solver code is used.
 #![allow(dead_code)] // Internal engine is exposed by M2 step 7.
-use crate::model::tolerance::{self, Component, LENGTH_FLOOR, Source};
+use crate::model::tolerance::{Component, LENGTH_FLOOR, Source};
 use crate::model::{Constraint, Coordinate, Coordinates, Sketch};
 use crate::system::{Evaluation, System};
 use nalgebra::{DMatrix, DVector};
@@ -66,7 +66,7 @@ pub(crate) fn lm(sketch: &Sketch, options: Options) -> Outcome {
         }
         out.evaluations += 1;
         let mut current = system.evaluate(component, &out.coordinates);
-        current.satisfied &= vector_acceptance(sketch, component, &out.coordinates, 1.0);
+        current.satisfied &= vector_acceptance(&system, component, &out.coordinates, 1.0);
         if current.satisfied {
             continue;
         } // Preserve every bit, including signed zero.
@@ -95,7 +95,7 @@ pub(crate) fn lm(sketch: &Sketch, options: Options) -> Outcome {
             out.evaluations += 1;
             if let Some((coordinates, next_position)) = candidate {
                 let mut next = system.evaluate_to(component, &coordinates, SOLVE_TARGET);
-                next.satisfied &= vector_acceptance(sketch, component, &coordinates, SOLVE_TARGET);
+                next.satisfied &= vector_acceptance(&system, component, &coordinates, SOLVE_TARGET);
                 let next_cost = objective(&next);
                 if next.valid && next_cost.is_finite() && (next_cost < cost || next.satisfied) {
                     out.coordinates = coordinates;
@@ -128,11 +128,13 @@ pub(crate) fn lm(sketch: &Sketch, options: Options) -> Outcome {
 // reflected-point error is hypot(2 * midpoint-to-axis, along-axis separation).
 // This complements scalar equation acceptance without importing the checker.
 fn vector_acceptance(
-    sketch: &Sketch,
+    system: &System<'_>,
     component: &Component,
     values: &Coordinates,
     target: f64,
 ) -> bool {
+    let sketch = system.sketch;
+    let acceptance = system.acceptance(component, values);
     component.sources.iter().all(|source| {
         let Source::Constraint(id) = source else {
             return true;
@@ -148,7 +150,7 @@ fn vector_acceptance(
         } else {
             1.0
         };
-        libm::hypot(weight * a.value(), b.value()) <= target * tolerance::length(component.scale)
+        libm::hypot(weight * a.value(), b.value()) <= target * acceptance
     })
 }
 

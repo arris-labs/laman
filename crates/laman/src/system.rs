@@ -97,6 +97,14 @@ impl<'a> System<'a> {
         }
     }
 
+    /// Length acceptance at `coordinates`: the frozen input tolerance, tightened
+    /// to the one the checker measures there (ADR-0004). It never loosens, so a
+    /// solve cannot shrink or grow its way past the checker.
+    pub fn acceptance(&self, component: &Component, coordinates: &Coordinates) -> f64 {
+        let here = tolerance::scale_at(self.sketch, component, coordinates);
+        tolerance::length(component.scale).min(tolerance::length(here))
+    }
+
     pub fn evaluate(&self, component: &Component, coordinates: &Coordinates) -> Evaluation {
         self.evaluate_to(component, coordinates, 1.0)
     }
@@ -108,6 +116,7 @@ impl<'a> System<'a> {
         target: f64,
     ) -> Evaluation {
         let scale = component.scale.max(tolerance::LENGTH_FLOOR);
+        let acceptance = self.acceptance(component, coordinates);
         let mut out = Evaluation {
             values: vec![],
             jacobian: vec![],
@@ -134,7 +143,7 @@ impl<'a> System<'a> {
                 Unit::Ratio => 1.0,
             };
             let threshold = match original.unit() {
-                Unit::Length => tolerance::length(component.scale),
+                Unit::Length => acceptance,
                 Unit::Ratio => tolerance::ANGLE,
             };
             out.satisfied &=

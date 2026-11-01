@@ -1,7 +1,9 @@
 //! The named tolerances the model and the checker share.
 //!
-//! Length acceptance is frozen per structural component (ADR-0003).
-//! Geometry measurements remain the responsibility of each caller.
+//! Length acceptance is relative to each structural component's scale
+//! (ADR-0003). The solver freezes it from its input; the checker measures
+//! it at the coordinates it checks, so guesses never loosen a verdict
+//! (ADR-0004). Geometry measurements remain the responsibility of each caller.
 
 /// Legacy absolute length constant, retained for source compatibility.
 /// The checker uses [`Tolerances`] instead.
@@ -30,7 +32,7 @@ pub const LENGTH: f64 = 1e-9;
 /// ```
 pub const ANGLE: f64 = 1e-12;
 
-use super::{Constraint, ConstraintId, Coordinate, Entity, EntityId, Sketch};
+use super::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Absolute floor in caller units; features below this cannot be resolved.
@@ -66,9 +68,11 @@ pub(crate) struct Component {
     pub origin: [f64; 2],
 }
 
-/// Frozen component-relative length tolerances, derived from the input sketch.
-/// Ground references do not connect otherwise independent components. Unknown
-/// ids return the absolute floor. No residual or solver code is used.
+/// Component-relative length tolerances: [`Tolerances::new`] at the sketch's
+/// stored coordinates (the solver's frozen input), [`Tolerances::at`] at given
+/// ones (the checker's). Ground references do not connect otherwise
+/// independent components. Unknown ids return the absolute floor. No residual
+/// or solver code is used.
 ///
 /// ```
 /// use laman::model::{Sketch, tolerance::Tolerances};
@@ -174,9 +178,31 @@ fn root(parent: &[usize], mut i: usize) -> usize {
 }
 
 impl Tolerances {
-    /// Freeze scales from coordinates, dimensions and structural dependencies.
-    /// See the type example. Trial coordinates never change these thresholds.
+    /// Freeze scales from the sketch's stored coordinates, its dimensions and
+    /// structural dependencies. See the type example.
     pub fn new(sk: &Sketch) -> Self {
+        Self::at(sk, &sk.coordinates())
+    }
+
+    /// Scales measured at `values`, a coordinate missing from it read from
+    /// the sketch. A non-finite value enters no extent, so it cannot loosen
+    /// the rest of its component; the sketch's stored coordinates (guesses)
+    /// never enter at all (ADR-0004).
+    ///
+    /// ```
+    /// use laman::model::{Coordinate, Sketch, tolerance::{length, Tolerances}};
+    /// let mut sk = Sketch::new();
+    /// let o = sk.point_fixed(0.0, 0.0)?;
+    /// let far = sk.point(1e6, 0.0)?; // a guess far from the solution
+    /// let id = sk.distance(o, far, 1.0)?;
+    /// let mut solution = sk.coordinates();
+    /// solution.insert((far.id(), Coordinate::X), 1.0);
+    /// assert_eq!(Tolerances::new(&sk).constraint(id), length(1e6));
+    /// assert_eq!(Tolerances::at(&sk, &solution).constraint(id), length(1.0));
+    /// # Ok::<(), laman::model::ModelError>(())
+    /// ```
+    pub fn at(sk: &Sketch, values: &Coordinates) -> Self {
+        let coords = merged(sk, values);
         let params: Vec<_> = sk
             .coordinates()
             .keys()
@@ -241,11 +267,8 @@ impl Tolerances {
         let mut constraints = BTreeMap::new();
         let mut entities: BTreeMap<EntityId, f64> = BTreeMap::new();
         for component in &mut components {
-            let mut ids: BTreeSet<_> = component.params.iter().map(|p| p.0).collect();
-            for s in &component.sources {
-                ids.extend(source_entities(sk, *s));
-            }
-            let (scale, origin) = extent(sk, &ids, &component.sources);
+            let ids = component_entities(sk, component);
+            let (scale, origin) = extent(sk, &coords, &ids, &component.sources);
             component.scale = scale;
             component.origin = origin;
             let tol = length(scale);
@@ -263,7 +286,7 @@ impl Tolerances {
         }
         // Unconstrained geometric entities still have a meaningful local size.
         for (id, _) in sk.entities() {
-            let own = length(extent(sk, &BTreeSet::from([id]), &[]).0);
+            let own = length(extent(sk, &coords, &BTreeSet::from([id]), &[]).0);
             entities
                 .entry(id)
                 .and_modify(|v| *v = v.max(own))
@@ -294,8 +317,45 @@ impl Tolerances {
     }
 }
 
-fn extent(sk: &Sketch, ids: &BTreeSet<EntityId>, sources: &[Source]) -> (f64, [f64; 2]) {
-    let coords = sk.coordinates();
+/// The sketch's coordinates overlaid with `values` for the keys it has.
+fn merged(sk: &Sketch, values: &Coordinates) -> Coordinates {
+    let mut coords = sk.coordinates();
+    for (key, value) in coords.iter_mut() {
+        if let Some(v) = values.get(key) {
+            *value = *v;
+        }
+    }
+    coords
+}
+
+/// The scale of `component` at `values`, measured as [`Tolerances::at`] does.
+pub(crate) fn scale_at(sk: &Sketch, component: &Component, values: &Coordinates) -> f64 {
+    let coords = merged(sk, values);
+    extent(
+        sk,
+        &coords,
+        &component_entities(sk, component),
+        &component.sources,
+    )
+    .0
+}
+
+fn component_entities(sk: &Sketch, component: &Component) -> BTreeSet<EntityId> {
+    let mut ids: BTreeSet<_> = component.params.iter().map(|p| p.0).collect();
+    for s in &component.sources {
+        ids.extend(source_entities(sk, *s));
+    }
+    ids
+}
+
+// Every key `entity_params` yields is in `coords` (`merged` starts from the
+// sketch's complete coordinates). Non-finite values are skipped, never saturated.
+fn extent(
+    sk: &Sketch,
+    coords: &Coordinates,
+    ids: &BTreeSet<EntityId>,
+    sources: &[Source],
+) -> (f64, [f64; 2]) {
     let mut points = BTreeSet::new();
     let mut scale: f64 = 0.0;
     for id in ids {
@@ -305,14 +365,21 @@ fn extent(sk: &Sketch, ids: &BTreeSet<EntityId>, sources: &[Source]) -> (f64, [f
                     points.insert(id);
                 }
                 Coordinate::R => {
-                    scale = scale.max(coords[&(id, c)].abs());
+                    let r = coords[&(id, c)].abs();
+                    if r.is_finite() {
+                        scale = scale.max(r);
+                    }
                 }
             }
         }
     }
     let xy = |id| [coords[&(id, Coordinate::X)], coords[&(id, Coordinate::Y)]];
     let origin = points.first().map(|id| xy(*id)).unwrap_or([0.0; 2]);
-    let mut positions: Vec<_> = points.into_iter().map(xy).collect();
+    let mut positions: Vec<_> = points
+        .into_iter()
+        .map(xy)
+        .filter(|p| p.iter().all(|v| v.is_finite()))
+        .collect();
     for s in sources {
         if let Source::Constraint(id) = s {
             match sk.constraint(*id) {
@@ -346,7 +413,9 @@ fn extent(sk: &Sketch, ids: &BTreeSet<EntityId>, sources: &[Source]) -> (f64, [f
         if let Some(Entity::Arc { c, s, .. }) = sk.entity(*id) {
             let a = xy(c.id());
             let b = xy(s.id());
-            scale = scale.max(libm::hypot(b[0] - a[0], b[1] - a[1]).min(f64::MAX));
+            if a.iter().chain(&b).all(|v| v.is_finite()) {
+                scale = scale.max(libm::hypot(b[0] - a[0], b[1] - a[1]).min(f64::MAX));
+            }
         }
     }
     for axis in 0..2 {

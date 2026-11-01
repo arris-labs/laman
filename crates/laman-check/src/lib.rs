@@ -405,7 +405,8 @@ fn sub_line((a, b): (Xy, Xy)) -> Xy {
 /// # Ok::<(), laman::model::ModelError>(())
 /// ```
 pub fn check(sketch: &Sketch, values: &Coordinates) -> Report {
-    let tolerances = Tolerances::new(sketch);
+    // Measured at the checked coordinates: a guess never loosens a verdict (ADR-0004).
+    let tolerances = Tolerances::at(sketch, values);
     let mut view = View {
         sketch,
         values,

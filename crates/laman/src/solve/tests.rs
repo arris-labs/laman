@@ -339,3 +339,26 @@ proptest::proptest! {
         }
     }
 }
+
+#[test]
+fn far_guess_does_not_loosen_acceptance() {
+    // check-guess-scale: a length-1 distance guessed 1e6 away. The frozen
+    // input scale would accept a 1e-6 error; acceptance at the iterate's own
+    // scale must reach the construction's (1, 0) as the checker measures it.
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/regression/check-guess-scale");
+    let f = Fixture::load(&path).unwrap();
+    let sk: Sketch = serde_json::from_str(&serde_json::to_string(&f.sketch).unwrap()).unwrap();
+    let out = lm(&sk, Options::default());
+    assert!(out.converged, "{out:?}");
+    assert!(check(&sk, &out.coordinates).is_clean());
+    let actual = fixture_at(&sk, &out.coordinates);
+    for (key, want) in &f.expected.coordinates {
+        let got = actual.expected.coordinates[key];
+        assert!(
+            (got - want).abs() <= f.expected.tolerance,
+            "{key:?}: {got} != {want}"
+        );
+    }
+    inspect(&sk, &out, "lm-check-guess-scale");
+}

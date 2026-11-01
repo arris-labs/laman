@@ -103,8 +103,10 @@ radius contact, retaining membership, sense and source provenance
 (ADR-0002). It recovers geometric freedom for C1 contacts.
 
 **Component scale**:
-The frozen, translation-independent extent of one structural component,
-including its radii and dimensions; sets its length tolerance (ADR-0003).
+The translation-independent extent of one structural component, including
+its radii and dimensions; sets its length tolerance (ADR-0003). The solver
+freezes it from its input. The checker measures it at the coordinates it
+checks, never at the guesses (ADR-0004).
 
 **Free direction**:
 A motion of the sketch the constraints allow at the solution, a null-space

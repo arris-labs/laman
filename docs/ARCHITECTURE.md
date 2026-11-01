@@ -146,7 +146,11 @@ The M2 numerical contract is fixed by [ADR-0002](adr/0002-regularize-structural-
 (contact regularization) and [ADR-0003](adr/0003-scale-relative-tolerances-and-rank-order.md)
 (component-relative lengths with an absolute floor, dimensionless rank and
 angular thresholds, and deterministic rank/null-space ordering). The compiler and checker use the shared model
-`Tolerances` policy, frozen from input geometry and dimensions. Components
+`Tolerances` policy. The compiler freezes it from the input geometry and
+dimensions. The checker measures it at the coordinates it checks
+(`Tolerances::at`, [ADR-0004](adr/0004-checker-tolerance-at-checked-coordinates.md)),
+so a guess never loosens a verdict. An iterate's length acceptance is the
+smaller of the two, so the solver never stops short of the checker. Components
 connect structural free-parameter reads, including zero derivatives; ground
 references alone do not join them. Fixed-only equations retain source order.
 Multi-equation constraints are kept together. The legacy `LENGTH` constant
