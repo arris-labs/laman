@@ -34,12 +34,12 @@ fn covered(variant: Variant) -> bool {
         | Variant::EqualLength
         | Variant::Symmetric
         | Variant::PointLineDistance(_)
-        | Variant::Angle => true,
-        Variant::PointOnCircle(_)
+        | Variant::Angle
+        | Variant::PointOnCircle(_)
         | Variant::EqualRadius(..)
         | Variant::TangentLineCircle(..)
         | Variant::TangentCircles(..)
-        | Variant::Radius(_) => false,
+        | Variant::Radius(_) => true,
     }
 }
 

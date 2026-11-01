@@ -94,7 +94,7 @@ established here.
   `perpendicular`, `equal_length`, `symmetric`, `point_line_distance`
   (both senses), `angle`. FD property at 1 000 cases each, shared-point
   and near-parallel modes included.
-- [ ] Step 5 **[2]** — round kinds over circles and arcs: `point_on_circle`,
+- [x] Step 5 **[2]** — round kinds over circles and arcs: `point_on_circle`,
   `equal_radius`, `radius`, `tangent` line–circle (±), `tangent` circles
   (external, internal ±). FD property at 1 000 cases each, the
   nearly-equal-radius internal contact included.
@@ -148,6 +148,9 @@ the test); the fixture test of step 6 green on all ten C1 directories
   past `1e-6` there. Eighth order at `5e-3 ℓ` with weights for the
   rounded nodes measures under `3e-7` of the bound over 150 000 cases; the
   derivation is `laman_debug::fd`'s module doc. Written into ROADMAP §M1.
-- `⚠ OPEN 3:` whether `Equation`'s fixed capacity of 8 holds (a constraint
-  wider than the widest counted would need it raised). The agent checks by
-  step 5.
+- **Settled 3** (step 5): `Equation`'s capacity of 8 holds. The widest are
+  `symmetric`, `angle`, and the arc cases of `tangent` (line–arc: the line's
+  two ends, the centre, the start; arc–arc: two centres, two starts), each
+  exactly 8 distinct parameters; a unit test builds the two arc cases on
+  unshared points and asserts 8 terms. The raw list (16) holds the widest
+  before merging (arc–arc: 4 + 4 + 4).

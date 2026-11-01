@@ -24,14 +24,17 @@
 //! stands.
 
 use crate::model::{
-    Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Line, Point, Sketch, Span,
+    Constraint, ConstraintId, Contact, Coordinate, Coordinates, Entity, EntityId, Line, Point,
+    Round, Sketch, Span,
 };
 
 /// One parameter of the sketch: an entity and which of its coordinates.
 pub type Param = (EntityId, Coordinate);
 
-/// The most terms an [`Equation`] holds: the widest equations read four
-/// points (`symmetric`, `angle`).
+/// The most terms an [`Equation`] holds. The widest read eight parameters:
+/// `symmetric` and `angle` (four points), a `tangent` of a line and an arc
+/// (the line's two ends, the centre, the start), a `tangent` of two arcs
+/// (two centres, two starts).
 pub const MAX_TERMS: usize = 8;
 
 /// The most equations a constraint contributes.
@@ -148,13 +151,6 @@ pub struct Equations {
 }
 
 impl Equations {
-    fn none() -> Equations {
-        Equations {
-            items: [Equation::EMPTY; MAX_EQUATIONS],
-            len: 0,
-        }
-    }
-
     fn one(a: Equation) -> Equations {
         Equations {
             items: [a, Equation::EMPTY],
@@ -244,6 +240,54 @@ impl Reader<'_> {
                 Entity::Point { .. } | Entity::Circle { .. } | Entity::Arc { .. } => None,
             },
         }
+    }
+}
+
+/// How a circle or an arc gives its radius.
+#[derive(Clone, Copy)]
+enum Radius {
+    /// A circle's own parameter, with its value.
+    Param(EntityId, f64),
+    /// An arc's: the distance from its centre to its start.
+    Start(Point),
+}
+
+impl Reader<'_> {
+    /// The centre of a circle or arc, and where its radius comes from.
+    fn round(&self, round: Round) -> Option<(Point, Radius)> {
+        let id = round.id();
+        match self.sketch.entity(id)? {
+            Entity::Circle { c, r } => {
+                let r = self.values.get(&(id, Coordinate::R)).copied().unwrap_or(*r);
+                Some((*c, Radius::Param(id, r)))
+            }
+            Entity::Arc { c, s, .. } => Some((*c, Radius::Start(*s))),
+            Entity::Point { .. } | Entity::Line { .. } => None,
+        }
+    }
+}
+
+/// A radius as an equation term: its value, and its gradient pushed onto
+/// `raw` scaled by `k`; whether an arc's start sat exactly on its centre.
+fn push_radius(
+    rd: &Reader<'_>,
+    raw: &mut Raw,
+    centre: Point,
+    radius: Radius,
+    k: f64,
+) -> Option<(f64, bool)> {
+    match radius {
+        Radius::Param(id, value) => {
+            raw.push(id, Coordinate::R, k);
+            Some((value, false))
+        }
+        Radius::Start(s) => Some(push_length(
+            raw,
+            centre,
+            s,
+            diff(rd.xy(centre)?, rd.xy(s)?),
+            k,
+        )),
     }
 }
 
@@ -370,8 +414,6 @@ fn quotient_of_lines(
 ///
 /// `None`: the sketch has no such constraint. Never panics; never NaN or
 /// infinite on finite input.
-///
-/// The point-only and line kinds are evaluated; the round kinds follow.
 ///
 /// ```
 /// use laman::model::{Coordinate, Sketch};
@@ -534,12 +576,77 @@ pub fn equations(sketch: &Sketch, values: &Coordinates, id: ConstraintId) -> Opt
                 Equation::new(f_perp, Unit::Length, d_perp, &perp),
             ))
         }
-        // The round kinds: the following step of the plan.
-        Constraint::PointOnCircle { .. }
-        | Constraint::EqualRadius { .. }
-        | Constraint::TangentLineCircle { .. }
-        | Constraint::TangentCircles { .. }
-        | Constraint::Radius { .. } => Some(Equations::none()),
+        Constraint::PointOnCircle { p, on } => {
+            let (c, radius) = rd.round(on)?;
+            let mut raw = Raw::new();
+            let (n, d1) = push_length(&mut raw, c, p, diff(rd.xy(c)?, rd.xy(p)?), 1.0);
+            let (r, d2) = push_radius(&rd, &mut raw, c, radius, -1.0)?;
+            Some(Equations::one(Equation::new(
+                n - r,
+                Unit::Length,
+                d1 || d2,
+                &raw,
+            )))
+        }
+        Constraint::EqualRadius { a, b } => {
+            let ((ca, ra), (cb, rb)) = (rd.round(a)?, rd.round(b)?);
+            let mut raw = Raw::new();
+            let (x, d1) = push_radius(&rd, &mut raw, ca, ra, 1.0)?;
+            let (y, d2) = push_radius(&rd, &mut raw, cb, rb, -1.0)?;
+            Some(Equations::one(Equation::new(
+                x - y,
+                Unit::Length,
+                d1 || d2,
+                &raw,
+            )))
+        }
+        Constraint::Radius { round, value } => {
+            let (c, radius) = rd.round(round)?;
+            let mut raw = Raw::new();
+            let (r, degenerate) = push_radius(&rd, &mut raw, c, radius, 1.0)?;
+            Some(Equations::one(Equation::new(
+                r - value,
+                Unit::Length,
+                degenerate,
+                &raw,
+            )))
+        }
+        Constraint::TangentLineCircle { line, round, sense } => {
+            let (a, b) = rd.ends(Span::Line(line))?;
+            let (c, radius) = rd.round(round)?;
+            let mut raw = Raw::new();
+            let (side, d1) = push_side(
+                &mut raw,
+                (&[(c, 1.0)], rd.xy(c)?),
+                (a, rd.xy(a)?),
+                (b, rd.xy(b)?),
+            );
+            let (r, d2) = push_radius(&rd, &mut raw, c, radius, -sense.sign())?;
+            Some(Equations::one(Equation::new(
+                side - sense.sign() * r,
+                Unit::Length,
+                d1 || d2,
+                &raw,
+            )))
+        }
+        Constraint::TangentCircles { a, b, contact } => {
+            let ((ca, ra), (cb, rb)) = (rd.round(a)?, rd.round(b)?);
+            let mut raw = Raw::new();
+            let (n, d1) = push_length(&mut raw, cb, ca, diff(rd.xy(cb)?, rd.xy(ca)?), 1.0);
+            // external: r_a + r_b; internal: σ (r_a − r_b).
+            let (ka, kb) = match contact {
+                Contact::External => (-1.0, -1.0),
+                Contact::Internal(sigma) => (-sigma.sign(), sigma.sign()),
+            };
+            let (x, d2) = push_radius(&rd, &mut raw, ca, ra, ka)?;
+            let (y, d3) = push_radius(&rd, &mut raw, cb, rb, kb)?;
+            Some(Equations::one(Equation::new(
+                n + ka * x + kb * y,
+                Unit::Length,
+                d1 || d2 || d3,
+                &raw,
+            )))
+        }
     }
 }
 
@@ -720,6 +827,48 @@ mod tests {
         assert_eq!(eq.as_slice()[1].value(), 0.0);
         assert!(equations(&sk, &at, ConstraintId(99)).is_none());
         assert!(intrinsic(&sk, &at, EntityId(99)).is_none());
+    }
+
+    #[test]
+    fn round_kinds_follow_the_data_model() {
+        let mut sk = Sketch::new();
+        let (c1, c2) = (sk.point(0.0, 0.0).unwrap(), sk.point(5.0, 0.0).unwrap());
+        let (x, y) = (sk.circle(c1, 2.0).unwrap(), sk.circle(c2, 1.0).unwrap());
+        let v = |sk: &Sketch, id| eqs(sk, id).iter().map(Equation::value).collect::<Vec<_>>();
+        let id = sk.tangent_circles(x, y).unwrap(); // external: 5 - 3
+        assert_eq!(v(&sk, id), [2.0]);
+        let id = sk.equal_radius(x, y).unwrap();
+        assert_eq!(v(&sk, id), [1.0]);
+        let id = sk.radius(x, 0.5).unwrap();
+        assert_eq!(v(&sk, id), [1.5]);
+        let p = sk.point(0.0, 3.0).unwrap();
+        let id = sk.point_on_circle(p, x).unwrap();
+        assert_eq!(v(&sk, id), [1.0]);
+        let (a, b) = (sk.point(-1.0, 4.0).unwrap(), sk.point(1.0, 4.0).unwrap());
+        let l = sk.line(a, b).unwrap();
+        // The centre is below the line (negative side), 4 away; radius 2.
+        let id = sk.tangent_line_circle(l, x).unwrap();
+        assert_eq!(v(&sk, id), [-4.0 + 2.0]);
+    }
+
+    #[test]
+    fn the_widest_equations_fit_their_capacity() {
+        // Two arcs on eight distinct points, and a line with an arc: the
+        // widest `tangent`s read exactly MAX_TERMS parameters, none dropped.
+        let mut sk = Sketch::new();
+        let arc = |sk: &mut Sketch, x: f64| {
+            let c = sk.point(x, 0.0).unwrap();
+            let s = sk.point(x + 1.0, 0.0).unwrap();
+            let e = sk.point(x, 1.0).unwrap();
+            sk.arc(c, s, e).unwrap()
+        };
+        let (a, b) = (arc(&mut sk, 0.0), arc(&mut sk, 5.0));
+        let id = sk.tangent_circles(a, b).unwrap();
+        assert_eq!(eqs(&sk, id)[0].terms().len(), MAX_TERMS);
+        let (p, q) = (sk.point(0.0, 3.0).unwrap(), sk.point(1.0, 3.0).unwrap());
+        let l = sk.line(p, q).unwrap();
+        let id = sk.tangent_line_circle(l, a).unwrap();
+        assert_eq!(eqs(&sk, id)[0].terms().len(), MAX_TERMS);
     }
 
     #[test]
