@@ -19,6 +19,7 @@
 //! ```
 #![forbid(unsafe_code)]
 
+mod diagnose;
 pub mod model;
 pub mod residual;
 mod rigidity;

@@ -112,8 +112,9 @@ stored with it (ARCHITECTURE.md §Branches).
 
 The M2 contract uses `J`, the Jacobian of required equations after
 structural contact regularization (ADR-0002), including intrinsic equations,
-with respect to the `n` free parameters. The analytic rank experiments
-exist; runtime diagnostics are the remaining M2 work.
+with respect to the `n` free parameters. Rank, DoF, per-entity DoF and
+free directions are computed (internal `diagnose`, public with the solve
+API); redundant, conflicting and degenerate sets are the remaining M2 work.
 
 - **Rank** uses scaled, unit-normalized rows and column-pivoted QR of `J`,
   with deterministic ties and null-space ordering (ADR-0003).
@@ -126,7 +127,10 @@ exist; runtime diagnostics are the remaining M2 work.
   has 0.
 - **Free directions**: `N`'s columns, each mapped back to the motion of
   every entity it moves (`[(EntityId, Coordinate, f64)]`), in compiled
-  order. For a human: "this point can still slide along x". For an agent:
+  order, component by component. A component at or below the rank
+  threshold is rounding, not motion: it is a canonical zero and is not
+  listed. A row that cannot be evaluated finitely adds no rank, so the
+  DoF there is an upper estimate. For a human: "this point can still slide along x". For an agent:
   which dimension to add.
 - **Redundant**: a satisfied constraint implied by the others. Analyze in
   source order, recompiling contacts and their provenance on removal;

@@ -128,7 +128,11 @@ The pipeline, each stage deterministic:
 4. **Diagnose** at the solution: the Jacobian of all equations, rank by
    column-pivoted QR with the scaling and tie order of ADR-0003, DoF, free
    directions, redundant and conflicting sets, degenerate entities and branch
-   flips (DATA-MODEL.md §Diagnostics).
+   flips (DATA-MODEL.md §Diagnostics). The QR is Householder with column
+   norms recomputed at every step (no downdating) and ties to the lowest
+   original parameter, written by hand in index order: no library's tie
+   rule or kernel choice reaches a DoF. It stops at the first remaining
+   column whose part outside the chosen span is at most `RANK`.
 
 **Priorities**: every equation has one. Constraints are `Required` (the
 default); a drag target is `Goal`. Required equations are solved first; a
@@ -204,6 +208,55 @@ radial solves over scales 1e-6 through 1e6; extremes include nonzero motion
 at 1e300 and unrepresentable differences. These are measured examples,
 not a general convergence guarantee. Conflict certification and public
 status mapping are separate stages still to be implemented.
+
+### DogLeg engine
+
+Powell's dog leg (Madsen, Nielsen & Tingleff §3.3) runs on the same driver
+as LM: component order, normalization, trials, the satisfied-input
+early-out, the new-iterate target, vector acceptance and every budget rule
+above are shared. Only the proposed step and its control (a trust radius
+in normalized coordinates instead of a damping) differ. The step is the
+Gauss–Newton step when it fits the radius. Otherwise it is the Cauchy step
+cut to the radius, or the point where the leg from the Cauchy point to
+Gauss–Newton leaves the region. All three lie in the row space of J, so
+DogLeg keeps LM's minimum motion. Radius updates use the gain ratio
+(actual over predicted decrease); a non-positive prediction counts as poor.
+
+The Gauss–Newton leg is the minimum-norm least-squares step through a
+truncated SVD (`nalgebra`'s bidiagonal SVD with a hard step bound), not
+normal equations. Each normal-equations form failed one C1 shape:
+- `JᵀJ` with a small regularization leaked rounding into free directions.
+  A free pair under one distance moved 1e-5 off its symmetric extension.
+- `JJᵀ` lost the step to cancellation on dependent equations. Two fixes of
+  one point stalled 1.9e-7 short of their midpoint.
+
+The SVD handles both kinds of deficiency. Projections and the step are
+summed by hand in index order.
+
+| Setting | Value | Purpose |
+|---|---:|---|
+| Initial radius | 1 (one component scale) | Radii 0.01–100 all solve the cases below; 1 is fastest on the C1 bases |
+| Growth | radius ≥ 3 × accepted step when gain > 0.75 | MNT §3.3 |
+| Shrink | halve when gain < 0.25, and on rejection | MNT §3.3 |
+| Collapse | radius below 1e-15 stops the component | Under an order-one coordinate's rounding |
+| GN cutoff | σ ≤ 1e-10 σ_max dropped | Cutoffs 1e-14–1e-6 give identical results here |
+| SVD bound | 6 k² inner steps for k singular values | LAPACK xBDSQR's bound; a failed SVD is a refused trial |
+
+From the C1 guesses, triangle, belt and slotted plate each take 4
+iterations with no rejection; their redundant twins take 4 each. The
+conflicting twins return finite best effort, not converged, after 54–58
+iterations: rejections shrink the radius at the least-squares point until
+it collapses. Contradictory fixes reach their analytic midpoint in 2
+iterations. A trust region of 1e3 started near the line of two distance
+centres rejects 11 overshooting Gauss–Newton steps, then solves on the
+guess's branch. A stationary singular start (`Jᵀf = 0`, `JJᵀ` singular)
+returns its own bits, not converged. LM keeps its own defaults and
+measurements above; both engines run every analytic case in `solve::tests`.
+
+nalgebra's dense `DMatrix` products dispatch to `matrixmultiply` above 5×5,
+which chooses FMA kernels by CPU at run time. Engine code therefore forms
+products with explicit loops. The Cholesky decomposition and SVD it calls
+do not use that path.
 
 ## Branches
 
