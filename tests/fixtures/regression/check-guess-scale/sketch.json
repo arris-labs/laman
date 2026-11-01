@@ -1,0 +1,1 @@
+{"format":"laman.sketch","version":1,"entities":[{"id":0,"kind":"point","x":0.0,"y":0.0,"fixed":["x","y"],"tag":"origin"},{"id":1,"kind":"point","x":1000000.0,"y":0.0,"tag":"far"}],"constraints":[{"id":0,"kind":"distance","a":0,"b":1,"value":1.0,"tag":"unit"}]}
