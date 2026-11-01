@@ -1,0 +1,20 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {"id": 2, "coordinate": "x", "value": 100.0},
+    {"id": 2, "coordinate": "y", "value": 0.0},
+    {"id": 1, "coordinate": "r", "value": 20.0},
+    {"id": 3, "coordinate": "r", "value": 10.0},
+    {"id": 4, "coordinate": "x", "value": 2.0},
+    {"id": 4, "coordinate": "y", "value": 19.8997487421324},
+    {"id": 5, "coordinate": "x", "value": 101.0},
+    {"id": 5, "coordinate": "y", "value": 9.9498743710662},
+    {"id": 7, "coordinate": "x", "value": 2.0},
+    {"id": 7, "coordinate": "y", "value": -19.8997487421324},
+    {"id": 8, "coordinate": "x", "value": 101.0},
+    {"id": 8, "coordinate": "y", "value": -9.9498743710662}
+  ],
+  "redundant": [],
+  "conflicts": []
+}

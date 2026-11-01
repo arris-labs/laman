@@ -100,7 +100,7 @@ locally first), so the plan stays on `main`.
   pinned test vector), and the runner that loads, checks and digests.
 - [x] Step 6 **[2]**: `dump::text` (snapshot-tested) and `dump::svg` (view
   box from the bounds, arcs counter-clockwise from `s` to `e`).
-- [ ] Step 7 **[2]**: fixtures `sss-triangle` and `belt` with their twins
+- [x] Step 7 **[2]**: fixtures `sss-triangle` and `belt` with their twins
   under `tests/fixtures/c1/`, with values from ROADMAP.md §C1 acceptance
   (the belt's to 17 digits from `s = 0.1`). `c1.rs`: the base and redundant
   twins pass at the expected coordinates; each conflicting twin flags only
