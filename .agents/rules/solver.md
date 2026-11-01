@@ -56,7 +56,7 @@ reasons are in `SEED.md` §5 and §9.
   operation has a runnable example. Every crate forbids `unsafe`.
 - **Entity and constraint enums are matched without `_ =>`** inside the
   workspace, so a new kind fails every dispatch to compile until it is
-  handled.
+  handled. Clippy holds it (`wildcard_enum_match_arm`).
 - **A break updates the binding in the same commit**: `crates/laman-py`,
   its `.pyi` stub and docstring examples; `tools/py-test.sh` holds them
   (pytest, `mypy.stubtest`).

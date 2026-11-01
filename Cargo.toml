@@ -51,3 +51,7 @@ missing_docs = "warn"
 unwrap_used = "warn"
 expect_used = "warn"
 panic = "warn"
+# A new entity or constraint kind fails every dispatch until it is handled
+# (.agents/rules/solver.md §API). Also fires on foreign enums: allow one
+# locally, with its reason.
+wildcard_enum_match_arm = "warn"
