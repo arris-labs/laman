@@ -98,7 +98,7 @@ locally first), so the plan stays on `main`.
   proven red once on a planted import.
 - [x] Step 5 **[1]**: `laman-debug` `fixture` loader, `digest` (with a
   pinned test vector), and the runner that loads, checks and digests.
-- [ ] Step 6 **[2]**: `dump::text` (snapshot-tested) and `dump::svg` (view
+- [x] Step 6 **[2]**: `dump::text` (snapshot-tested) and `dump::svg` (view
   box from the bounds, arcs counter-clockwise from `s` to `e`).
 - [ ] Step 7 **[2]**: fixtures `sss-triangle` and `belt` with their twins
   under `tests/fixtures/c1/`, with values from ROADMAP.md §C1 acceptance

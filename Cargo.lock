@@ -179,6 +179,7 @@ version = "0.1.0-dev"
 dependencies = [
  "laman",
  "laman-check",
+ "libm",
  "proptest",
  "serde",
  "serde_json",

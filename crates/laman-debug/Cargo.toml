@@ -12,6 +12,7 @@ repository.workspace = true
 [dependencies]
 laman.workspace = true
 laman-check.workspace = true
+libm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 proptest.workspace = true
