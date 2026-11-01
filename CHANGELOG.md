@@ -6,6 +6,19 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- `laman::solution`: `Sketch::solve(&SolverOptions)` returns a `Solution`
+  (coordinates, `Status`, `Diagnostics`) with Levenberg-Marquardt or
+  DogLeg under hard caps; under-constrained, over-constrained and
+  unconverged sketches are statuses, never errors. Diagnostics give the
+  degrees of freedom (total, per entity, free directions), redundant
+  constraints, conflict sets and degenerate entities, naming your ids,
+  kinds and tags. `Sketch::apply(&Solution)` writes the answer back and
+  refuses a solution solved from another revision or other contents
+  (`ModelError::Stale`, `ForeignSolution`), an incomplete or non-finite
+  one, or one that moves a fixed parameter (`IncompleteSolution`,
+  `FixedMoved`). Solutions save to and load from JSON.
+  `ModelError` gains these four variants (it is non-exhaustive).
+
 - Checking uses translation-independent, component-relative length tolerances,
   with an absolute floor, measured at the coordinates being checked: neither
   unrelated geometry nor the sketch's starting guesses can loosen acceptance.

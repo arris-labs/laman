@@ -100,8 +100,13 @@ impl Sketch {
 `solve` reads the sketch and never changes it. Its starting point is the
 sketch's current coordinates: the drawing, or the last applied solution,
 which is the **warm start**. `apply` writes a solution's coordinates back
-and refuses one made from another revision (`ModelError::Stale`), so a
-solution cannot land on a sketch it was not solved for.
+and refuses, before changing anything, a solution not solved from this
+sketch as it is now: another revision is `ModelError::Stale`, the same
+revision over other contents `ForeignSolution`. A solution carries its
+source's revision and a digest of what a solve reads, so equal revision
+counters alone never admit one. Apply also refuses missing, unknown,
+non-finite and negative-radius coordinates and a moved fixed parameter, and
+bumps the revision.
 
 A `Solution` always comes back (SEED.md §5, §9): the coordinates of every
 entity (best effort when the sketch cannot be satisfied), a `Status`, and
@@ -413,7 +418,7 @@ nothing.
 
 | Type | When | Carries |
 |---|---|---|
-| `ModelError` | a mutation or a load that would make the sketch malformed | the ids involved and what was wrong |
+| `ModelError` | a mutation, a load or an `apply` that would make the sketch malformed or land a solution on a sketch it was not solved for | the ids involved and what was wrong |
 | `RigidityError` | `rigidity` given a bad bar | the bar index and point |
 
 No other error type: solving, dragging and checking always return a

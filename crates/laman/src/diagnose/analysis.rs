@@ -31,22 +31,49 @@ use std::collections::BTreeSet;
 /// measure it again.
 pub(crate) const MAX_ANALYSIS_SOLVES: usize = 256;
 
-/// The verdict on a solve (DATA-MODEL.md §Status).
+/// The verdict on a solve (DATA-MODEL.md §Status). Redundancy, flips and
+/// degeneracy ride on any status and never change it.
+///
+/// ```
+/// use laman::solution::Status;
+/// assert_eq!(Status::FullyConstrained.to_string(), "FullyConstrained");
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Status {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Status {
+    /// Every required residual is within tolerance and the DoF is 0.
     FullyConstrained,
+    /// Every required residual is within tolerance and the DoF is above 0.
     UnderConstrained,
+    /// A conflict set exists; the coordinates are the least-squares best effort.
     Unsatisfiable,
+    /// A cap was hit with residuals above tolerance and no conflict proven.
     NotConverged,
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Status::FullyConstrained => "FullyConstrained",
+            Status::UnderConstrained => "UnderConstrained",
+            Status::Unsatisfiable => "Unsatisfiable",
+            Status::NotConverged => "NotConverged",
+        })
+    }
 }
 
 /// How an entity collapsed at the coordinates (the checker's four, measured
 /// here independently with the shared length policy).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Collapse {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Collapse {
+    /// A line shorter than the length tolerance.
     ZeroLengthLine,
+    /// A circle of radius below the length tolerance.
     ZeroRadius,
+    /// An arc whose end-points lie at its centre.
     ZeroRadiusArc,
+    /// An arc whose end meets its start.
     EmptyArc,
 }
 

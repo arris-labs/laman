@@ -23,6 +23,7 @@ mod diagnose;
 pub mod model;
 pub mod residual;
 mod rigidity;
+pub mod solution;
 mod solve;
 mod system;
 

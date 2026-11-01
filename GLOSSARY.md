@@ -72,6 +72,10 @@ What `solve` always returns: coordinates (best effort when the sketch is
 unsatisfiable), a status and diagnostics. Never an error.
 _Avoid_: result (an `Err` is a result)
 
+**Origin**:
+Where a diagnosed equation comes from: a constraint, or an arc's own
+equation. Named by id, kind and tag.
+
 **Status**:
 The verdict on a sketch: fully constrained, under-constrained,
 unsatisfiable or not converged. Redundancy is a diagnostic, not a separate

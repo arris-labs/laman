@@ -349,6 +349,38 @@ pub enum ModelError {
         #[source]
         source: Box<ModelError>,
     },
+    /// A solution was solved for another revision of the sketch.
+    #[error("the solution was solved at revision {solved}, the sketch is at {current}")]
+    Stale {
+        /// The revision the solution was solved from.
+        solved: u64,
+        /// The sketch's revision now.
+        current: u64,
+    },
+    /// A solution carries this sketch's revision but was solved from other
+    /// contents: another sketch, or this one edited and reverted.
+    #[error("the solution was solved from another sketch than this one")]
+    ForeignSolution,
+    /// A solution holds no value for a parameter the sketch has.
+    #[error("the solution has no value for {id} {coordinate:?}")]
+    IncompleteSolution {
+        /// The entity.
+        id: EntityId,
+        /// The parameter left out.
+        coordinate: Coordinate,
+    },
+    /// A solution would move a fixed parameter.
+    #[error("the solution moves fixed {id} {coordinate:?} from {fixed} to {given}")]
+    FixedMoved {
+        /// The entity.
+        id: EntityId,
+        /// The fixed parameter.
+        coordinate: Coordinate,
+        /// Its value in the sketch.
+        fixed: f64,
+        /// The value the solution gives it.
+        given: f64,
+    },
     /// An entity is still used and the caller did not ask for the cascade.
     #[error("{id} is still used by {} entities and {} constraints", .entities.len(), .constraints.len())]
     InUse {
@@ -500,6 +532,39 @@ impl Sketch {
                 Entity::Line { .. } | Entity::Arc { .. } => {}
             }
         }
+    }
+
+    /// Replaces every parameter `values` names, for [`Sketch::apply`]: unlike
+    /// [`Sketch::place`] this is the caller's edit, so the revision moves.
+    pub(crate) fn replace_coordinates(&mut self, values: &Coordinates) {
+        self.place(values);
+        self.revision += 1;
+    }
+
+    /// A 64-bit FNV-1a digest of everything a solve reads: the entities with
+    /// their coordinates, the fixed parameters and the constraints with their
+    /// senses. Tags, payloads and construction flags are not read by a solve
+    /// and are left out. Equal sketches give equal digests on every target
+    /// (`Debug` of `f64` is the shortest round-trip form, deterministic).
+    pub(crate) fn source_digest(&self) -> u64 {
+        use std::fmt::Write as _;
+        struct Fnv(u64);
+        impl fmt::Write for Fnv {
+            fn write_str(&mut self, s: &str) -> fmt::Result {
+                for byte in s.bytes() {
+                    self.0 = (self.0 ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
+                }
+                Ok(())
+            }
+        }
+        let mut hash = Fnv(0xcbf2_9ce4_8422_2325);
+        // Writing into a hasher cannot fail.
+        let _ = write!(
+            hash,
+            "{:?}|{:?}|{:?}",
+            self.entities, self.fixed, self.constraints
+        );
+        hash.0
     }
 
     fn kind_of(&self, id: EntityId) -> Result<EntityKind, ModelError> {

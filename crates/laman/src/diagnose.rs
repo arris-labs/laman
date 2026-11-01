@@ -9,8 +9,6 @@
 //! original parameter, so no library tie rule reaches a result. Every sum runs
 //! in index order. Status, redundancy, conflicts and degeneracy build on it
 //! in [`analysis`] (ADR-0005).
-#![allow(dead_code)] // Internal until the solve API lands in M2 step 7.
-
 use crate::model::tolerance::{self, Component, RANK};
 use crate::model::{Coordinate, Coordinates, EntityId, Sketch};
 use crate::system::System;
@@ -19,7 +17,7 @@ use std::collections::BTreeMap;
 type Param = (EntityId, Coordinate);
 
 mod analysis;
-pub(crate) use analysis::*;
+pub use analysis::*;
 
 /// The freedom left at some coordinates.
 #[derive(Clone, Debug, PartialEq)]

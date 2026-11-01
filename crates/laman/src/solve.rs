@@ -8,7 +8,6 @@
 //! budgets; an algorithm only proposes a step and updates its own control.
 //! Defaults are measured in docs/ARCHITECTURE.md, “LM engine” and “DogLeg
 //! engine”; no reference solver code is used.
-#![allow(dead_code)] // Internal engine is exposed by M2 step 7.
 use crate::model::tolerance::{Component, LENGTH_FLOOR, Source};
 use crate::model::{Constraint, Coordinate, Coordinates, Sketch};
 use crate::system::{Evaluation, System};
@@ -51,10 +50,13 @@ const GN_CUTOFF: f64 = 1e-10;
 /// singular values; the same hard bound, so a factorization cannot hang.
 const SVD_STEPS_PER_VALUE_SQUARED: usize = 6;
 
-/// Which step an iteration proposes.
+/// Which step an iteration proposes (ARCHITECTURE.md §Solve).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Algorithm {
+#[non_exhaustive]
+pub enum Algorithm {
+    /// Levenberg–Marquardt: identity-damped normal equations. The default.
     LevenbergMarquardt,
+    /// Powell's dog leg between the steepest-descent and Gauss–Newton steps.
     DogLeg,
 }
 

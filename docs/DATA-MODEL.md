@@ -239,6 +239,14 @@ JSON (or any serde format) with this shape:
   than `laman.sketch` is `WrongFormat`; a payload that is not base64 is
   `InvalidPayload`.
 
-`Solution` serialises in the same style (`"format": "laman.solution"`),
-for the dumps and for agents that read it. The checker's `Report` has no
+`Solution` serialises in the same style (`"format": "laman.solution"`,
+`version` 1), for the dumps and for agents that read it: `source`
+(`revision`, a 16-digit hex `digest`), `status`, `coordinates` (id order, each
+`id`, `coordinate`, `value`) and `diagnostics`. References to entities and
+constraints are `id`, `kind`, optional `tag`; the two tangents are
+`tangent_line_circle` and `tangent_circles` here, as a diagnostic has no
+fields to tell them apart. A non-finite degenerate `size` is `null`. Reading
+a solution validates its shape only (format, version, digest, no repeated
+coordinate); `Sketch::apply` decides whether it fits, so a file cannot bypass
+the checks. The checker's `Report` has no
 serde form yet; `laman-debug`'s dumps render it.
