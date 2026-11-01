@@ -253,3 +253,26 @@ fn a_missing_directory_names_the_path_it_could_not_read() {
         "{err:?}"
     );
 }
+
+#[test]
+fn a_redundant_or_conflict_tag_that_names_no_constraint_is_refused() {
+    let (mut sk, _, _) = sss();
+    let first = sk.constraints().next().unwrap().0;
+    sk.tag_constraint(first, "base").unwrap();
+    let text = sketch_to_string(&sk);
+    let with = |extra: &str| {
+        format!(r#"{{"status":"FullyConstrained","dof":0,"coordinates":[],{extra}}}"#)
+    };
+    for extra in [
+        r#""redundant":["nope"]"#,
+        r#""conflicts":[["base","nope"]]"#,
+    ] {
+        let err = Fixture::parse(&text, &with(extra), None).unwrap_err();
+        assert!(
+            matches!(&err, FixtureError::UnknownTag { file: "expected.json", tag } if tag == "nope"),
+            "{err:?}"
+        );
+    }
+    let fine = Fixture::parse(&text, &with(r#""redundant":["base"]"#), None).unwrap();
+    assert_eq!(fine.expected.redundant, ["base"]);
+}

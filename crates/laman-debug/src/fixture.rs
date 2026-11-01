@@ -83,6 +83,15 @@ pub enum FixtureError {
         /// The parameter as written.
         coordinate: Coordinate,
     },
+    /// A `redundant` or `conflicts` entry is a tag no constraint of the
+    /// sketch carries.
+    #[error("{file}: tag {tag:?} names no constraint of the sketch")]
+    UnknownTag {
+        /// The file's name within the fixture.
+        file: &'static str,
+        /// The tag as written.
+        tag: String,
+    },
     /// The tolerance is not a positive finite number.
     #[error("expected.json: tolerance {value} is not a positive finite number")]
     Tolerance {
@@ -206,6 +215,7 @@ impl Fixture {
         })?;
         let known = sketch.coordinates();
         let expected = parse_expected(&known, expected)?;
+        check_tags(&sketch, &expected)?;
         let drag = match drag {
             None => None,
             Some(text) => Some(parse_drag(&sketch, &known, text)?),
@@ -315,6 +325,26 @@ fn parse_expected(known: &Coordinates, text: &str) -> Result<Expected, FixtureEr
         conflicts: file.conflicts,
         digest: file.digest,
     })
+}
+
+/// Refuses a `redundant` or `conflicts` tag that no constraint carries.
+fn check_tags(sketch: &Sketch, expected: &Expected) -> Result<(), FixtureError> {
+    let named = expected
+        .redundant
+        .iter()
+        .chain(expected.conflicts.iter().flatten());
+    for tag in named {
+        let exists = sketch
+            .constraints()
+            .any(|(id, _)| sketch.constraint_tag_of(id) == Some(tag.as_str()));
+        if !exists {
+            return Err(FixtureError::UnknownTag {
+                file: EXPECTED_FILE,
+                tag: tag.clone(),
+            });
+        }
+    }
+    Ok(())
 }
 
 fn parse_drag(sketch: &Sketch, known: &Coordinates, text: &str) -> Result<Drag, FixtureError> {

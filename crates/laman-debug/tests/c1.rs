@@ -79,21 +79,35 @@ fn the_bases_and_redundant_twins_check_clean_at_their_expected_coordinates() {
     }
 }
 
+/// The tags the sketch's constraints carry, in constraint order.
+fn tags(fixture: &Fixture) -> Vec<&str> {
+    let sketch = &fixture.sketch;
+    sketch
+        .constraints()
+        .filter_map(|(id, _)| sketch.constraint_tag_of(id))
+        .collect()
+}
+
 #[test]
 fn the_redundant_twins_name_what_they_added() {
-    assert_eq!(
-        load("sss-triangle").expected.redundant,
-        Vec::<String>::new()
-    );
-    assert_eq!(
-        load("sss-triangle-redundant").expected.redundant,
-        ["right-angle"]
-    );
-    assert_eq!(load("belt-redundant").expected.redundant, ["same-belt"]);
-    assert_eq!(
-        load("slotted-plate-redundant").expected.redundant,
-        ["level"]
-    );
+    // The loader refuses a tag no constraint carries; here each name is also
+    // the one constraint the twin has beyond its base.
+    for (twin, base, added) in [
+        ("sss-triangle-redundant", "sss-triangle", "right-angle"),
+        ("belt-redundant", "belt", "same-belt"),
+        ("slotted-plate-redundant", "slotted-plate", "level"),
+    ] {
+        let (twin, base) = (load(twin), load(base));
+        assert_eq!(twin.expected.redundant, [added]);
+        assert!(base.expected.redundant.is_empty());
+        let (twin_tags, base_tags) = (tags(&twin), tags(&base));
+        assert_eq!(twin_tags.iter().filter(|t| **t == added).count(), 1);
+        assert!(!base_tags.contains(&added));
+        assert_eq!(
+            twin.sketch.constraints().count(),
+            base.sketch.constraints().count() + 1
+        );
+    }
 }
 
 #[test]
