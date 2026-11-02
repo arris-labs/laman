@@ -16,10 +16,12 @@ Apache-2.0.
 
 ## Status
 
-Early. The sketch solver is being designed and built in the open
+Early. The sketch solver is being built in the open
 ([`SEED.md`](https://github.com/arris-labs/laman/blob/main/SEED.md) is the
-charter). This release holds the combinatorial core the project is named
-after: the **generic rigidity count of a bar framework** in the plane.
+charter). In Python you can build a sketch, solve it, drag it, read every
+diagnostic and re-check the result; the package also holds the
+combinatorial core the project is named after, the **generic rigidity
+count of a bar framework** in the plane.
 
 ```rust
 // A square flexes: one internal freedom. A diagonal makes it rigid,
@@ -31,6 +33,32 @@ let r = laman::rigidity(4, &bars).unwrap();
 assert_eq!(r.dof, 0);
 assert_eq!(r.redundant, vec![5]);
 ```
+
+```python
+import laman
+from laman.check import check
+
+# A triangle from its three side lengths (50, 30, 40): the origin is
+# fixed and the first side lies along the x axis.
+sk = laman.Sketch()
+a = sk.point(0, 0, fixed=True, tag="origin")
+b = sk.point(40, 5)
+c = sk.point(10, 30)
+ab = sk.line(a, b)
+sk.horizontal(ab)
+sk.distance(a, b, 50, tag="base")
+sk.distance(a, c, 30, tag="left")
+sk.distance(b, c, 40, tag="right")
+
+solution = sk.solve()
+assert solution.status is laman.Status.FullyConstrained
+assert solution.diagnostics.dof == 0
+assert abs(solution.coordinates[(b.id, "x")] - 50) < 1e-9
+assert abs(solution.coordinates[(c.id, "y")] - 24) < 1e-9
+assert check(sk, solution.coordinates).is_clean()  # re-checked, independently
+```
+
+The generic rigidity count of a bar framework is `laman.rigidity`:
 
 ```python
 import laman

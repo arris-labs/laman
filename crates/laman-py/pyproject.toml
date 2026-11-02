@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "laman"
 # maturin reads the version from Cargo.toml, which inherits the workspace's.
 dynamic = ["version"]
-description = "A deterministic 2D geometric constraint solver in pure Rust. Early release: the generic rigidity count of bar frameworks (Laman's theorem)"
+description = "A deterministic 2D geometric constraint solver in pure Rust. Early release: sketches, solve, drag, diagnostics and an independent checker, from Python"
 readme = "../../README.md"
 requires-python = ">=3.10"
 license = { text = "MIT OR Apache-2.0" }

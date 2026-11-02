@@ -1,11 +1,12 @@
 """Laman: a deterministic 2D geometric constraint solver. A thin layer over the Rust crate.
 
-A `Sketch` is loaded from its JSON form and solved, applied or dragged; the
-answer is a `Solution` with its status and diagnostics. A refused operation
-raises a `ModelError`. `laman.check` re-evaluates every
-constraint independently of the solver; `laman.debug` holds tooling (digests)
-outside the API's stability promise. The generic rigidity count of bar
-frameworks (Laman's theorem) is `rigidity`.
+A `Sketch` is built by hand (`point`, `line`, `distance`, `horizontal`, ...) or
+loaded from its JSON form, then solved, applied or dragged; the answer is a
+`Solution` with its status and diagnostics. A refused operation raises a
+`ModelError`. `laman.check` re-evaluates every constraint independently of the
+solver; `laman.debug` holds tooling (digests, text and SVG dumps) outside the
+API's stability promise. The generic rigidity count of bar frameworks (Laman's
+theorem) is `rigidity`.
 """
 
 from ._errors import ModelError

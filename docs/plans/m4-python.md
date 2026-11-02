@@ -116,7 +116,7 @@ current and `tools/py-test.sh` green.
   each drop +1 DoF): the solve is checker-green with the construction's
   DoF, and two solves of one sketch have one digest. Example count
   measured by this step.
-- [ ] Step 9 **[1]** — the user's view: README's Python example becomes the
+- [x] Step 9 **[1]** — the user's view: README's Python example becomes the
   SSS triangle solved (run by pytest), `__init__.py` docstring and
   `pyproject.toml` description no longer say "rigidity only".
 
