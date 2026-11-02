@@ -518,7 +518,7 @@ over the sketch and the report at a fixture's expected coordinates;
 `of_drag_step` prefixes a drag step's index and its target's bits to the
 same bytes. CI's `test` matrix runs the gate, including all 50 blessed
 digests of the fixture corpus and drag, on Linux x86_64 (`ubuntu-latest`)
-and aarch64 (`ubuntu-24.04-arm`), macOS aarch64 (`macos-latest`) and x86_64
+and aarch64 (`ubuntu-24.04-arm`), macOS aarch64 (`macos-15`) and x86_64
 (`macos-15-intel`), and Windows x86_64 (`windows-latest`). Each compares
 against the same committed digests. The Linux-only `wasm` job also
 compares native output with `wasm32-wasip1` under wasmtime

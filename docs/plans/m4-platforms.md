@@ -36,7 +36,7 @@ plan: the release workflow is proven by a dry run.
   checkout with `core.autocrlf` would move every digest. A test asserts no
   embedded fixture contains `\r`.
 - **CI `test` job** (`.github/workflows/ci.yml`) — a matrix over
-  `ubuntu-latest`, `ubuntu-24.04-arm`, `macos-latest` (aarch64),
+  `ubuntu-latest`, `ubuntu-24.04-arm`, `macos-15` (aarch64),
   `macos-15-intel` (x86_64) and `windows-latest`, each running
   `tools/gate.sh` under `shell: bash` (Git Bash on Windows). The existing
   `check` job becomes this matrix; `wasm` stays Linux-only. The cross-OS
@@ -49,7 +49,8 @@ plan: the release workflow is proven by a dry run.
 - **`.github/workflows/wheels.yml`** — reusable (`workflow_call`) and on
   push to `main`: `PyO3/maturin-action` builds abi3-py310 wheels for
   `manylinux2014` x86_64 and aarch64 (each on its native runner, in the
-  manylinux container), macOS arm64 and x86_64, Windows x64, and the sdist.
+  manylinux container), macOS arm64 (`macos-15`) and x86_64
+  (`macos-15-intel`), Windows x64, and the sdist.
   A second job per platform installs the wheel (not the source) into a
   fresh venv and runs `crates/laman-py/tests` against it, digests
   included. The sdist builds and passes the same tests on Linux.
@@ -134,3 +135,11 @@ On the plan's last CI run, all green:
   human, before the first real release; the dry run does not need them.
 - Settled: `macos-15-intel` is available and passed the native gate in
   step 2; no Rosetta fallback is needed.
+- Settled: pin the arm64 macOS runner to `macos-15` in the native,
+  Python and wheel matrices after `macos-latest` could not acquire a
+  runner. GitHub's [runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+  lists `macos-15` as standard arm64, and its
+  [image table](https://github.com/actions/runner-images#available-images)
+  maps `macos-latest` to macOS 26. Choosing the distinct macOS 15 image
+  may avoid that image's capacity shortage (an inference, not a capacity
+  guarantee); the five OS/architecture platforms stay the same.
