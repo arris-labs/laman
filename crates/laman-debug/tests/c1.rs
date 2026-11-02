@@ -3,7 +3,7 @@
 //! each conflicting twin flags exactly the constraint it added, and every
 //! `sketch.json` round-trips byte for byte. The static fixtures and their
 //! twins are solved from their guesses by both algorithms and held to
-//! `expected.json`; the drag waits for the drag session (M3).
+//! `expected.json`; the drag runs through the public session.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
 use laman::model::{ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch, tolerance};
@@ -12,7 +12,7 @@ use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::{Source, check};
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
-use laman_debug::runner::{run, solve_run};
+use laman_debug::runner::{drag_run, run, solve_run};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
@@ -514,23 +514,51 @@ fn apply_and_resolve_preserve_the_bits() {
     }
 }
 
-/// The drag, with the stub solve returning the guesses: each step's
-/// coordinates compare with the solution after pulling the point to its
-/// target. Runs when the real drag session exists.
+/// The drag through the public session, under both algorithms: after every
+/// step the dragged point and everything the closed form lists land within
+/// the fixture's tolerance (`P3` included), the stray point `Q` keeps its
+/// bits, the status is under-constrained with DoF 3, no branch flips, and the
+/// independent checker is clean.
 #[test]
-#[ignore = "drag: M3"]
 fn the_drag_follows_the_closed_form_steps() {
     let fixture = load("slotted-plate-drag");
     let drag = fixture.drag.as_ref().unwrap();
-    for step in &drag.after {
-        let solved = fixture.sketch.coordinates(); // M3: the drag session
-        for (key, want) in &step.coordinates {
-            let got = solved.get(key).copied().unwrap();
-            assert!(
-                (got - want).abs() <= fixture.expected.tolerance,
-                "step {}: {key:?}: {got} vs {want}",
-                step.step
+    assert_eq!(drag.after.len(), drag.targets.len());
+    let guesses = fixture.sketch.coordinates();
+    let q: Vec<_> = guesses
+        .iter()
+        .filter(|(_, v)| **v == 200.0)
+        .map(|(k, _)| *k)
+        .collect();
+    assert_eq!(q.len(), 2, "Q is the one point at (200, 200)");
+    for algorithm in ALGORITHMS {
+        let steps = drag_run(&fixture, &options(algorithm)).unwrap();
+        assert_eq!(steps.len(), drag.targets.len());
+        for (step, closed) in steps.iter().zip(&drag.after) {
+            let label = format!("{algorithm:?} step {}", closed.step);
+            assert!(step.report.is_clean(), "{label}: {:?}", step.report);
+            let solution = &step.solution;
+            assert_eq!(
+                status_name(solution.status),
+                fixture.expected.status,
+                "{label}"
             );
+            assert_eq!(solution.diagnostics.dof, 3, "{label}");
+            assert!(solution.diagnostics.flips.is_empty(), "{label}");
+            for key in &q {
+                assert_eq!(
+                    solution.coordinates[key].to_bits(),
+                    guesses[key].to_bits(),
+                    "{label}: Q {key:?}"
+                );
+            }
+            for (key, want) in &closed.coordinates {
+                let got = solution.coordinates[key];
+                assert!(
+                    (got - want).abs() <= fixture.expected.tolerance,
+                    "{label}: {key:?}: {got} vs {want}"
+                );
+            }
         }
     }
 }

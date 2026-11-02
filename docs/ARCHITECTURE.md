@@ -485,9 +485,10 @@ solved run the solution's coordinates (little-endian `f64` bits in id
 order), status and every diagnostic in the order the solution lists them,
 then the checker's report at the solved coordinates (floats by their bits).
 `laman_debug::digest::of_solution` writes it; `of_run` is the older form,
-over the sketch and the report at a fixture's expected coordinates. CI
-computes the digests of the fixture corpus, unsolved and solved by both
-algorithms, on Linux natively and on `wasm32-wasip1` under wasmtime
+over the sketch and the report at a fixture's expected coordinates;
+`of_drag_step` prefixes a drag step's index and its target's bits to the
+same bytes. CI computes the digests of the fixture corpus, unsolved and
+solved by both algorithms, and of each step of fixture 4's drag by both, on Linux natively and on `wasm32-wasip1` under wasmtime
 (`tools/digest-wasm.sh`, compared sorted: the tests run in parallel), and
 fails if any differ; `laman-debug` holds the blessed digests, blessed only
 after `tests/c1.rs` has checked the same solves. A change that moves a

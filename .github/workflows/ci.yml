@@ -20,7 +20,7 @@ jobs:
       - run: tools/gate.sh
 
   # The determinism corpus (tools/digest-wasm.sh): the digest of every
-  # fixture and twin, natively and on wasm32-wasip1 under wasmtime, must
+  # fixture and twin and each drag step, natively and on wasm32-wasip1 under wasmtime, must
   # be identical.
   wasm:
     runs-on: ubuntu-latest

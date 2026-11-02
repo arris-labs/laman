@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The determinism check (docs/ARCHITECTURE.md §Determinism): the digest of
-# every C1 fixture and twin, computed natively and on wasm32-wasip1 under
-# wasmtime, printed and diffed. Exits non-zero if any line differs or a run
+# every C1 fixture and twin and each step of the drag, computed natively and
+# on wasm32-wasip1 under wasmtime, printed and diffed. Exits non-zero if any line differs or a run
 # fails. Needs `wasmtime` on PATH and the wasm32-wasip1 target.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"

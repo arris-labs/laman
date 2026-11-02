@@ -215,6 +215,46 @@ pub fn of_run(sketch: &Sketch, report: &Report) -> Digest {
 /// ```
 pub fn of_solution(sketch: &Sketch, solution: &Solution, report: &Report) -> Digest {
     let mut b = Builder::new();
+    feed_solution(&mut b, sketch, solution, report);
+    b.finish()
+}
+
+/// The digest of one drag step: the step's index (1-based) and the bits of
+/// its target, then what [`of_solution`] covers, over the step's solution.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman::solution::SolverOptions;
+/// use laman_check::check;
+/// use laman_debug::digest::of_drag_step;
+///
+/// let mut sk = Sketch::new();
+/// let a = sk.point_fixed(0.0, 0.0)?;
+/// let b = sk.point(3.0, 4.0)?;
+/// sk.distance(a, b, 5.0)?;
+/// let mut drag = sk.drag(b.id(), &SolverOptions::default())?;
+/// let step = drag.to([0.0, 9.0]);
+/// let report = check(&sk, &step.coordinates);
+/// let digest = of_drag_step(&sk, 1, [0.0, 9.0], &step, &report);
+/// assert_ne!(digest, of_drag_step(&sk, 2, [0.0, 9.0], &step, &report));
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_drag_step(
+    sketch: &Sketch,
+    index: usize,
+    target: [f64; 2],
+    solution: &Solution,
+    report: &Report,
+) -> Digest {
+    let mut b = Builder::new();
+    b.u64(len_of(index));
+    b.float(target[0]);
+    b.float(target[1]);
+    feed_solution(&mut b, sketch, solution, report);
+    b.finish()
+}
+
+fn feed_solution(b: &mut Builder, sketch: &Sketch, solution: &Solution, report: &Report) {
     b.text(&sketch_to_string(sketch));
     b.text(&solution.status.to_string());
     b.u64(len_of(solution.coordinates.len()));
@@ -227,7 +267,7 @@ pub fn of_solution(sketch: &Sketch, solution: &Solution, report: &Report) -> Dig
     b.u64(len_of(d.dof));
     b.u64(len_of(d.entities.len()));
     for e in &d.entities {
-        entity_ref(&mut b, &e.entity);
+        entity_ref(b, &e.entity);
         b.u64(len_of(e.dof));
     }
     b.u64(len_of(d.free_directions.len()));
@@ -241,40 +281,39 @@ pub fn of_solution(sketch: &Sketch, solution: &Solution, report: &Report) -> Dig
     }
     b.u64(len_of(d.redundant.len()));
     for c in &d.redundant {
-        constraint_ref(&mut b, c);
+        constraint_ref(b, c);
     }
     b.u64(len_of(d.conflicts.len()));
     for set in &d.conflicts {
         b.u64(len_of(set.len()));
         for c in set {
-            constraint_ref(&mut b, c);
+            constraint_ref(b, c);
         }
     }
     b.u64(len_of(d.degenerate.len()));
     for g in &d.degenerate {
-        entity_ref(&mut b, &g.entity);
+        entity_ref(b, &g.entity);
         b.text(&format!("{:?}", g.collapse));
         b.float(g.size);
-        origins(&mut b, &g.equations);
+        origins(b, &g.equations);
     }
-    origins(&mut b, &d.ill_conditioned);
+    origins(b, &d.ill_conditioned);
     b.u64(len_of(d.flips.len()));
     for f in &d.flips {
         match &f.subject {
             FlipSubject::Entity(e) => {
                 b.u32(0);
-                entity_ref(&mut b, e);
+                entity_ref(b, e);
             }
             FlipSubject::Constraint(c) => {
                 b.u32(1);
-                constraint_ref(&mut b, c);
+                constraint_ref(b, c);
             }
         }
         b.float(f.was);
         b.float(f.now);
     }
-    feed_report(&mut b, report);
-    b.finish()
+    feed_report(b, report);
 }
 
 fn entity_ref(b: &mut Builder, e: &EntityRef) {

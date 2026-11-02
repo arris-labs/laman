@@ -8,12 +8,14 @@
 //! from the guesses (both algorithms) and the checker's report there. A
 //! solved digest is blessed only for a run the checker passes: clean, or for
 //! a conflicting twin exactly the violations `c1.rs` derives. The test below
-//! holds that itself before it compares a digest.
+//! holds that itself before it compares a digest. A drag-step digest covers
+//! the step's index, its target's bits, the sketch, the step's solution and
+//! the checker's report; the drag's ten steps are blessed per algorithm.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
 use laman::solution::{Algorithm, SolverOptions};
 use laman_debug::fixture::Fixture;
-use laman_debug::runner::{run, solve_run};
+use laman_debug::runner::{drag_run, run, solve_run};
 
 /// Name, sketch.json, expected.json, blessed digest.
 const CORPUS: [(&str, &str, &str, &str); 10] = [
@@ -215,5 +217,84 @@ fn solved_digests_match_the_blessed_ones() {
     assert!(
         wrong.is_empty(),
         "solved digests differ from the blessed ones: {wrong:?}"
+    );
+}
+
+const DRAG_SKETCH: &str = include_str!("../../../tests/fixtures/c1/slotted-plate-drag/sketch.json");
+const DRAG_EXPECTED: &str =
+    include_str!("../../../tests/fixtures/c1/slotted-plate-drag/expected.json");
+const DRAG_FILE: &str = include_str!("../../../tests/fixtures/c1/slotted-plate-drag/drag.json");
+
+/// The blessed digest of each of fixture 4's ten steps: by Levenberg-Marquardt,
+/// by DogLeg.
+const DRAG: [(&str, &str); 10] = [
+    (
+        "ac77f44fb7c9b6ab8245f8e24197432ce98210f477f2bb91dd2b938cce9288bf",
+        "cce4eac995e622dc52059b45e5548b74f9a9e675883ff17b6f9ba46b00501544",
+    ),
+    (
+        "0f03a1532fb77fea1cd187cfc4d8512cefb87868fdf0243c8c8486d83df47bbb",
+        "899e1beefc2f7809f279cf23d21909504556643a2bd2ba50793c95aa0bf7c9ad",
+    ),
+    (
+        "ad293129e3c0056a9948dcec0fee4b8b3978244a5138c6d2bcd7ee7abf089ff6",
+        "bbd75979d0f3f554bb13f3260b1ce1992dacadcd649a488d55b5a733ead1a0b1",
+    ),
+    (
+        "93b5fd74a032ee8b18e1079d2516fb71de91689c2759c727d7dcf238d695fb8d",
+        "91f8e711ed1003fdfc05a3ed7c2f906e98004828d44e46cc37f1b15a82d9a3fe",
+    ),
+    (
+        "430604ca7d9032441a11807e4d87a971a550e820da61eaaf902c124f647e419e",
+        "20b12df712d95a602cb92e0240e5811fcfe55b5195991437d8ae3fba9e5124df",
+    ),
+    (
+        "ebde476b0ece2f3595d845b1c204c88cc21fe0f6c3a031e8b1608d29b3d11f5e",
+        "7f1d0d1a49cbcd30501c19a695dd1e1cbce002b0661dd27ba92fdffc441abc9c",
+    ),
+    (
+        "f50013db3f1bdf03e0901cfb2ea1ffa63d698cb2e45df7747a145d84d7543ee6",
+        "98ce936d6edac70fdf15e9844c5f0ed48ebb657bb14a6cefceccb15f6a98a692",
+    ),
+    (
+        "0bbaeb053abe3033382ad2933e9bb2daaf3c678ad4f4fd0cf7efc6bdd2827801",
+        "ab3ecd5007341035b8e84ed21a18f8409d9d5dc3c8bff67bc740ef53523d7565",
+    ),
+    (
+        "160e82c3e8e7fe6099db07eb689581b0e8b237c3396f903a2ca75b85f7ebf096",
+        "c61a4a7a0042da58db6007dd7a9a4dbfdc2507783e1d302fdf48f4cd6a9a1d24",
+    ),
+    (
+        "10703b7d619739117836d769f6723d77ef92456c63f98b459971ae634cf3f925",
+        "ce3760eaff0067287f8ddcc4fe517c871eaa1e0fe06e85d5f4cf96ef5380718c",
+    ),
+];
+
+#[test]
+fn drag_step_digests_match_the_blessed_ones() {
+    let fixture = Fixture::parse(DRAG_SKETCH, DRAG_EXPECTED, Some(DRAG_FILE)).unwrap();
+    let mut wrong = Vec::new();
+    for (algorithm, label) in [
+        (Algorithm::LevenbergMarquardt, "lm"),
+        (Algorithm::DogLeg, "dogleg"),
+    ] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let steps = drag_run(&fixture, &options).unwrap();
+        assert_eq!(steps.len(), DRAG.len());
+        for (k, step) in steps.iter().enumerate() {
+            // Bless only checker-validated steps.
+            assert!(step.report.is_clean(), "{label} step {}", k + 1);
+            let digest = step.digest.to_string();
+            println!("\ndigest drag-{label}-step-{:02} {digest}", k + 1);
+            let blessed = if label == "lm" { DRAG[k].0 } else { DRAG[k].1 };
+            if digest != blessed {
+                wrong.push(format!("{label} step {}", k + 1));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "drag digests differ from the blessed ones: {wrong:?}"
     );
 }
