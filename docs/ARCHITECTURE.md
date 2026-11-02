@@ -35,9 +35,10 @@ it in this list:
 |---|---|
 | `model` | `Sketch`, ids, `Entity`, `Constraint` (descriptions, no maths), `Coordinates`, tags and payloads, the serde form |
 | `residual` | `equations(sketch, values, constraint)` and `intrinsic(sketch, values, entity)`: each an `Equation` (value, `Unit`, a degenerate flag, and its analytic gradient as terms keyed by `(EntityId, Coordinate)`, merged and sorted, at most 8) at any coordinates; total, no `Result` (DATA-MODEL.md §Constraints) |
+| `branch` | observations at coordinates (arc sweeps, circle radii, line-pair orientations) and the flips between two sets (§Branches) |
 | `system` | a sketch compiled for one solve: the dense vector of free parameters, the equation list in order, the components |
 | `solve` | Levenberg–Marquardt and DogLeg over a `System`, warm start, priorities |
-| `diagnose` | rank, DoF per entity, free directions, redundant and conflicting sets, branches |
+| `diagnose` | rank, DoF per entity, free directions, redundant and conflicting sets |
 | `drag` | `DragSession` |
 | `rigidity` | the generic rigidity count (the 0.0.1 API), later the combinatorial pre-pass of cycle 2's decomposition |
 
@@ -378,17 +379,29 @@ there (SEED.md §4, differentiator 2).
   side of a tangent line, internal or external contact of circles, the
   side of a point–line distance. The equations are written signed, so the
   other root does not satisfy them (DATA-MODEL.md §Constraints).
-- What no equation holds is **observed**: each arc's sweep, the
-  orientation (sign of the cross product) of parallel lines and of each
-  angle's lines. The solution records them; the next solve and every drag
-  step compare against the last solution, and a change is a **flip**,
-  named in diagnostics.
+- What no equation holds is **observed** (the internal `branch` module,
+  [ADR-0006](adr/0006-branches-by-observation.md)): each arc's sweep,
+  tracked from the last observation so that a semicircle's rounding never
+  reads as a turn; each circle's radius; the orientation of the lines of
+  each `parallel` (sign of `dot`), `perpendicular` (sign of `cross`) and
+  `angle` (sign of `cos(φ − θ)`). An observation's branch is *known* only
+  beyond a margin: an arc's radius and chord and a circle's radius above
+  the entity's length tolerance at those coordinates (it is not
+  degenerate), a line pair's quantity above `tolerance::ANGLE` with both
+  lines resolved. Inside the margin it carries the last known branch, so
+  a crossing spread over two solves is still caught.
+- A static solve compares its solution's observations with the guesses';
+  every drag step compares with the last solution's. A subject known on
+  both sides whose branch differs is a **flip**, named in diagnostics with
+  the quantity before and after. An arc flips when its tracked sweep
+  leaves `(0, 2π)`.
 - A drag step that would flip is bisected toward the last good target
-  (continuation, at most `SolverOptions::max_bisections` halvings); one
-  still flipping is returned with the flip named, so the caller decides.
+  (continuation, at most `SolverOptions::max_bisections` halvings). One
+  still flipping returns the solution at the farthest target that kept
+  every branch, with the flip named; the session stays on its branch.
 
-`⚠ OPEN:` how branch preservation is defined and tested beyond these
-observations (SEED.md §10.8). Closed by an ADR in M3.
+Tracking assumes a solve moves a sweep by less than half a turn. Below the
+length floor (ADR-0003) no branch is known and nothing flips.
 
 ## Drag sessions
 
@@ -496,8 +509,8 @@ value.
 
 ## Open questions
 
-- `⚠ OPEN:` branch preservation's definition and test (§Branches). ADR in
-  M3.
+- Closed by ADR-0006: branches are observed beyond the degeneracy and
+  angle tolerances, carried inside them, and a drag keeps its branch.
 - Closed by ADR-0005: a conflict set is inclusion-minimal, found by a
   bounded deletion filter with local certificates, never a minimum. Cycle 2
   measures the 256-re-solve bound again on its sizes.

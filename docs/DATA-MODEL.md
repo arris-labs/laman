@@ -55,7 +55,7 @@ stored with it (ARCHITECTURE.md §Branches).
 |---|---|---|---|
 | `coincident` | points `p`, `q` | `x_p − x_q`, `y_p − y_q` | 2 |
 | `point_on_line` | point `p`, line `L` | `cross(u, p − a) / |u|` (signed distance to the infinite line) | 1 |
-| `point_on_circle` | point `p`, circle or arc `X` | `|p − c| − r(X)` (on the arc's whole circle; whether `p` is inside the sweep is observed) | 1 |
+| `point_on_circle` | point `p`, circle or arc `X` | `|p − c| − r(X)` (on the arc's whole circle; the sweep does not bound `p`) | 1 |
 | `horizontal` | line `L`, or points `p`, `q` | `y_b − y_a` | 1 |
 | `vertical` | line `L`, or points `p`, `q` | `x_b − x_a` | 1 |
 | `parallel` | lines `L1`, `L2` | `cross(u1, u2) / (|u1| |u2|)` (dimensionless) | 1 |
@@ -83,11 +83,14 @@ stored with it (ARCHITECTURE.md §Branches).
 - **`fix` versus a fixed point**: `point_fixed` makes the coordinates
   ground and removes them from the unknowns; `fix` keeps them unknown and
   adds two equations. Only `fix` can be named in a conflict set.
-- **`angle` and `parallel` have a second root** (`φ = θ + π`; antiparallel
-  lines). The orientation of the two lines is observed, and its change is
-  a flip (ARCHITECTURE.md §Branches).
-- **Transcendentals**: only `angle` uses any, `cos θ` and `sin θ` of its
-  constant value, through `libm`, once when the system is compiled.
+- **`angle`, `parallel` and `perpendicular` have a second root**
+  (`φ = θ + π`; antiparallel lines; ±90°). The orientation of the two
+  lines is observed, and its change is a flip (ARCHITECTURE.md §Branches,
+  ADR-0006).
+- **Transcendentals**: among the equations only `angle` uses any, `cos θ`
+  and `sin θ` of its constant value, through `libm`, once when the system
+  is compiled. Observing branches adds the same pair and an arc's sweep
+  (`libm::atan2`).
 - **Jacobians** are analytic, written beside each residual in
   `laman::residual`. An equation's gradient is a list of terms keyed by
   `(EntityId, Coordinate)`, merged by parameter (two lines sharing a point
@@ -158,8 +161,13 @@ free directions, redundant, conflicting and degenerate sets are computed
   its start. Each is named with the equations that read it, which it makes
   ill-conditioned. Equations whose residual is undefined or non-finite at
   the solution are listed too.
-- **Flips**: each observed orientation that changed from the start
-  (ARCHITECTURE.md §Branches), by constraint or entity.
+- **Flips**: each observation whose branch changed from the start (the
+  guesses for a solve, the last solution for a drag step), by constraint
+  or entity, with the observed quantity before and after: an arc's
+  tracked sweep, a circle's radius, the orientation of a `parallel`,
+  `perpendicular` or `angle` pair (ARCHITECTURE.md §Branches, ADR-0006).
+  A quantity within its margin (a degenerate entity, lines within
+  `ANGLE` of where the roots meet) is not compared.
 
 Every item names constraints and entities as `(id, kind, tag)`; the caller's
 payload is reachable through the id.

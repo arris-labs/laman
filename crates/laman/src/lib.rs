@@ -19,6 +19,7 @@
 //! ```
 #![forbid(unsafe_code)]
 
+mod branch;
 mod diagnose;
 pub mod model;
 pub mod residual;

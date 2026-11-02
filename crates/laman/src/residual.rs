@@ -296,7 +296,7 @@ fn push_radius(
 }
 
 /// `|v|`, its unit direction (zero where `|v| = 0`), and whether it was zero.
-fn unit_vector(v: [f64; 2]) -> (f64, [f64; 2], bool) {
+pub(crate) fn unit_vector(v: [f64; 2]) -> (f64, [f64; 2], bool) {
     // Scaled by the larger component so the squares cannot overflow (or
     // underflow to zero): |v| = m * |v / m| with |v / m| in [1, sqrt 2].
     let m = v[0].abs().max(v[1].abs());

@@ -1,0 +1,8 @@
+{
+  "coordinates": [
+    {"id": 4, "coordinate": "x", "value": -10.0}
+  ],
+  "flips": [
+    {"constraint": 0, "was": 1.0, "now": -1.0}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {"id": 0, "kind": "point", "x": 0.0, "y": 0.0, "fixed": ["x", "y"]},
+    {"id": 1, "kind": "circle", "c": 0, "r": 5.0}
+  ],
+  "constraints": []
+}

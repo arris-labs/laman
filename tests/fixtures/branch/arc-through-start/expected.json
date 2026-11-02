@@ -1,0 +1,9 @@
+{
+  "coordinates": [
+    {"id": 2, "coordinate": "x", "value": 6.0},
+    {"id": 2, "coordinate": "y", "value": -8.0}
+  ],
+  "flips": [
+    {"entity": 3, "was": 0.9272952180016122, "now": -0.9272952180016122}
+  ]
+}

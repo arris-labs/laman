@@ -162,9 +162,22 @@ stationary when unreachable; never seen by a diagnostic or blamed in a
 conflict.
 _Avoid_: soft constraint, weight
 
+**Observation**:
+What no equation holds, recorded per subject at a solution: an arc's
+tracked sweep, a circle's radius, a line pair's orientation under
+`parallel`, `perpendicular` or `angle`. Its branch is known only beyond
+a margin, and carried inside it (ADR-0006).
+_Avoid_: orientation flag, state
+
 **Flip**:
-A change of branch between solves: an observed orientation that differs
-from the last solution's. Named in diagnostics.
+A change of branch between solves: an observation known on both sides
+whose branch differs from the last solution's (the guesses', for a
+static solve). Named in diagnostics with the quantity before and after.
+
+**Bisection**:
+Halving a flipping drag step toward the last good target, at most
+`max_bisections` times, so the step keeps its branch (ADR-0006).
+_Avoid_: backtracking, line search
 
 **Branch**:
 Which of a constraint system's discrete solutions a sketch sits on (which
