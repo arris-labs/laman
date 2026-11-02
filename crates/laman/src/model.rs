@@ -255,6 +255,13 @@ pub enum ModelError {
         /// The kind the id names.
         found: EntityKind,
     },
+    /// A drag was asked of a point with both coordinates fixed: nothing of
+    /// it can follow a target.
+    #[error("{id} is fixed in both coordinates and cannot be dragged")]
+    FixedPoint {
+        /// The point given.
+        id: EntityId,
+    },
     /// A coordinate or value is NaN or infinite.
     #[error("{what} is not finite: {value}")]
     NonFinite {

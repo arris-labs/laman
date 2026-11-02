@@ -26,6 +26,7 @@ use crate::model::{
     ConstraintId, ConstraintKind, Coordinate, Coordinates, EntityId, EntityKind, ModelError, Sketch,
 };
 use crate::solve::{self, Options};
+use crate::system::Goal;
 
 #[cfg(feature = "serde")]
 mod form;
@@ -233,9 +234,34 @@ pub struct Flip {
 /// The sketch a solution was solved from, so [`Sketch::apply`] can refuse
 /// one that was not solved for the sketch it lands on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Provenance {
+pub(crate) struct Provenance {
     revision: u64,
     digest: u64,
+}
+
+/// One solve of `sketch` toward `goals`, diagnosed, with its branches
+/// observed after `before` (the guesses' for a static solve, the last
+/// frame's for a drag step) and the flips between the two. The solution
+/// claims `source`; the observations returned are the next `before`.
+pub(crate) fn solve_observed(
+    sketch: &Sketch,
+    goals: &[Goal],
+    options: &SolverOptions,
+    before: &Observations,
+    source: Provenance,
+) -> (Solution, Observations) {
+    let internal = options.internal();
+    let outcome = solve::solve_toward(sketch, goals, internal);
+    let diagnosis = diagnose::analyse(sketch, &outcome, &internal);
+    let after = before.next(sketch, &outcome.coordinates);
+    let flips = before.flips(&after);
+    let solution = Solution {
+        coordinates: outcome.coordinates,
+        status: diagnosis.status,
+        diagnostics: diagnostics(sketch, &diagnosis, &flips),
+        source,
+    };
+    (solution, after)
 }
 
 /// The answer to a solve: coordinates for every parameter, a status and the
@@ -264,7 +290,7 @@ pub struct Solution {
     pub status: Status,
     /// What the solve established.
     pub diagnostics: Diagnostics,
-    source: Provenance,
+    pub(crate) source: Provenance,
 }
 
 impl Solution {
@@ -303,19 +329,14 @@ impl Sketch {
     /// # Ok::<(), laman::model::ModelError>(())
     /// ```
     pub fn solve(&self, options: &SolverOptions) -> Solution {
-        let internal = options.internal();
-        let outcome = solve::solve(self, internal);
-        let diagnosis = diagnose::analyse(self, &outcome, &internal);
         let before = Observations::at(self, &self.coordinates());
-        let flips = before.flips(&before.next(self, &outcome.coordinates));
-        Solution {
-            coordinates: outcome.coordinates,
-            status: diagnosis.status,
-            diagnostics: diagnostics(self, &diagnosis, &flips),
-            source: Provenance {
-                revision: self.revision(),
-                digest: self.source_digest(),
-            },
+        solve_observed(self, &[], options, &before, self.provenance()).0
+    }
+
+    pub(crate) fn provenance(&self) -> Provenance {
+        Provenance {
+            revision: self.revision(),
+            digest: self.source_digest(),
         }
     }
 

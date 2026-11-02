@@ -21,6 +21,7 @@
 
 mod branch;
 mod diagnose;
+pub mod drag;
 pub mod model;
 pub mod residual;
 mod rigidity;

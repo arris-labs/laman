@@ -19,6 +19,17 @@ release by release. Written in the commit that makes the change, under
   `FixedMoved`). Solutions save to and load from JSON.
   `ModelError` gains these four variants (it is non-exhaustive).
 
+- `laman::drag`: `Sketch::drag(point, &SolverOptions)` opens a
+  `DragSession` on a point; `to([x, y])` returns one frame as a full
+  `Solution`, solved from the previous frame with the target held as a
+  goal that never pushes a constraint off (a target the sketch makes
+  unreachable ends at the nearest reachable place); `finish()` returns the
+  last solution, which `Sketch::apply` takes on the unedited sketch. A
+  target that is not finite returns the last frame as `NotConverged`.
+  Dragging a point fixed in both coordinates is refused with the new
+  `ModelError::FixedPoint`; a point with one fixed coordinate drags along
+  the other.
+
 - `Diagnostics::flips`: a solve names each arc, circle and `parallel`,
   `perpendicular` or `angle` constraint that ended on a different branch
   than the sketch was drawn on (an arc turned the other way round, a

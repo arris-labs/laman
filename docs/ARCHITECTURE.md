@@ -412,13 +412,24 @@ let done = drag.finish();                    // the last Solution
 sk.apply(&done)?;
 ```
 
-A `DragSession` owns its compiled `System` (it does not borrow the sketch)
-and the last solution. Each `to` adds the target as a `Goal` pair of
-equations on the dragged point, solves from the previous step (warm
-start, least change), checks branches, and returns a full `Solution`.
-Geometry with no equation path to the dragged point is in another
-component and is not touched: its bits stay the bits it started with. The
-frame budget a step must meet is ROADMAP.md's.
+A `DragSession` owns a clone of the sketch, placed at the last solution's
+coordinates (the warm start), not a borrow: the caller's sketch stays
+untouched and editable. `drag` refuses an unknown id (`UnknownId`), a
+non-point (`WrongKind`) and a point fixed in both coordinates
+(`ModelError::FixedPoint`); a point with one fixed coordinate drags along
+the other. It solves the sketch once, which is the session's first last
+solution, so `finish` before any `to` is the static solution.
+
+Each `to` compiles the target as a `Goal` pair on the dragged point's
+coordinates, solves from the previous step (least change; §Priorities),
+diagnoses, observes the branches after the last frame's (§Branches) and
+returns a full `Solution` whose flips are that comparison. Geometry with no
+equation path to the dragged point is in another component and is not
+touched: its bits stay the bits it started with. A target that is not
+finite is no frame: the last solution comes back with `NotConverged` and
+the session is unchanged. Every solution of a session claims the sketch it
+was opened on, so `apply` takes any of them on it, unedited. The frame
+budget a step must meet is ROADMAP.md's.
 
 ## The checker
 
