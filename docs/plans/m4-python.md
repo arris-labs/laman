@@ -82,7 +82,7 @@ current and `tools/py-test.sh` green.
 - [x] Step 2 **[2]** — ADR-0007; the `proptest` feature on `laman-debug`;
   `laman-py`'s dependencies; the `check-layers.sh` guard. Test: the gate,
   and `cargo tree -p laman-py` free of `proptest`.
-- [ ] Step 3 **[2]** — the spine, riskiest first: `from_json`/`to_json`,
+- [x] Step 3 **[2]** — the spine, riskiest first: `from_json`/`to_json`,
   `SolverOptions`, `Algorithm`, `Status`, `Solution` (coordinates, status,
   DoF), `laman.check`, `laman.debug` digests. `tests/test_c1.py` with a
   Python fixture loader: the ten fixtures × two algorithms, status, DoF,

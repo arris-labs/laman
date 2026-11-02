@@ -1,7 +1,26 @@
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import final
 
-__all__ = ["Rigidity", "RigidityError", "rigidity"]
+from ._types import Algorithm, Status
+
+__all__ = [
+    "CheckDegenerate",
+    "CheckMissing",
+    "CheckReport",
+    "CheckViolation",
+    "Coordinates",
+    "Diagnostics",
+    "Rigidity",
+    "RigidityError",
+    "Sketch",
+    "Solution",
+    "SolverOptions",
+    "check_sketch",
+    "digest_drag_step",
+    "digest_run",
+    "digest_solution",
+    "rigidity",
+]
 
 class RigidityError(ValueError):
     """A bar names a point the framework does not have, or a point twice."""
@@ -23,3 +42,134 @@ class Rigidity:
 
 def rigidity(points: int, bars: Sequence[tuple[int, int]]) -> Rigidity:
     """The generic rigidity of `points` points joined by `bars`."""
+
+@final
+class Coordinates:
+    """The value of every parameter, keyed by `(entity id, "x" | "y" | "r")`."""
+
+    def __new__(
+        cls,
+        items: Mapping[tuple[int, str], float] | Sequence[tuple[tuple[int, str], float]] | None = None,
+    ) -> Coordinates: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, key: tuple[int, str], /) -> float: ...
+    def __contains__(self, key: tuple[int, str], /) -> bool: ...
+    def __iter__(self) -> Iterator[tuple[int, str]]: ...
+    def __eq__(self, other: object, /) -> bool: ...
+    def keys(self) -> list[tuple[int, str]]: ...
+    def values(self) -> list[float]: ...
+    def items(self) -> list[tuple[tuple[int, str], float]]: ...
+
+@final
+class SolverOptions:
+    """How a solve runs: the algorithm and its hard caps."""
+
+    def __new__(
+        cls,
+        *,
+        algorithm: Algorithm | None = None,
+        max_iterations: int | None = None,
+        max_evaluations: int | None = None,
+        max_analysis_solves: int | None = None,
+        max_bisections: int | None = None,
+    ) -> SolverOptions: ...
+    @property
+    def algorithm(self) -> Algorithm: ...
+    @property
+    def max_iterations(self) -> int: ...
+    @property
+    def max_evaluations(self) -> int: ...
+    @property
+    def max_analysis_solves(self) -> int: ...
+    @property
+    def max_bisections(self) -> int: ...
+    def __eq__(self, other: object, /) -> bool: ...
+
+@final
+class Diagnostics:
+    """What a solve established about the sketch."""
+
+    @property
+    def dof(self) -> int: ...
+
+@final
+class Solution:
+    """The result of a solve."""
+
+    @property
+    def coordinates(self) -> Coordinates: ...
+    @property
+    def status(self) -> Status: ...
+    @property
+    def diagnostics(self) -> Diagnostics: ...
+    @property
+    def source_revision(self) -> int: ...
+
+@final
+class Sketch:
+    """A sketch: entities and the constraints between them."""
+
+    def __new__(cls) -> Sketch: ...
+    @staticmethod
+    def from_json(text: str) -> Sketch: ...
+    def to_json(self) -> str: ...
+    @property
+    def revision(self) -> int: ...
+    def coordinates(self) -> Coordinates: ...
+    def solve(self, options: SolverOptions | None = None) -> Solution: ...
+
+@final
+class CheckViolation:
+    @property
+    def constraint(self) -> int | None: ...
+    @property
+    def arc(self) -> int | None: ...
+    @property
+    def tag(self) -> str | None: ...
+    @property
+    def kind(self) -> str: ...
+    @property
+    def measured(self) -> float: ...
+    @property
+    def wanted(self) -> float: ...
+
+@final
+class CheckDegenerate:
+    @property
+    def id(self) -> int: ...
+    @property
+    def tag(self) -> str | None: ...
+    @property
+    def kind(self) -> str: ...
+    @property
+    def what(self) -> str: ...
+    @property
+    def size(self) -> float: ...
+
+@final
+class CheckMissing:
+    @property
+    def id(self) -> int: ...
+    @property
+    def coordinate(self) -> str | None: ...
+
+@final
+class CheckReport:
+    @property
+    def violations(self) -> list[CheckViolation]: ...
+    @property
+    def degenerate(self) -> list[CheckDegenerate]: ...
+    @property
+    def missing(self) -> list[CheckMissing]: ...
+    def is_clean(self) -> bool: ...
+
+def check_sketch(sketch: Sketch, coordinates: Coordinates) -> CheckReport: ...
+def digest_run(sketch: Sketch, report: CheckReport) -> str: ...
+def digest_solution(sketch: Sketch, solution: Solution, report: CheckReport) -> str: ...
+def digest_drag_step(
+    sketch: Sketch,
+    index: int,
+    target: tuple[float, float],
+    solution: Solution,
+    report: CheckReport,
+) -> str: ...

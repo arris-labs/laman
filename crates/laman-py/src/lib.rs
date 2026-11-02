@@ -6,6 +6,12 @@
 #![forbid(unsafe_code)]
 #![cfg(not(target_arch = "wasm32"))]
 
+mod check;
+mod debug;
+mod enums;
+mod model;
+mod solve;
+
 use pyo3::create_exception;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -69,6 +75,23 @@ fn rigidity(points: usize, bars: Vec<(usize, usize)>) -> PyResult<Rigidity> {
 fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(rigidity, m)?)?;
     m.add_class::<Rigidity>()?;
+    m.add_class::<model::Sketch>()?;
+    m.add_class::<model::Coordinates>()?;
+    m.add_class::<solve::SolverOptions>()?;
+    m.add_class::<solve::Solution>()?;
+    m.add_class::<solve::Diagnostics>()?;
+    // `laman.check` and `laman.debug` re-export these under their own names.
+    m.add("CheckReport", m.py().get_type::<check::CheckReport>())?;
+    m.add("CheckViolation", m.py().get_type::<check::CheckViolation>())?;
+    m.add(
+        "CheckDegenerate",
+        m.py().get_type::<check::CheckDegenerate>(),
+    )?;
+    m.add("CheckMissing", m.py().get_type::<check::CheckMissing>())?;
+    m.add_function(wrap_pyfunction!(check::check_sketch, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_run, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_solution, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_drag_step, m)?)?;
     m.add("RigidityError", m.py().get_type::<RigidityError>())?;
     Ok(())
 }
