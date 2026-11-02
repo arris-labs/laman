@@ -102,7 +102,7 @@ only test is a CI run on `plan/m4-platforms`.
   build and isolated install, green (12 jobs). Both Linux auditwheel
   checks require `manylinux_2_17`; every installed package runs the
   corpus, all 50 digests, stubtest and strict mypy on Python 3.10.
-- [ ] Step 5 **[1]** — `tools/release-check.sh` with its own shell test
+- [x] Step 5 **[1]** — `tools/release-check.sh` with its own shell test
   (accepts `v0.1.0` against `0.1.0`; refuses `-dev`, a mismatch, a missing
   heading); the gate runs that self-test as a stage.
 - [ ] Step 6 **[2, CI]** — `release.yml`; a `workflow_dispatch` dry run on

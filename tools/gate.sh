@@ -10,6 +10,7 @@ stage() {
   "$@" || red+=("$name")
 }
 stage layers tools/check-layers.sh
+stage release-check tools/release-check-test.sh
 stage fmt cargo fmt --all -- --check
 stage clippy cargo clippy --workspace --all-targets -- -D warnings
 stage test cargo test --workspace --quiet
