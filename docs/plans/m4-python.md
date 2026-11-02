@@ -110,7 +110,7 @@ current and `tools/py-test.sh` green.
   (the SVG parses as XML and names each tag); `py-test.sh` adds
   `mypy --strict` over `tests/` and runs the docstring examples
   (`--doctest-modules`).
-- [ ] Step 8 **[2]** — `hypothesis`: sketches built by construction from
+- [x] Step 8 **[2]** — `hypothesis`: sketches built by construction from
   known coordinates (Henneberg-built distance frameworks with a ground
   point and a `horizontal`, then a random subset of distances dropped,
   each drop +1 DoF): the solve is checker-green with the construction's
@@ -148,8 +148,9 @@ property green at the step-8 count. `cargo test`, the gate and
 - ⚠ OPEN: plan order. Cross-OS determinism (m4-platforms) is arguably the
   riskier unknown, but its steps need pushes, which the human asks for;
   this plan runs locally, so it goes first. The human may swap them.
-- ⚠ OPEN: the `hypothesis` example count: the agent, by step 8, sized so
-  `py-test.sh` stays under a minute, with a `ci` profile that raises it.
+- Settled (step 8): `hypothesis` runs 500 examples per property by default
+  (the whole of `py-test.sh` after the build takes ~2 s) and 5000 under
+  `HYPOTHESIS_PROFILE=ci`; both profiles in `tests/conftest.py`, no deadline.
 - Settled (step 6): constraint ids stay `int`. `fixed=` is on `point` and
   `circle` only (a line or arc has nothing to fix); `tangent_*` take `sense=`
   (and `external=`) to override the drawing's reading. `IncompleteSolution`
