@@ -1,7 +1,8 @@
 [package]
 name = "laman-debug"
 description = "Laman's tooling: fixture loading, dumps, digests and proptest strategies"
-# Only ever a dev-dependency (docs/ARCHITECTURE.md §Crates).
+# A dev-dependency, except under `laman-py` without `proptest`
+# (docs/ARCHITECTURE.md §Crates, ADR-0007).
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -9,15 +10,45 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = ["proptest"]
+# The `strategy` module and its tests. `laman-py` turns it off: the binding
+# carries the digest and the dumps, not the strategies.
+proptest = ["dep:proptest"]
+
 [dependencies]
 laman.workspace = true
 laman-check.workspace = true
 libm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-proptest.workspace = true
+proptest = { workspace = true, optional = true }
 sha2.workspace = true
 thiserror.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "fd"
+required-features = ["proptest"]
+
+[[test]]
+name = "configuration"
+required-features = ["proptest"]
+
+[[test]]
+name = "solved"
+required-features = ["proptest"]
+
+[[test]]
+name = "serde"
+required-features = ["proptest"]
+
+[[test]]
+name = "residual"
+required-features = ["proptest"]
+
+[[test]]
+name = "drag_props"
+required-features = ["proptest"]

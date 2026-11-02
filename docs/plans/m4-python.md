@@ -79,7 +79,7 @@ current and `tools/py-test.sh` green.
 - [x] Step 1 **[1]** — `fixtures:` the blessed digests and best-effort
   violations out of `determinism.rs` into `tests/fixtures/c1/` (no digest
   changes); `cargo test` and `tools/digest-wasm.sh` unchanged.
-- [ ] Step 2 **[2]** — ADR-0007; the `proptest` feature on `laman-debug`;
+- [x] Step 2 **[2]** — ADR-0007; the `proptest` feature on `laman-debug`;
   `laman-py`'s dependencies; the `check-layers.sh` guard. Test: the gate,
   and `cargo tree -p laman-py` free of `proptest`.
 - [ ] Step 3 **[2]** — the spine, riskiest first: `from_json`/`to_json`,

@@ -23,3 +23,4 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0004](0004-checker-tolerance-at-checked-coordinates.md) | The checker measures its tolerance at the coordinates it checks | accepted |
 | [0005](0005-conflict-sets-by-certified-deletion.md) | Conflict sets by certified deletion, redundancy by removal | accepted |
 | [0006](0006-branches-by-observation.md) | Branches by observation, compared beyond a margin | accepted |
+| [0007](0007-the-binding-carries-the-checker-the-dumps-and-the-digest.md) | The binding carries the checker, the dumps and the digest | accepted |

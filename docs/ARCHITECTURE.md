@@ -13,10 +13,12 @@ Entity parametrisations and constraint equations are in
 |---|---|---|---|
 | `laman` | the sketch, entities, constraints and their residuals, the solver, diagnostics, drag sessions, `rigidity` | crates.io `laman` | `nalgebra`, `libm`, `thiserror`; `serde` behind the `serde` feature |
 | `laman-check` | the checker: every constraint re-evaluated from solved coordinates | no (`publish = false`) until the solver's first release (`docs/BACKLOG.md`) | `laman`'s **model** only |
-| `laman-debug` | text and SVG dumps, the fixture loader, `proptest` strategies, the digest, benchmarks | no (`publish = false`) | `laman`, `laman-check` |
-| `laman-py` | the PyO3 binding, `laman` and `laman.check` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check` |
+| `laman-debug` | text and SVG dumps, the fixture loader, `proptest` strategies, the digest, benchmarks | no (`publish = false`) | `laman`, `laman-check`; `proptest` behind a default feature of the same name |
+| `laman-py` | the PyO3 binding, `laman`, `laman.check` and `laman.debug` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check`, `laman-debug` without `proptest` |
 
-`laman-debug` is only ever a dev-dependency. `fuzz/` sits outside the
+`laman-debug` is a dev-dependency, except under `laman-py`, without its
+`proptest` feature (ADR-0007; `tools/check-layers.sh` refuses `proptest` in
+`cargo tree -p laman-py`). `fuzz/` sits outside the
 workspace and builds on nightly under `cargo fuzz`.
 
 **The layer rule**: `laman-check` names only items under `laman::model`
