@@ -9,7 +9,8 @@
 use laman::model::{
     Constraint, Contact, Coordinate, Coordinates, Entity, EntityId, Sense, Sketch, Span,
 };
-use laman_check::{Report, Source};
+use laman::solution::{ConstraintRef, EntityRef, Origin, Solution};
+use laman_check::{Report, Source, check};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
@@ -212,6 +213,93 @@ pub fn text(sketch: &Sketch, values: &Coordinates, report: &Report) -> String {
             }
         }
     }
+    out
+}
+
+fn constraint_label(c: &ConstraintRef) -> String {
+    match &c.tag {
+        Some(tag) => format!("c{} {tag:?}", c.id.0),
+        None => format!("c{}", c.id.0),
+    }
+}
+
+fn entity_label(e: &EntityRef) -> String {
+    match &e.tag {
+        Some(tag) => format!("#{} {tag:?}", e.id.0),
+        None => format!("#{}", e.id.0),
+    }
+}
+
+fn origin_label(o: &Origin) -> String {
+    match o {
+        Origin::Constraint(c) => constraint_label(c),
+        Origin::Arc(e) => format!("arc {}", entity_label(e)),
+    }
+}
+
+/// A solution as text, for [`solution_text`]: status, DoF, each entity's
+/// DoF, the free directions, and every redundant, conflicting, degenerate and
+/// ill-conditioned finding with its constraint ids and tags.
+fn diagnostics_text(solution: &Solution) -> String {
+    let d = &solution.diagnostics;
+    let mut out = String::new();
+    let _ = writeln!(out, "solution: {} dof={}", solution.status, d.dof);
+    for e in &d.entities {
+        let _ = writeln!(out, "  dof {} = {}", entity_label(&e.entity), e.dof);
+    }
+    for (i, direction) in d.free_directions.iter().enumerate() {
+        let parts: Vec<String> = direction
+            .iter()
+            .map(|m| format!("#{}.{:?}={}", m.entity.0, m.coordinate, m.amount))
+            .collect();
+        let _ = writeln!(out, "  free {i}: {}", parts.join(" "));
+    }
+    for c in &d.redundant {
+        let _ = writeln!(out, "  redundant {}", constraint_label(c));
+    }
+    for set in &d.conflicts {
+        let parts: Vec<String> = set.iter().map(constraint_label).collect();
+        let _ = writeln!(out, "  conflict {}", parts.join(", "));
+    }
+    for g in &d.degenerate {
+        let eqs: Vec<String> = g.equations.iter().map(origin_label).collect();
+        let _ = writeln!(
+            out,
+            "  degenerate {} {:?} size={} reads {}",
+            entity_label(&g.entity),
+            g.collapse,
+            g.size,
+            eqs.join(", ")
+        );
+    }
+    for o in &d.ill_conditioned {
+        let _ = writeln!(out, "  ill-conditioned {}", origin_label(o));
+    }
+    out
+}
+
+/// The sketch at the solution's coordinates as text ([`text`], with the
+/// checker's report there), followed by what the solve established:
+/// status, DoF, per-entity DoF, free directions, redundant and conflicting
+/// constraints (by id and tag), degeneracies.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman::solution::SolverOptions;
+/// use laman_debug::dump::solution_text;
+///
+/// let mut sk = Sketch::new();
+/// let a = sk.point_fixed(0.0, 0.0)?;
+/// let b = sk.point(3.0, 1.0)?;
+/// sk.distance(a, b, 5.0)?;
+/// let out = solution_text(&sk, &sk.solve(&SolverOptions::default()));
+/// assert!(out.contains("solution: UnderConstrained dof=1"));
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn solution_text(sketch: &Sketch, solution: &Solution) -> String {
+    let report = check(sketch, &solution.coordinates);
+    let mut out = text(sketch, &solution.coordinates, &report);
+    out.push_str(&diagnostics_text(solution));
     out
 }
 

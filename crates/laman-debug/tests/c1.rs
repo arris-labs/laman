@@ -1,17 +1,18 @@
 //! The C1 fixtures of ROADMAP.md §C1 acceptance, under `tests/fixtures/c1/`:
 //! each base and redundant twin checks clean at its expected coordinates,
 //! each conflicting twin flags exactly the constraint it added, and every
-//! `sketch.json` round-trips byte for byte. The solve-and-compare tests are
-//! written against the runner with the solve stubbed to return the guesses,
-//! and wait for the solver (M2).
+//! `sketch.json` round-trips byte for byte. The static fixtures and their
+//! twins are solved from their guesses by both algorithms and held to
+//! `expected.json`; the drag waits for the drag session (M3).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
 use laman::model::{ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch, tolerance};
 use laman::residual::{Unit, equations, intrinsic};
+use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::{Source, check};
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
-use laman_debug::runner::run;
+use laman_debug::runner::{run, solve_run};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
@@ -36,11 +37,6 @@ fn flagged(name: &str) -> Vec<String> {
         .iter()
         .map(|v| v.tag.clone().unwrap_or_default())
         .collect()
-}
-
-/// The solve, stubbed until M2: it returns the guesses.
-fn solve(sketch: &Sketch) -> Coordinates {
-    sketch.coordinates()
 }
 
 const FIXTURES: [&str; 10] = [
@@ -300,27 +296,183 @@ fn each_conflicting_twin_puts_off_only_the_constraint_it_added() {
     }
 }
 
-/// The solve from the guesses lands on the expected coordinates (checked
-/// there: the answer is clean). Runs when `solve` is the real one.
+const BASES: [&str; 6] = [
+    "sss-triangle",
+    "sss-triangle-redundant",
+    "belt",
+    "belt-redundant",
+    "slotted-plate",
+    "slotted-plate-redundant",
+];
+
+const CONFLICTING: [&str; 3] = [
+    "sss-triangle-conflicting",
+    "belt-conflicting",
+    "slotted-plate-conflicting",
+];
+
+const ALGORITHMS: [Algorithm; 2] = [Algorithm::LevenbergMarquardt, Algorithm::DogLeg];
+
+fn options(algorithm: Algorithm) -> SolverOptions {
+    let mut options = SolverOptions::default();
+    options.algorithm = algorithm;
+    options
+}
+
+fn status_name(status: Status) -> String {
+    status.to_string()
+}
+
+/// The tags of constraint refs, sorted.
+fn sorted_tags(refs: &[laman::solution::ConstraintRef]) -> Vec<String> {
+    let mut tags: Vec<String> = refs
+        .iter()
+        .map(|c| c.tag.clone().expect("every C1 constraint is tagged"))
+        .collect();
+    tags.sort();
+    tags
+}
+
+fn sorted(names: &[String]) -> Vec<String> {
+    let mut names = names.to_vec();
+    names.sort();
+    names
+}
+
+/// The solve from the guesses lands on the expected coordinates, the status,
+/// the DoF and the redundant tags, with no free direction, for every base and
+/// redundant twin and both algorithms; the independent checker agrees.
 #[test]
-#[ignore = "solver: M2"]
 fn the_solve_reaches_the_expected_coordinates() {
-    for name in [
-        "sss-triangle",
-        "sss-triangle-redundant",
-        "belt",
-        "belt-redundant",
-        "slotted-plate",
-        "slotted-plate-redundant",
-    ] {
+    for name in BASES {
         let fixture = load(name);
-        let solved = solve(&fixture.sketch);
-        for (key, want) in &fixture.expected.coordinates {
-            let got = solved.get(key).copied().unwrap();
-            assert!(
-                (got - want).abs() <= fixture.expected.tolerance,
-                "{name}: {key:?}: {got} vs {want}"
+        for algorithm in ALGORITHMS {
+            let label = format!("{name} {algorithm:?}");
+            let solved = solve_run(&fixture, &options(algorithm));
+            let solution = &solved.solution;
+            assert!(solved.report.is_clean(), "{label}: {:?}", solved.report);
+            assert_eq!(
+                status_name(solution.status),
+                fixture.expected.status,
+                "{label}"
             );
+            assert_eq!(solution.diagnostics.dof, 0, "{label}");
+            assert_eq!(
+                u32::try_from(solution.diagnostics.dof).unwrap(),
+                fixture.expected.dof
+            );
+            assert!(
+                solution.diagnostics.entities.iter().all(|e| e.dof == 0),
+                "{label}: per-entity DoF"
+            );
+            assert!(solution.diagnostics.free_directions.is_empty(), "{label}");
+            assert!(solution.diagnostics.conflicts.is_empty(), "{label}");
+            assert!(solution.diagnostics.degenerate.is_empty(), "{label}");
+            assert_eq!(
+                sorted_tags(&solution.diagnostics.redundant),
+                sorted(&fixture.expected.redundant),
+                "{label}: redundant"
+            );
+            for (key, want) in &fixture.expected.coordinates {
+                let got = solution.coordinates.get(key).copied().unwrap();
+                assert!(
+                    (got - want).abs() <= fixture.expected.tolerance,
+                    "{label}: {key:?}: {got} vs {want}"
+                );
+            }
+        }
+    }
+}
+
+/// Each conflicting twin is Unsatisfiable with exactly the roadmap's conflict
+/// set. Its best-effort coordinates are finite, complete and checked: the
+/// checker flags at least one member of the conflict.
+#[test]
+fn the_conflicting_twins_name_exactly_the_roadmap_sets() {
+    for name in CONFLICTING {
+        let fixture = load(name);
+        for algorithm in ALGORITHMS {
+            let label = format!("{name} {algorithm:?}");
+            let solved = solve_run(&fixture, &options(algorithm));
+            let solution = &solved.solution;
+            assert_eq!(
+                status_name(solution.status),
+                fixture.expected.status,
+                "{label}"
+            );
+            assert_eq!(solution.diagnostics.conflicts.len(), 1, "{label}");
+            assert_eq!(
+                sorted_tags(&solution.diagnostics.conflicts[0]),
+                sorted(&fixture.expected.conflicts[0]),
+                "{label}"
+            );
+            assert_eq!(
+                solution.coordinates.len(),
+                fixture.sketch.coordinates().len(),
+                "{label}"
+            );
+            assert!(
+                solution.coordinates.values().all(|v| v.is_finite()),
+                "{label}"
+            );
+            assert!(
+                !solved.report.violations.is_empty(),
+                "{label}: nothing violated"
+            );
+            // Least squares spreads the contradiction: a constraint outside
+            // the minimal set may also be off (the triangle's `left`), but
+            // a member always is.
+            let members = &fixture.expected.conflicts[0];
+            assert!(
+                solved
+                    .report
+                    .violations
+                    .iter()
+                    .any(|v| members.contains(&v.tag.clone().unwrap_or_default())),
+                "{label}: no member of the conflict is violated"
+            );
+        }
+    }
+}
+
+/// The drag fixture, before any drag, solves to its three free motions
+/// (the plate may slide and turn, the stray point is not held) and checks clean.
+#[test]
+fn the_drag_fixture_solves_under_constrained_with_three_dof() {
+    let fixture = load("slotted-plate-drag");
+    for algorithm in ALGORITHMS {
+        let solved = solve_run(&fixture, &options(algorithm));
+        assert!(
+            solved.report.is_clean(),
+            "{algorithm:?}: {:?}",
+            solved.report
+        );
+        assert_eq!(status_name(solved.solution.status), fixture.expected.status);
+        assert_eq!(
+            u32::try_from(solved.solution.diagnostics.dof).unwrap(),
+            fixture.expected.dof
+        );
+    }
+}
+
+/// Applying a solution and solving again keeps every coordinate's bits: the
+/// solved sketch is satisfied, so nothing moves.
+#[test]
+fn apply_and_resolve_preserve_the_bits() {
+    for name in BASES {
+        for algorithm in ALGORITHMS {
+            let mut sketch = load(name).sketch;
+            let first = sketch.solve(&options(algorithm));
+            sketch.apply(&first).unwrap();
+            let again = sketch.solve(&options(algorithm));
+            assert_eq!(again.status, first.status, "{name} {algorithm:?}");
+            for (key, value) in &first.coordinates {
+                assert_eq!(
+                    again.coordinates[key].to_bits(),
+                    value.to_bits(),
+                    "{name} {algorithm:?} {key:?}"
+                );
+            }
         }
     }
 }
@@ -334,7 +486,7 @@ fn the_drag_follows_the_closed_form_steps() {
     let fixture = load("slotted-plate-drag");
     let drag = fixture.drag.as_ref().unwrap();
     for step in &drag.after {
-        let solved = solve(&fixture.sketch);
+        let solved = fixture.sketch.coordinates(); // M3: the drag session
         for (key, want) in &step.coordinates {
             let got = solved.get(key).copied().unwrap();
             assert!(

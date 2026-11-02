@@ -1,0 +1,13 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {"id": 0, "kind": "point", "x": 0.0, "y": 0.0},
+    {"id": 1, "kind": "point", "x": 0.0, "y": 374.0},
+    {"id": 2, "kind": "line", "a": 1, "b": 0},
+    {"id": 3, "kind": "point", "x": 2e+303, "y": 0.0}
+  ],
+  "constraints": [
+    {"id": 0, "kind": "point_on_line", "point": 3, "line": 2}
+  ]
+}

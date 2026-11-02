@@ -381,14 +381,25 @@ wasm32 (SEED.md §4, §9):
   fixed order on these sizes.
 - Floats parse and print through `serde_json` with `float_roundtrip`.
 
-The **digest** is SHA-256 over a solution's coordinates (little-endian
-`f64` bits in compiled order), status and diagnostics. Until `Solution`
-exists it covers the sketch's serde text and the checker's report at a
-fixture's expected coordinates (floats in the report by their bits). CI computes the
-digests of the fixture corpus on Linux natively and on `wasm32-wasip1`
-under wasmtime, and fails if any differ; `laman-debug` holds the blessed
-digests. A change that moves a solution's bits re-blesses them in the same
-commit, saying why (`.agents/review.md`).
+The **digest** is SHA-256 over a run: the sketch's serde text, then for a
+solved run the solution's coordinates (little-endian `f64` bits in id
+order), status and every diagnostic in the order the solution lists them,
+then the checker's report at the solved coordinates (floats by their bits).
+`laman_debug::digest::of_solution` writes it; `of_run` is the older form,
+over the sketch and the report at a fixture's expected coordinates. CI
+computes the digests of the fixture corpus, unsolved and solved by both
+algorithms, on Linux natively and on `wasm32-wasip1` under wasmtime
+(`tools/digest-wasm.sh`, compared sorted: the tests run in parallel), and
+fails if any differ; `laman-debug` holds the blessed digests, blessed only
+after `tests/c1.rs` has checked the same solves. A change that moves a
+solution's bits re-blesses them in the same commit, saying why
+(`.agents/review.md`).
+
+The **fuzzer** has two targets outside the workspace: `load_sketch` (any
+bytes are a sketch or a refusal) and `solve_sketch` (any loadable sketch
+solves under both algorithms to a complete answer that applies back).
+`cargo run --release -p laman-debug --example bench` times the static C1
+fixtures against the 1 ms frame budget and names the machine.
 
 ## wasm32
 

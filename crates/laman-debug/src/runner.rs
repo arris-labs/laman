@@ -1,9 +1,10 @@
 //! The runner: a fixture loaded, checked at its expected coordinates and
-//! digested. It is the M0 half of a fixture test; the solve and the
-//! comparison with the solution join it in M2.
+//! digested ([`run`]), or solved from its guesses, checked at the solution
+//! and digested ([`solve_run`]).
 
-use crate::digest::{Digest, of_run};
+use crate::digest::{Digest, of_run, of_solution};
 use crate::fixture::Fixture;
+use laman::solution::{Solution, SolverOptions};
 use laman_check::{Report, check};
 
 /// What a run found: the checker's report at the expected coordinates, and
@@ -42,4 +43,45 @@ pub fn run(fixture: &Fixture) -> Run {
     let report = check(&fixture.sketch, &values);
     let digest = of_run(&fixture.sketch, &report);
     Run { report, digest }
+}
+
+/// What a solved run found: the solution, the checker's report at its
+/// coordinates and the digest of the run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SolvedRun {
+    /// The solution from the fixture's guesses.
+    pub solution: Solution,
+    /// The checker's report at the solution's coordinates.
+    pub report: Report,
+    /// The digest of the sketch, the solution and the report.
+    pub digest: Digest,
+}
+
+/// Solves a fixture's sketch from its guesses and checks the answer with the
+/// independent checker. Comparing with the expectations is the caller's.
+///
+/// ```
+/// use laman::solution::{SolverOptions, Status};
+/// use laman_debug::fixture::Fixture;
+/// use laman_debug::runner::solve_run;
+///
+/// let fixture = Fixture::parse(
+///     r#"{"format":"laman.sketch","version":1,"entities":[{"id":0,"kind":"point","x":0.0,"y":0.0,"fixed":["x","y"]},{"id":1,"kind":"point","x":3.0,"y":1.0}],"constraints":[{"id":0,"kind":"distance","a":0,"b":1,"value":5.0}]}"#,
+///     r#"{"status":"UnderConstrained","dof":1,"coordinates":[]}"#,
+///     None,
+/// )?;
+/// let solved = solve_run(&fixture, &SolverOptions::default());
+/// assert_eq!(solved.solution.status, Status::UnderConstrained);
+/// assert!(solved.report.is_clean());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn solve_run(fixture: &Fixture, options: &SolverOptions) -> SolvedRun {
+    let solution = fixture.sketch.solve(options);
+    let report = check(&fixture.sketch, &solution.coordinates);
+    let digest = of_solution(&fixture.sketch, &solution, &report);
+    SolvedRun {
+        solution,
+        report,
+        digest,
+    }
 }

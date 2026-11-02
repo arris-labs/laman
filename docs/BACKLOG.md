@@ -18,7 +18,6 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Malformed file shapes (an untagged tangent or span form matching no variant) arrive as a serde error without the id; a span with both `line` and `a`/`b` silently takes `line`
 - Fuzz target: also call `to_form` and `check(&sk, &sk.coordinates())`; the serde property only mints dense ids, so `to_form`'s dependency-first reordering is covered by one hand test
 - The checker's `ANGLE` is absolute; short lines far from the origin can fail it at rounding level: input to the M2 tolerance ADR
-- SVG of `sss-triangle` and the belt was not looked at in M0 (only the plate and its conflicting twin); look when M2 first solves them
 - Degenerate-point tests for `parallel`, `perpendicular`, `angle`, `equal_length`, `symmetric` and tangent at coincident centres (only `point_on_line`, `distance` and an arc end on its centre have one); the FD strategies never draw an exactly degenerate configuration
 - `laman-debug`'s `configuration` strategy and its `Mode` use words GLOSSARY.md lists under _Avoid_ for **Branch**; rename one side. `tests/residual.rs` also has dead `covered()` scaffolding and picks arcs by `name.contains("Arc")`
 
@@ -36,7 +35,45 @@ A defect a run measured, one block each:
 - State: raw | measured | regression/<slug> | fixed
 ```
 
-None yet.
+### extreme-point-on-line
+- What: a solve called satisfied that the checker cannot measure: `point_on_line` is NaN at 1e303 magnitudes (products overflow)
+- Where: `laman-check` (and/or the solver's stopping scale), `point_on_line`
+- Seen: property `any_well_formed_sketch_solves_to_a_complete_answer`, M2 step 8
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored extreme_point_on_line`
+- Measured: status UnderConstrained, DoF 5, checker violation measured NaN
+- State: regression/extreme-point-on-line
+
+### dogleg-conflict-inconclusive
+- What: a contradictory distance framework: Levenberg-Marquardt proves the conflict, DogLeg ends `NotConverged`
+- Where: `laman::diagnose` (conflict analysis) under `Algorithm::DogLeg`
+- Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, M2 step 8
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored dogleg_conflict_inconclusive`
+- Measured: 6 points, 8 distances; LM `Unsatisfiable`, DogLeg `NotConverged`
+- State: regression/dogleg-conflict-inconclusive
+
+### framework-conflict-inconclusive
+- What: the same family, both algorithms `NotConverged` with no conflict named
+- Where: `laman::diagnose`
+- Seen: same property, M2 step 8
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored framework_conflict_inconclusive`
+- Measured: rigid distance framework plus one stretched distance
+- State: regression/framework-conflict-inconclusive
+
+### false-conflict-rigid-framework
+- What: a second reported conflict (eight true distances) that hold together at the guesses, beside the genuine {`stated`, `stretched`}
+- Where: `laman::diagnose`, the stationary-point certificate (ADR-0005) taking a local minimum for a contradiction
+- Seen: same property, M2 step 8
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored false_conflict_rigid_framework`
+- Measured: conflicts `[[stated, stretched], [8 members]]`, Levenberg-Marquardt
+- State: regression/false-conflict-rigid-framework
+
+### false-conflict-excludes-contradiction
+- What: every reported conflict excludes the one contradictory constraint
+- Where: same
+- Seen: same property, M2 step 8
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored false_conflict_excludes_contradiction`
+- Measured: 7 points, 10 distances; conflicts without `stretched`
+- State: regression/false-conflict-excludes-contradiction
 
 ## Rejected
 

@@ -1,0 +1,113 @@
+//! Regressions found by solving, under `tests/fixtures/regression/`. Each
+//! asserts the desired result and is ignored until its fix lands.
+#![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
+
+use laman::solution::{Algorithm, SolverOptions, Status};
+use laman_check::check;
+use laman_debug::fixture::Fixture;
+use std::path::PathBuf;
+
+fn load(slug: &str) -> Fixture {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/regression")
+        .join(slug);
+    Fixture::load(&dir).unwrap()
+}
+
+#[test]
+#[ignore = "the checker returns NaN for a satisfied point_on_line at 1e303 magnitudes"]
+fn extreme_point_on_line() {
+    let f = load("extreme-point-on-line");
+    let solution = f.sketch.solve(&SolverOptions::default());
+    assert_eq!(solution.status, Status::UnderConstrained);
+    assert_eq!(
+        u32::try_from(solution.diagnostics.dof).unwrap(),
+        f.expected.dof
+    );
+    let report = check(&f.sketch, &solution.coordinates);
+    assert!(report.is_clean(), "{report:?}");
+}
+
+#[test]
+#[ignore = "DogLeg ends NotConverged on a conflict Levenberg-Marquardt proves"]
+fn dogleg_conflict_inconclusive() {
+    let f = load("dogleg-conflict-inconclusive");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(
+            solution.status.to_string(),
+            f.expected.status,
+            "{algorithm:?}"
+        );
+        assert!(!solution.diagnostics.conflicts.is_empty(), "{algorithm:?}");
+    }
+}
+
+#[test]
+#[ignore = "both algorithms end NotConverged on a stretched rigid framework"]
+fn framework_conflict_inconclusive() {
+    let f = load("framework-conflict-inconclusive");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(
+            solution.status.to_string(),
+            f.expected.status,
+            "{algorithm:?}"
+        );
+        assert!(!solution.diagnostics.conflicts.is_empty(), "{algorithm:?}");
+    }
+}
+
+#[test]
+#[ignore = "a second conflict names eight constraints that hold together at the guesses"]
+fn false_conflict_rigid_framework() {
+    let f = load("false-conflict-rigid-framework");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(
+            solution.status.to_string(),
+            f.expected.status,
+            "{algorithm:?}"
+        );
+        let found: Vec<Vec<&str>> = solution
+            .diagnostics
+            .conflicts
+            .iter()
+            .map(|set| {
+                set.iter()
+                    .map(|c| c.tag.as_deref().unwrap_or("?"))
+                    .collect()
+            })
+            .collect();
+        assert_eq!(found, [["stated", "stretched"]], "{algorithm:?}");
+    }
+}
+
+#[test]
+#[ignore = "every conflict reported excludes the one contradictory constraint"]
+fn false_conflict_excludes_contradiction() {
+    let f = load("false-conflict-excludes-contradiction");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(
+            solution.status.to_string(),
+            f.expected.status,
+            "{algorithm:?}"
+        );
+        assert!(!solution.diagnostics.conflicts.is_empty(), "{algorithm:?}");
+        for set in &solution.diagnostics.conflicts {
+            assert!(
+                set.iter().any(|c| c.tag.as_deref() == Some("stretched")),
+                "{algorithm:?}: a conflict without `stretched`: {set:?}"
+            );
+        }
+    }
+}

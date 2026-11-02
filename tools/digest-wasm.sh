@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 command -v wasmtime >/dev/null || { echo "digest-wasm: wasmtime not on PATH" >&2; exit 2; }
-digests() { grep '^digest ' || true; }
+digests() { { grep '^digest ' || true; } | sort; }  # tests run in parallel: compare sorted
 native=$(cargo test -p laman-debug --test determinism --quiet -- --nocapture | digests)
 wasm=$(CARGO_TARGET_WASM32_WASIP1_RUNNER="wasmtime run" \
   cargo test -p laman-debug --test determinism --target wasm32-wasip1 --quiet -- --nocapture | digests)

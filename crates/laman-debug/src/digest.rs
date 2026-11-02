@@ -11,13 +11,15 @@
 //!   `("ab", "c")` and `("a", "bc")` differ;
 //! - an optional text is a flag byte (0 or 1), then the text when present.
 //!
-//! In M0 a run is its sketch (as the serde form's text, whose floats print to
-//! the shortest text that reads back to the same bits) and the checker's
-//! report at the expected coordinates. M2 feeds it the `Solution`.
+//! A run is its sketch (as the serde form's text, whose floats print to the
+//! shortest text that reads back to the same bits) and the checker's report
+//! at the checked coordinates ([`of_run`]); a solved run adds the
+//! `Solution`: coordinates, status and every diagnostic ([`of_solution`]).
 
 use crate::fixture::coordinate_name;
 use crate::json::sketch_to_string;
 use laman::model::Sketch;
+use laman::solution::{ConstraintRef, EntityRef, Origin, Solution};
 use laman_check::{Degeneracy, Report, Source, Subject};
 use sha2::{Digest as _, Sha256};
 use std::fmt;
@@ -187,7 +189,108 @@ impl Builder {
 pub fn of_run(sketch: &Sketch, report: &Report) -> Digest {
     let mut b = Builder::new();
     b.text(&sketch_to_string(sketch));
+    feed_report(&mut b, report);
+    b.finish()
+}
 
+/// The digest of a solved run: the sketch, the solution (coordinates in id
+/// order, status, every diagnostic in the order the solution lists them)
+/// and the checker's report at the solved coordinates. Equal runs give
+/// equal digests; any difference in a covered bit changes it.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman::solution::SolverOptions;
+/// use laman_check::check;
+/// use laman_debug::digest::of_solution;
+///
+/// let mut sk = Sketch::new();
+/// let a = sk.point_fixed(0.0, 0.0)?;
+/// let b = sk.point(3.0, 1.0)?;
+/// sk.distance(a, b, 5.0)?;
+/// let solution = sk.solve(&SolverOptions::default());
+/// let report = check(&sk, &solution.coordinates);
+/// assert_eq!(of_solution(&sk, &solution, &report), of_solution(&sk, &solution, &report));
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_solution(sketch: &Sketch, solution: &Solution, report: &Report) -> Digest {
+    let mut b = Builder::new();
+    b.text(&sketch_to_string(sketch));
+    b.text(&solution.status.to_string());
+    b.u64(len_of(solution.coordinates.len()));
+    for (&(id, c), &value) in &solution.coordinates {
+        b.u32(id.0);
+        b.text(coordinate_name(c));
+        b.float(value);
+    }
+    let d = &solution.diagnostics;
+    b.u64(len_of(d.dof));
+    b.u64(len_of(d.entities.len()));
+    for e in &d.entities {
+        entity_ref(&mut b, &e.entity);
+        b.u64(len_of(e.dof));
+    }
+    b.u64(len_of(d.free_directions.len()));
+    for direction in &d.free_directions {
+        b.u64(len_of(direction.len()));
+        for m in direction {
+            b.u32(m.entity.0);
+            b.text(coordinate_name(m.coordinate));
+            b.float(m.amount);
+        }
+    }
+    b.u64(len_of(d.redundant.len()));
+    for c in &d.redundant {
+        constraint_ref(&mut b, c);
+    }
+    b.u64(len_of(d.conflicts.len()));
+    for set in &d.conflicts {
+        b.u64(len_of(set.len()));
+        for c in set {
+            constraint_ref(&mut b, c);
+        }
+    }
+    b.u64(len_of(d.degenerate.len()));
+    for g in &d.degenerate {
+        entity_ref(&mut b, &g.entity);
+        b.text(&format!("{:?}", g.collapse));
+        b.float(g.size);
+        origins(&mut b, &g.equations);
+    }
+    origins(&mut b, &d.ill_conditioned);
+    feed_report(&mut b, report);
+    b.finish()
+}
+
+fn entity_ref(b: &mut Builder, e: &EntityRef) {
+    b.u32(e.id.0);
+    b.text(&e.kind.to_string());
+    b.optional_text(e.tag.as_deref());
+}
+
+fn constraint_ref(b: &mut Builder, c: &ConstraintRef) {
+    b.u32(c.id.0);
+    b.text(&c.kind.to_string());
+    b.optional_text(c.tag.as_deref());
+}
+
+fn origins(b: &mut Builder, list: &[Origin]) {
+    b.u64(len_of(list.len()));
+    for o in list {
+        match o {
+            Origin::Constraint(c) => {
+                b.u32(0);
+                constraint_ref(b, c);
+            }
+            Origin::Arc(e) => {
+                b.u32(1);
+                entity_ref(b, e);
+            }
+        }
+    }
+}
+
+fn feed_report(b: &mut Builder, report: &Report) {
     b.u64(len_of(report.violations.len()));
     for v in &report.violations {
         match v.id {
@@ -223,8 +326,6 @@ pub fn of_run(sketch: &Sketch, report: &Report) -> Digest {
             Some(c) => b.optional_text(Some(coordinate_name(c))),
         }
     }
-
-    b.finish()
 }
 
 fn len_of(n: usize) -> u64 {

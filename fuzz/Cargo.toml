@@ -22,3 +22,10 @@ path = "fuzz_targets/load_sketch.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "solve_sketch"
+path = "fuzz_targets/solve_sketch.rs"
+test = false
+doc = false
+bench = false
