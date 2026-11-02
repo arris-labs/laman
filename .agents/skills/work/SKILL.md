@@ -76,28 +76,34 @@ miss); reporting after one step and waiting for another `/work` is a bug.
 1. Read the plan; for each unchecked step note its tier: its grade, or the
    tier it names (`**[1, tier 3]**`). A **[CI]** step stops the conductor
    before it starts: its push is the human's.
-2. For each step in order, start one fresh subagent on the step's tier
-   (`.agents/tiers.md` says how in this harness), and wait for its
-   hand-back: the harness delivers it, never a poll. Its prompt: "Work step
-   N of `docs/plans/<slug>.md` in this checkout by *Do* in
-   `.agents/skills/work/SKILL.md`, that one step only, and commit it. A run
+2. Group the steps in order into **batches**: up to 3 consecutive steps
+   whose tier is 1 or 2 share one subagent (one context), on the highest
+   tier among them. A tier-3 step is always a batch of its own and ends the
+   batch before it; a **[CI]** step is never batched. Start one fresh
+   subagent per batch on its tier (`.agents/tiers.md` says how in this
+   harness), and wait for its hand-back: the harness delivers it, never a
+   poll. Its prompt: "Work step N (or steps N-M, in order) of
+   `docs/plans/<slug>.md` in this checkout by *Do* in
+   `.agents/skills/work/SKILL.md`, only those steps, one commit per step
+   (each step's box ticked in its own commit). A run
    whose result you need goes in the foreground under `timeout`, never
    backgrounded and polled. You answer to the conductor, never the human:
    hand back the commit id and anything surprising, or the question that
    stopped you." The conductor writes no code itself; it alone talks to
    the human.
-3. On each hand-back, check what landed: the last commit names
-   `(plans/<slug> step N)`, the plan has step N ticked, `git status` is
-   clean.
+3. On each hand-back, check what landed: one commit per step of the
+   batch, each naming `(plans/<slug> step N)`, every step ticked, `git
+   status` is clean.
    - A question only the human may answer: stop and relay it.
    - Not landed for any other reason: one fresh subagent one tier up (3
-     stays 3) gets the step and the first one's report; a second miss
-     stops the conductor with both reports.
+     stays 3) gets the steps that did not land (as its own batch under the
+     same rule) and the first one's report; a second miss stops the
+     conductor with both reports.
 4. After the last box, retire the plan in this session by
    `.agents/skills/retire-plan/SKILL.md`; its review subagent runs on tier
    3. A hard finding goes to a fresh subagent on the tier of the step it
    repairs; the conductor commits only the retirement.
 5. Reply as *Do*'s step 7 does, one line per step conducted (its commit,
-   its tier, anything surprising), then the retirement's reply.
+   its tier, its batch, anything surprising), then the retirement's reply.
 
 `$ARGUMENTS`
