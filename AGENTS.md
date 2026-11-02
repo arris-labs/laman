@@ -43,7 +43,10 @@ gradients, held against finite differences and the checker at the fixtures).
 **M2 landed** (`Sketch::solve`/`apply`: LM and DogLeg, geometric DoF,
 redundant and conflict sets; static C1 fixtures and twins, digests equal on
 wasm32).
-**Next:** `/plan` M3 (the drag session).
+**M3 landed** (`Sketch::drag`/`DragSession`: goals solved lexicographically in
+the required null space, branch observations and flips, bisection; fixture 4
+under both algorithms, steps ≤ 1 ms, digests equal on wasm32; ADR-0006).
+**Next:** `/plan` M4 (Python and the cycle's close).
 
 ## Rules that are not derivable from the code
 

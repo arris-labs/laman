@@ -118,6 +118,14 @@ alone.*
 - Out: incremental decomposition (C2).
 - Accept: fixture 4 below; every step within the cycle-1 frame budget.
 
+*Status: landed. Fixture 4 passes in full through `DragSession` under both
+algorithms (checker green, DoF 3, no flips, `Q`'s bits kept); its ten step
+digests agree on native and wasm32-wasip1; every step is under 1 ms on the
+reference machine (median; thin margin). ADR-0006 closes branch
+preservation. Known gaps, all findings in `docs/BACKLOG.md`: a frame can
+end a radius just below zero (`apply` refuses it), arc tracking assumes
+under half a turn per frame, and bisected frames are not budgeted.*
+
 ### M4 — Python and the cycle's close
 
 *Goal: the same corpus from Python, the same bits on every target.*
