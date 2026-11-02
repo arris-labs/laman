@@ -84,6 +84,11 @@ only test is a CI run on `plan/m4-platforms`.
   on `3a9fb44`: all five gates, Python and wasm green.
 - [ ] Step 3 **[1, CI]** — `py-test.sh` portable; the `python` job over the
   OS matrix × 3.10, 3.13; pytest's digests match on each.
+  Run [41483531191](https://github.com/arris-labs/laman/actions/runs/41483531191)
+  on `5f126f0` passed nine Python jobs and all five gates; macOS arm64
+  Python 3.13 was cancelled before acquiring a runner (GitHub internal
+  server error and capacity annotations). Retrying without changing
+  implementation or acceptance.
 - [ ] Step 4 **[2, CI]** — `wheels.yml`: the five wheels and the sdist built,
   each installed on a clean runner and its tests green. CHANGELOG bullet:
   wheels for the five platforms (glibc ≥ 2.17), not one.

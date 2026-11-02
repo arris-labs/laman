@@ -585,7 +585,10 @@ nothing.
   strings. Tooling, outside the stability promise (ADR-0007).
 - The corpus (`tests/fixtures/c1/`, with `digests.txt`) is run by pytest
   under both algorithms; `hypothesis` builds Henneberg frameworks and solves
-  them back.
+  them back. CI's `python` matrix runs `tools/py-test.sh` (pytest,
+  `mypy.stubtest` and strict mypy) on the same five runners as `test`,
+  with Python 3.10 and 3.13 on each. The script resolves venv executables
+  through `uv run`, including Windows' `Scripts/` layout.
 
 ## Errors
 
