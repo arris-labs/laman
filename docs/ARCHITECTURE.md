@@ -516,10 +516,14 @@ then the checker's report at the solved coordinates (floats by their bits).
 `laman_debug::digest::of_solution` writes it; `of_run` is the older form,
 over the sketch and the report at a fixture's expected coordinates;
 `of_drag_step` prefixes a drag step's index and its target's bits to the
-same bytes. CI computes the digests of the fixture corpus, unsolved and
-solved by both algorithms, and of each step of fixture 4's drag by both, on Linux natively and on `wasm32-wasip1` under wasmtime
-(`tools/digest-wasm.sh`, compared sorted: the tests run in parallel), and
-fails if any differ; `laman-debug` holds the blessed digests, blessed only
+same bytes. CI's `test` matrix runs the gate, including all 50 blessed
+digests of the fixture corpus and drag, on Linux x86_64 (`ubuntu-latest`)
+and aarch64 (`ubuntu-24.04-arm`), macOS aarch64 (`macos-latest`) and x86_64
+(`macos-15-intel`), and Windows x86_64 (`windows-latest`). Each compares
+against the same committed digests. The Linux-only `wasm` job also
+compares native output with `wasm32-wasip1` under wasmtime
+(`tools/digest-wasm.sh`, compared sorted: the tests run in parallel).
+`laman-debug` holds the blessed digests, blessed only
 after `tests/c1.rs` has checked the same solves. A change that moves a
 solution's bits re-blesses them in the same commit, saying why
 (`.agents/review.md`).

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, plan/m4-platforms]
   pull_request:
 
 env:
@@ -11,8 +11,20 @@ env:
 jobs:
   # The gate (tools/gate.sh): fmt, clippy -D warnings, tests, rustdoc,
   # the wasm32 build. The same script the pre-commit hook runs.
-  check:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - run: rustup show

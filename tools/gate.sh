@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The gate (.agents/rules/git.md): every stage runs, and the last lines name
-# each red one. Run by .githooks/pre-commit and by CI's `check` job.
+# each red one. Run by .githooks/pre-commit and by CI's `test` matrix.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 red=()

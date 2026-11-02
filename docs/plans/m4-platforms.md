@@ -120,8 +120,8 @@ On the plan's last CI run, all green:
 - `CHANGELOG.md` — step 4's bullet.
 
 ## Open questions
-- ⚠ OPEN: pushing `plan/m4-platforms` and running macOS/Windows runners
-  (paid minutes if the repository is private). The human, before step 2.
+- Settled: the human authorized pushing `plan/m4-platforms` and running
+  CI, including macOS and Windows, before step 2.
 - ⚠ OPEN: crates.io and PyPI trusted publishers for `release.yml`, and the
   `release` environment's reviewer, are set up in their web UIs. The
   human, before the first real release; the dry run does not need them.
