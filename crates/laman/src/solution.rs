@@ -223,7 +223,8 @@ pub enum FlipSubject {
 ///
 /// `was` and `now` are the observed quantity where the old branch was last
 /// known and on the new one: an arc's sweep in radians, a circle's radius,
-/// the cosine or dot of a line pair's orientation.
+/// and for a line pair over its unit directions their `dot` (`parallel`),
+/// their `cross` (`perpendicular`) or `cos(φ − θ)` (`angle`).
 ///
 /// ```
 /// use laman::model::Sketch;

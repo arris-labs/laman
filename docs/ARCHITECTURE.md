@@ -140,8 +140,10 @@ The pipeline, each stage deterministic:
    rule or kernel choice reaches a DoF. It stops at the first remaining
    column whose part outside the chosen span is at most `RANK`.
 
-**Priorities**: every equation has one. Constraints are `Required` (the
-default); a drag target is `Goal`. Required equations are solved first; a
+**Priorities**: two levels, kept in two lists. Every constraint's
+equations are required, compiled into `System::equations`; a drag target
+is a goal, compiled into `System::goals`, a list of its own with no
+constraint source. Required equations are solved first; a
 goal is solved in the null space the required equations leave, so a goal
 can never push a required constraint off. Diagnostics never blame a goal
 for a conflict.
@@ -437,7 +439,10 @@ equation path to the dragged point is in another component and is not
 touched: its bits stay the bits it started with. A target that is not
 finite is no frame: the last solution comes back with `NotConverged` and
 the session is unchanged. Every solution of a session claims the sketch it
-was opened on, so `apply` takes any of them on it, unedited. The frame
+was opened on, so `apply` takes any of them on it, unedited, with one
+known gap: a degenerate sketch can end a frame with a radius rounded just
+below zero, which `apply` refuses (regression `drag-negative-radius`,
+ignored). The frame
 budget a step must meet is ROADMAP.md's: ≤ 1 ms, measured by the bench on
 fixture 4 (§Frame budget).
 

@@ -24,7 +24,9 @@ release by release. Written in the commit that makes the change, under
   `Solution`, solved from the previous frame with the target held as a
   goal that never pushes a constraint off (a target the sketch makes
   unreachable ends at the nearest reachable place); `finish()` returns the
-  last solution, which `Sketch::apply` takes on the unedited sketch. A
+  last solution, which `Sketch::apply` takes on the unedited sketch (except,
+  for now, when a degenerate sketch ends a frame with a radius rounded just
+  below zero, which `apply` refuses as out of range). A
   target that is not finite returns the last frame as `NotConverged`.
   Dragging a point fixed in both coordinates is refused with the new
   `ModelError::FixedPoint`; a point with one fixed coordinate drags along

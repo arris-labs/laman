@@ -35,7 +35,10 @@ use crate::system::Goal;
 /// §Priorities), starting from the previous step with least change.
 /// Geometry that no equation links to the dragged point keeps its bits.
 /// Every solution a session returns claims the sketch the session was
-/// opened on, so [`Sketch::apply`] accepts any of them on it, unedited.
+/// opened on, so [`Sketch::apply`] accepts any of them on it, unedited,
+/// with one known gap: a degenerate sketch whose radius rounds just below
+/// zero can come back with that negative radius, which `apply` refuses
+/// (`DimensionOutOfRange`; regression `drag-negative-radius`).
 ///
 /// ```
 /// use laman::model::Sketch;
@@ -197,7 +200,8 @@ impl DragSession {
 
     /// Ends the session and returns its last solution, which
     /// [`Sketch::apply`] accepts on the sketch the session was opened on if
-    /// that has not been edited since.
+    /// that has not been edited since, but for the negative-radius gap the
+    /// [`DragSession`] docs name.
     ///
     /// ```
     /// use laman::model::Sketch;
