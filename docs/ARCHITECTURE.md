@@ -494,7 +494,7 @@ expects violations lists them. The Python package exposes it as
 
 ## Determinism
 
-Same input, same bits, on Linux, macOS, Windows (x86_64 and aarch64) and
+Same input, same bits, on Linux, macOS, Windows (x86_64) and
 wasm32 (SEED.md §4, §9):
 
 - `BTreeMap` and `Vec` only where order reaches a result or an id; no

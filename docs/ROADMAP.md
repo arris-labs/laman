@@ -135,13 +135,16 @@ under half a turn per frame, and bisected frames are not budgeted.*
 - In: `laman-py` over the whole API (sketch, solve, drag, check, dumps),
   stubs under `mypy.stubtest` and `mypy --strict`; pytest running every
   fixture; `hypothesis` building random sketches by construction; CI's test
-  job on macOS and Windows; the wheel matrix and the release workflow
-  (`docs/BACKLOG.md`).
+  job on macOS and Windows; the wheel matrix and the release workflow.
 - Out: anything C2.
 - Status: the Python half landed (`laman-py` over the whole API; pytest
   reproduces the corpus and its 50 digests under both algorithms;
-  `hypothesis`; stubtest and `mypy --strict`); platforms and the oracle
-  runs to come.
+  `hypothesis`; stubtest and `mypy --strict`); the platforms landed (the
+  gate and the Python tests green in CI on Linux x86_64 and aarch64, macOS
+  arm64 and x86_64 and Windows x86_64, all 50 digests reproduced on each;
+  abi3 wheels and an sdist built and installed clean per platform;
+  `release.yml` rehearsed by a dry run, nothing uploaded); the oracle runs
+  to come.
 - Accept: the C1 acceptance below, in full, from `cargo test` and pytest;
   the comparison (COMPARISON.md) re-read against the code;
   `sketch-solver`, `acs-solver` and `ezpz` run out of process

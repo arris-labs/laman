@@ -20,7 +20,10 @@ never tags, pushes, approves a publish, or publishes by hand.
    its upstream (`git status`, `git rev-list --count @{u}..main`; no
    remote is said as such and stops here). The last `release.yml` dry run
    on `main` is green (`gh run list --workflow release.yml --branch main
-   --limit 3`); if none, the human dispatches one first. Start
+   --limit 3`); if none, the human dispatches one first. Check that the `crates-io` and
+   `pypi` environments have a required reviewer (`gh api
+   repos/{owner}/{repo}/environments`) and that the commit to tag is on
+   `main`; without either, stop and say so. Start
    `tools/gate.sh` with `run_in_background` and go on with step 2.
 2. **Pick the version.** The argument, else `[workspace.package].version`
    minus `-dev`. It must match the bump `.agents/rules/git.md` §The version
@@ -52,11 +55,12 @@ never tags, pushes, approves a publish, or publishes by hand.
    it with its log link; a publish is never rerun without the human's word.
    If `gh` fails (an invalid token, for one), stop and say so.
 6. **Reopen `main`.** Only after both publish jobs are green. The next
-   `-dev` is the patch after `X.Y.Z` (`X.Y.(Z+1)-dev`), updated in
-   `Cargo.toml` and both pins as in step 3, then `cargo check --workspace`.
-   Commit `chore(laman,py): reopen main at X.Y.(Z+1)-dev`. A later
-   `### Breaking` bullet moves it to a minor, in the commit that adds the
-   bullet. Do not push; the human does.
+   `-dev` follows `.agents/rules/git.md` §The version: the next minor
+   (`X.(Y+1).0-dev`) when this release closed a cycle, else the patch
+   (`X.Y.(Z+1)-dev`), which a later `### Breaking` bullet moves to a minor
+   in the commit that adds the bullet. Update `Cargo.toml` and both pins as
+   in step 3, then `cargo check --workspace`. Commit
+   `chore(laman,py): reopen main at <version>-dev`. Do not push; the human does.
 7. **Reply.** The release commit, the tag the human pushed, each job's
    result, the reopening commit, and anything surprising. Name the
    reviewers the human still owes if any.

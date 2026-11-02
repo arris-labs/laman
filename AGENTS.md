@@ -31,24 +31,18 @@ rustup target add wasm32-unknown-unknown   # rust-toolchain.toml asks for it; th
 **0.0.1 published** (2026-11-01) on crates.io and PyPI as `laman`: the
 generic rigidity count of bar frameworks (`laman::rigidity`). The docs
 system, tooling and design docs are written (SEED.md §10.1–5); the arc
-parametrisation is closed (ADR-0001). C1 is laid out as M0–M4 with its
-acceptance fixtures as numbers (`docs/ROADMAP.md`).
-C1 goes ahead as planned; the claim rests on the Python gap, the checker
-and deterministic branch-keeping drag (`docs/COMPARISON.md`, SEED.md §3 note).
-**M0 landed** (the model, serde form, checker, `laman-debug`, the four C1
-fixtures with twins, the digest corpus identical on wasm32-wasip1, the fuzz
-target): everything to judge a solve exists before the solver.
-**M1 landed** (`laman::residual`: every constraint's equations and analytic
-gradients, held against finite differences and the checker at the fixtures).
-**M2 landed** (`Sketch::solve`/`apply`: LM and DogLeg, geometric DoF,
-redundant and conflict sets; static C1 fixtures and twins, digests equal on
-wasm32).
-**M3 landed** (`Sketch::drag`/`DragSession`: goals solved lexicographically in
-the required null space, branch observations and flips, bisection; fixture 4
-under both algorithms, steps ≤ 1 ms, digests equal on wasm32; ADR-0006).
-**M4, Python half landed** (`laman-py` over the whole API, pytest running the
-corpus and its digests, `hypothesis`; ADR-0007).
-**Next:** `/plan` m4-platforms (CI on macOS and Windows, wheels, release).
+parametrisation is closed (ADR-0001). C1 goes ahead as planned; the claim
+rests on the Python gap, the checker and deterministic branch-keeping drag
+(`docs/COMPARISON.md`, SEED.md §3 note).
+**M0–M3 landed**: the model, serde form, checker, `laman-debug` and the four
+C1 fixtures with twins; every constraint's residual and gradient; `solve` and
+`apply` (LM, DogLeg, DoF, redundant and conflict sets); `drag`/`DragSession`
+(ADR-0006). Digests equal on wasm32-wasip1.
+**M4, Python and platforms landed** (`laman-py` over the whole API, ADR-0007;
+the 50 digests reproduced in CI on five OS/arch runners; wheels and sdist per
+platform; `release.yml` from a pushed `v*` tag behind the `crates-io` and
+`pypi` reviewers, rehearsed by a dry run; `/release`).
+**Next:** `/plan` m4-oracle (the out-of-process comparison, closing M4).
 
 ## Rules that are not derivable from the code
 
