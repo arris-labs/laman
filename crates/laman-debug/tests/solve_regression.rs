@@ -128,3 +128,35 @@ fn false_conflict_excludes_contradiction() {
 fn false_conflict_excludes_contradiction_dogleg() {
     assert_excludes_contradiction(Algorithm::DogLeg);
 }
+
+#[test]
+#[ignore = "a drag step returns a radius of -2.55e-19, which Sketch::apply refuses"]
+fn drag_negative_radius() {
+    let f = load("drag-negative-radius");
+    let drag = f.drag.as_ref().unwrap();
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let mut session = f.sketch.drag(drag.dragged, &options).unwrap();
+        for target in &drag.targets {
+            session.to(*target);
+        }
+        let mut applied = f.sketch.clone();
+        let result = applied.apply(&session.finish());
+        assert!(result.is_ok(), "{algorithm:?}: {result:?}");
+    }
+}
+
+#[test]
+#[ignore = "a solve returns a radius of -7.6e90, which Sketch::apply refuses"]
+fn negative_radius_solve() {
+    let f = load("negative-radius-solve");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        let mut applied = f.sketch.clone();
+        let result = applied.apply(&solution);
+        assert!(result.is_ok(), "{algorithm:?}: {result:?}");
+    }
+}

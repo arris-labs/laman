@@ -62,6 +62,22 @@ A defect a run measured, one block each:
 - Measured: rigid distance framework plus one stretched distance
 - State: regression/framework-conflict-inconclusive
 
+### negative-radius-solve
+- What: a solve returns a circle radius below zero (-7.6e90) that `Sketch::apply` refuses; no flip is named
+- Where: `laman::solve` / `laman::solution` (the radius parameter is not bounded below)
+- Seen: property `any_point_of_any_sketch_drags_to_any_targets`, M3 step 7
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored negative_radius_solve`
+- Measured: externally tangent circles of radius 0.001 and 3e91 with centres 764.76 apart; both algorithms
+- State: regression/negative-radius-solve
+
+### drag-negative-radius
+- What: a drag step returns a radius of -2.55e-19 (a circle tangent to a line through its own centre, so r is forced to 0), which `apply` refuses, so `DragSession::finish` does not apply
+- Where: `laman::drag`, `laman::solution` (same cause as `negative-radius-solve`)
+- Seen: same property, M3 step 7
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored drag_negative_radius`
+- Measured: DogLeg ends at -2.55e-19, Levenberg-Marquardt at +3.7e-14
+- State: regression/drag-negative-radius
+
 ## Rejected
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)

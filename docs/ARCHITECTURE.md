@@ -495,9 +495,11 @@ after `tests/c1.rs` has checked the same solves. A change that moves a
 solution's bits re-blesses them in the same commit, saying why
 (`.agents/review.md`).
 
-The **fuzzer** has two targets outside the workspace: `load_sketch` (any
-bytes are a sketch or a refusal) and `solve_sketch` (any loadable sketch
-solves under both algorithms to a complete answer that applies back).
+The **fuzzer** has three targets outside the workspace: `load_sketch` (any
+bytes are a sketch or a refusal), `solve_sketch` (any loadable sketch
+solves under both algorithms to a complete answer that applies back) and
+`drag_sketch` (any loadable sketch, any point, any targets, raw `f64` bits
+included: every step a complete answer, a non-finite target `NotConverged`).
 `cargo run --release -p laman-debug --example bench` times the static C1
 fixtures against the 1 ms frame budget and names the machine.
 

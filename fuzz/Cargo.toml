@@ -29,3 +29,10 @@ path = "fuzz_targets/solve_sketch.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "drag_sketch"
+path = "fuzz_targets/drag_sketch.rs"
+test = false
+doc = false
+bench = false
