@@ -138,6 +138,10 @@ under half a turn per frame, and bisected frames are not budgeted.*
   job on macOS and Windows; the wheel matrix and the release workflow
   (`docs/BACKLOG.md`).
 - Out: anything C2.
+- Status: the Python half landed (`laman-py` over the whole API; pytest
+  reproduces the corpus and its 50 digests under both algorithms;
+  `hypothesis`; stubtest and `mypy --strict`); platforms and the oracle
+  runs to come.
 - Accept: the C1 acceptance below, in full, from `cargo test` and pytest;
   the comparison (COMPARISON.md) re-read against the code;
   `sketch-solver`, `acs-solver` and `ezpz` run out of process

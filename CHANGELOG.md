@@ -6,6 +6,13 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- Python: `laman.Sketch` is built by hand or loaded from JSON, solved,
+  applied and dragged (`DragSession`), with `Solution` and every diagnostic
+  readable, `laman.check` for the independent check and `laman.debug` for
+  text and SVG dumps and digests (tooling). Refusals are `ModelError`
+  subclasses (a `ValueError`) naming your ids. Typed stubs ship with the
+  package.
+
 - `laman::solution`: `Sketch::solve(&SolverOptions)` returns a `Solution`
   (coordinates, `Status`, `Diagnostics`) with Levenberg-Marquardt or
   DogLeg under hard caps; under-constrained, over-constrained and

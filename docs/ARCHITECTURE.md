@@ -559,12 +559,29 @@ are in DATA-MODEL.md §The serde form.
 ## The Python binding
 
 `laman-py` is a 1:1 layer, abi3 for Python ≥ 3.10, typed stubs held by
-`mypy.stubtest`. A `laman.Sketch` has the Rust builder methods, ids are
-small handle objects with `.id`, keyword arguments carry what Rust spells
-as separate methods (`sk.point(0, 0, fixed=True, tag="origin")`).
-`ModelError` variants are exception classes under `laman.ModelError`
-(itself a `ValueError`); statuses are a Python `enum`. The binding computes
+`mypy.stubtest`, tests held by `mypy --strict`. The binding computes
 nothing.
+
+- `laman.Sketch` has the Rust builder, solve, apply and drag methods under
+  the same names; built by hand or loaded with `Sketch.from_json`. Entities
+  are frozen, hashable handles (`Point`, `Line`, `Circle`, `Arc`) with
+  `.id`; a loaded sketch hands them out with `point_handle` and its kin.
+  Constraint ids are plain `int`. Keyword arguments carry what Rust spells
+  as separate methods (`sk.point(0, 0, fixed=True, tag="origin")`); `Sense`
+  is an `enum.Enum`.
+- `Sketch.solve(options) -> Solution`, `apply(solution)`,
+  `drag(point, options) -> DragSession` with `to(x, y)` and `finish()`; a
+  call on a finished session raises `ValueError` (Rust moves the session).
+  `SolverOptions`, `Algorithm` and `Status` mirror Rust's; `Solution` and
+  every diagnostic are frozen classes with Rust's fields (tags `str | None`,
+  payloads `bytes | None`; Rust enums with data are flattened to optional
+  fields or strings).
+- `laman.check.check(sketch, coordinates) -> Report`.
+- `laman.debug`: `text`, `svg`, `solution_text` and the digests, as hex
+  strings. Tooling, outside the stability promise (ADR-0007).
+- The corpus (`tests/fixtures/c1/`, with `digests.txt`) is run by pytest
+  under both algorithms; `hypothesis` builds Henneberg frameworks and solves
+  them back.
 
 ## Errors
 
@@ -572,6 +589,11 @@ nothing.
 |---|---|---|
 | `ModelError` | a mutation, a load or an `apply` that would make the sketch malformed or land a solution on a sketch it was not solved for | the ids involved and what was wrong |
 | `RigidityError` | `rigidity` given a bad bar | the bar index and point |
+
+In Python every `ModelError` variant is a subclass of `laman.ModelError`
+(a `ValueError`), the ids as attributes, also reachable as
+`ModelError.<Variant>`; Rust's `Entity` and `Constraint` variants are
+`EntityError` and `ConstraintError`. Bad JSON text is a plain `ValueError`.
 
 No other error type: solving, dragging and checking always return a
 value.

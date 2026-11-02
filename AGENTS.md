@@ -46,7 +46,9 @@ wasm32).
 **M3 landed** (`Sketch::drag`/`DragSession`: goals solved lexicographically in
 the required null space, branch observations and flips, bisection; fixture 4
 under both algorithms, steps ≤ 1 ms, digests equal on wasm32; ADR-0006).
-**Next:** `/plan` M4 (Python and the cycle's close).
+**M4, Python half landed** (`laman-py` over the whole API, pytest running the
+corpus and its digests, `hypothesis`; ADR-0007).
+**Next:** `/plan` m4-platforms (CI on macOS and Windows, wheels, release).
 
 ## Rules that are not derivable from the code
 

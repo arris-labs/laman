@@ -4,7 +4,7 @@ A survey for someone choosing a 2D constraint solver for Rust or Python,
 and the check on laman's own reason to exist (SEED.md §3, §4). Surveyed
 2026-11-01 from each project's own pages and registry metadata, cited
 inline; nothing here was run or benchmarked. Laman's column is its plan,
-not its state: today it ships only the rigidity count (`CHANGELOG.md`).
+not its state: today it solves, drags and checks sketches from Rust and Python (`CHANGELOG.md`), without the cross-OS wheels or the oracle runs.
 `/close-cycle` re-reads this file against the code and the sources; a row
 that stops being true is fixed in the commit that makes it untrue.
 
@@ -71,7 +71,7 @@ claim about today.
   `sketch-solver`, `acs-solver` and `ezpz` out of process on laman's
   fixture corpus (`tools/oracle/`, SEED.md §7; ROADMAP.md §M4) and records
   their status, DoF and conflict sets here, not coordinates.
-- No capability laman does not yet have: today it is `laman::rigidity`.
+- No capability laman does not yet have: the solver, the drag and the Python binding exist; the cross-OS determinism and the out-of-process comparison below do not yet.
 - The rows for other solvers come from their own documentation and
   registry metadata on the survey date; a project's documentation can
   understate or overstate it.
