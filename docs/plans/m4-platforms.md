@@ -118,8 +118,11 @@ only test is a CI run on `plan/m4-platforms`.
   Implementation checked locally: actionlint, the guard self-test and
   rehearsal metadata test pass; an isolated stable copy passes
   `cargo publish -p laman --dry-run --locked --allow-dirty`, including
-  package verification. Dispatch validation is pending valid GitHub CLI
-  authentication; no registry upload was attempted.
+  package verification. Dispatch returns HTTP 404: GitHub's workflows API
+  lists only CI and Wheels, so the branch-only Release workflow is not
+  registered yet. `gh auth status` also reports an invalid token.
+  Registration and authenticated dispatch remain pending; no registry
+  upload was attempted. Ordinary CI and Wheels started on `00ea4cd`.
 - [ ] Step 7 **[1]** — the `/release` skill; `git.md` §Tags and publishing
   rewritten; `/next`'s "release due" reads the new rule.
 - [ ] Step 8 **[1]** — merge: `plan/m4-platforms` rebased on `main`,
