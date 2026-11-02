@@ -5,7 +5,11 @@
 //! twins are timed and printed, not budgeted: their conflict analysis is
 //! bounded by `max_analysis_solves`, not by the frame).
 //!
-//! The time is of the whole `Sketch::solve`, diagnostics included.
+//! The time is of the whole `Sketch::solve`, diagnostics included. Each step
+//! of fixture 4's drag (`slotted-plate-drag`) is timed too, under the same
+//! budget: a `DragSession::to`, diagnostics included, the session opened
+//! outside the timer. The median of a step over `RUNS` sessions is the
+//! number budgeted; the worst is printed.
 
 use laman::solution::{Algorithm, SolverOptions};
 use laman_debug::fixture::Fixture;
@@ -76,6 +80,43 @@ fn main() -> ExitCode {
                 if budgeted && median > BUDGET {
                     over.push(format!("{name} {algorithm:?}"));
                 }
+            }
+        }
+    }
+    let Ok(drag) = Fixture::load(&root.join("slotted-plate-drag")) else {
+        println!("slotted-plate-drag: cannot load");
+        return ExitCode::FAILURE;
+    };
+    let Some(targets) = drag.drag.as_ref().map(|d| (d.dragged, d.targets.clone())) else {
+        println!("slotted-plate-drag: no drag");
+        return ExitCode::FAILURE;
+    };
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let mut per_step: Vec<Vec<Duration>> = vec![Vec::new(); targets.1.len()];
+        for _ in 0..RUNS {
+            let Ok(mut session) = drag.sketch.drag(targets.0, &options) else {
+                println!("slotted-plate-drag: the session refuses the point");
+                return ExitCode::FAILURE;
+            };
+            for (k, target) in targets.1.iter().enumerate() {
+                let start = Instant::now();
+                let solution = session.to(*target);
+                let took = start.elapsed();
+                std::hint::black_box(solution);
+                per_step[k].push(took);
+            }
+        }
+        for (k, times) in per_step.iter_mut().enumerate() {
+            times.sort();
+            let (median, worst) = (times[RUNS / 2], times[RUNS - 1]);
+            println!(
+                "slotted-plate-drag step {} {algorithm:?}: median {median:?}, worst {worst:?}",
+                k + 1
+            );
+            if median > BUDGET {
+                over.push(format!("drag step {} {algorithm:?}", k + 1));
             }
         }
     }

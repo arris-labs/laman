@@ -429,7 +429,20 @@ touched: its bits stay the bits it started with. A target that is not
 finite is no frame: the last solution comes back with `NotConverged` and
 the session is unchanged. Every solution of a session claims the sketch it
 was opened on, so `apply` takes any of them on it, unedited. The frame
-budget a step must meet is ROADMAP.md's.
+budget a step must meet is ROADMAP.md's: ≤ 1 ms, measured by the bench on
+fixture 4 (§Frame budget).
+
+**Per-step diagnostics.** Every step runs the full diagnostics, the same
+`analyse` a static solve runs: the solve toward the goal costs about 0.4 ms
+and the diagnostics about 0.6 ms of the plate's step, three quarters of
+them redundancy (one rank computation of the recompiled system per
+satisfied constraint). The frame-cheap alternative, redundancy only on
+`finish`, would make a step's `redundant` stale and was not needed: the
+redundancy pass takes the rank alone (`dof_only`: no null basis, no
+per-entity counts), which brought the step from 1.08 to 0.99 ms and the
+plate's static redundant twin from 0.93 to 0.88 ms. The margin is thin
+(the worst of 200 runs is up to 1.2 ms); C2's incremental solve is what
+buys it, since redundancy then recomputes only the edited cluster.
 
 **Bisection.** A step whose solve flips a branch (§Branches) is retried
 toward the last good target: the full step, then half of it, a quarter, and
@@ -501,7 +514,17 @@ solves under both algorithms to a complete answer that applies back) and
 `drag_sketch` (any loadable sketch, any point, any targets, raw `f64` bits
 included: every step a complete answer, a non-finite target `NotConverged`).
 `cargo run --release -p laman-debug --example bench` times the static C1
-fixtures against the 1 ms frame budget and names the machine.
+fixtures and each step of fixture 4's drag against the 1 ms frame budget and
+names the machine.
+
+### Frame budget
+
+Measured by the bench (release, median of 200 runs, AMD Ryzen 9 7950X): the
+static bases and redundant twins take 0.05 ms (triangle), 0.3 ms (belt) and
+0.8–0.9 ms (slotted plate), under Levenberg–Marquardt and DogLeg alike; each
+of the drag's ten steps takes 0.98–0.99 ms under both. The conflicting twins
+run the conflict analysis and are timed, not budgeted: 1.1–1.6 ms
+(triangle), 8–11 ms (belt), 39–52 ms (plate).
 
 ## wasm32
 

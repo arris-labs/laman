@@ -14,7 +14,7 @@
 //! rests on the certificate, which is first-order and local (ADR-0005).
 //! Intrinsic equations and ground are part of their entities: never removed,
 //! never named.
-use super::{Freedom, freedom};
+use super::{Freedom, dof_only, freedom};
 use crate::model::tolerance::{Component, STATIONARY, Source, Tolerances};
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
 use crate::solve::{Options, Outcome, satisfied, solve};
@@ -316,7 +316,7 @@ fn redundant(
         if less.remove_constraint(*id).is_err() {
             continue;
         }
-        if freedom(&less, values).dof == dof {
+        if dof_only(&less, values) == dof {
             out.push(*id);
             working = less;
         }

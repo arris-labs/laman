@@ -37,14 +37,33 @@ pub(crate) fn freedom(sketch: &Sketch, values: &Coordinates) -> Freedom {
     freedom_of(&System::new(sketch), values)
 }
 
-/// [`Freedom`] of an already compiled system.
-pub(crate) fn freedom_of(system: &System<'_>, values: &Coordinates) -> Freedom {
-    let mut coordinates = system.sketch.coordinates();
+/// The `dof` of [`freedom`] alone: the same ranks from the same
+/// factorizations, without the null basis or the per-entity counts, which
+/// is all redundancy needs and most of what a freedom costs.
+pub(crate) fn dof_only(sketch: &Sketch, values: &Coordinates) -> usize {
+    let system = System::new(sketch);
+    let coordinates = merged(sketch, values);
+    system
+        .components
+        .iter()
+        .map(|component| component.params.len() - rank_of(&system, component, &coordinates))
+        .sum()
+}
+
+/// The sketch's coordinates with `values` laid over them.
+fn merged(sketch: &Sketch, values: &Coordinates) -> Coordinates {
+    let mut coordinates = sketch.coordinates();
     for (key, value) in coordinates.iter_mut() {
         if let Some(v) = values.get(key) {
             *value = *v;
         }
     }
+    coordinates
+}
+
+/// [`Freedom`] of an already compiled system.
+pub(crate) fn freedom_of(system: &System<'_>, values: &Coordinates) -> Freedom {
+    let coordinates = merged(system.sketch, values);
     let mut dof = 0;
     let mut basis: Vec<Vec<(Param, f64)>> = Vec::new();
     for component in &system.components {
@@ -97,10 +116,23 @@ pub(crate) fn null_space(
     component: &Component,
     values: &Coordinates,
 ) -> (usize, Vec<Vec<f64>>) {
-    let n = component.params.len();
-    if n == 0 {
+    if component.params.is_empty() {
         return (0, vec![]);
     }
+    let qr = component_qr(system, component, values);
+    (qr.rank, qr.null_basis())
+}
+
+/// A component's rank alone: [`null_space`]'s, without the basis.
+fn rank_of(system: &System<'_>, component: &Component, values: &Coordinates) -> usize {
+    if component.params.is_empty() {
+        return 0;
+    }
+    component_qr(system, component, values).rank
+}
+
+/// The factorization of a component's unit-row Jacobian at `values`.
+fn component_qr(system: &System<'_>, component: &Component, values: &Coordinates) -> Qr {
     // A non-finite row (an unreadable configuration) contributes no rank:
     // the DoF is then an upper estimate, and degeneracy is reported separately.
     let rows = if component.sources.is_empty() {
@@ -113,8 +145,7 @@ pub(crate) fn null_space(
             .filter_map(unit_row)
             .collect()
     };
-    let qr = Qr::new(rows, n);
-    (qr.rank, qr.null_basis())
+    Qr::new(rows, component.params.len())
 }
 
 /// The row scaled to unit Euclidean norm; `None` for a zero or non-finite row.
