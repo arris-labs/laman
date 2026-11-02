@@ -54,6 +54,15 @@ nothing.
     `coordinates() -> Coordinates`; `tag_of(id)` / `payload_of(id)` read
     back a tag or payload; `remove` / `remove_with_constraints` return
     `Removed` (`.entities`, `.constraints`, ids in order).
+  - **Review additions**: `Sketch.point_handle/line_handle/circle_handle/
+    arc_handle(id)` (Rust's, raising the typed `ModelError`) and the read
+    side `entities() -> list[EntityRef]`, `constraints() ->
+    list[ConstraintRef]` (id order), `constraint_entities(id)` and
+    `constraint_value(id)` (a dimension's value, else `None`), so a loaded
+    sketch can be edited; `Sketch.drag` takes a `Point` or an id.
+    Docstring examples live in the Python-visible modules (`laman`,
+    `laman.check`): `--doctest-modules` cannot reach compiled-module
+    docstrings.
   - `SolverOptions(**kwargs)` (frozen, defaults read from Rust's
     `Default`), `Algorithm` and `Status` as `enum.Enum` with Rust's names.
   - `Sketch.solve(options=None) -> Solution`, `apply(solution)`,

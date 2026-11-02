@@ -5,13 +5,20 @@ use crate::build::{
     decorate_entity, refuse, sense_from_py,
 };
 use crate::errors::model_error;
-use crate::solve::{Solution, SolverOptions};
+use crate::solve::{ConstraintRef, EntityRef, Solution, SolverOptions};
 use laman::model::{Constraint, ConstraintId, Contact, Coordinate, EntityId, ModelError, Payload};
 use laman_debug::fixture::coordinate_name;
 use laman_debug::json::{LoadError, sketch_from_str, sketch_to_string};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
+
+/// A point given as a handle or as a bare id.
+#[derive(FromPyObject)]
+pub enum PointArg<'py> {
+    Handle(PyRef<'py, Point>),
+    Id(u32),
+}
 
 /// The parameter named `x`, `y` or `r`.
 pub fn coordinate_from_name(name: &str) -> PyResult<Coordinate> {
@@ -164,23 +171,116 @@ impl Sketch {
             .map_err(|e| model_error(py, &e))
     }
 
-    /// Opens a drag session on the point `point` (an id): a copy of the
+    /// Opens a drag session on the point `point` (a `Point` handle or an id): a copy of the
     /// sketch is dragged, this one untouched until `apply`.
     #[pyo3(signature = (point, options=None))]
     fn drag(
         &self,
         py: Python<'_>,
-        point: u32,
+        point: PointArg<'_>,
         options: Option<&SolverOptions>,
     ) -> PyResult<DragSession> {
         let options = options.map_or_else(laman::solution::SolverOptions::default, |o| o.inner);
+        let id = match point {
+            PointArg::Handle(p) => p.id,
+            PointArg::Id(id) => id,
+        };
         let session = self
             .inner
-            .drag(EntityId(point), &options)
+            .drag(EntityId(id), &options)
             .map_err(|e| model_error(py, &e))?;
         Ok(DragSession {
             inner: Some(session),
         })
+    }
+
+    // ---- handles and the read side, for a sketch that was loaded ----
+
+    /// The `Point` handle of entity `id`. Raises a `ModelError` for an id
+    /// the sketch lacks or an entity of another kind.
+    fn point_handle(&self, py: Python<'_>, id: u32) -> PyResult<Point> {
+        let p = refuse(py, self.inner.point_handle(EntityId(id)))?;
+        Ok(Point { id: p.id().0 })
+    }
+
+    /// The `Line` handle of entity `id`; a `ModelError` as `point_handle`.
+    fn line_handle(&self, py: Python<'_>, id: u32) -> PyResult<Line> {
+        let l = refuse(py, self.inner.line_handle(EntityId(id)))?;
+        Ok(Line { id: l.id().0 })
+    }
+
+    /// The `Circle` handle of entity `id`; a `ModelError` as `point_handle`.
+    fn circle_handle(&self, py: Python<'_>, id: u32) -> PyResult<Circle> {
+        let c = refuse(py, self.inner.circle_handle(EntityId(id)))?;
+        Ok(Circle { id: c.id().0 })
+    }
+
+    /// The `Arc` handle of entity `id`; a `ModelError` as `point_handle`.
+    fn arc_handle(&self, py: Python<'_>, id: u32) -> PyResult<Arc> {
+        let a = refuse(py, self.inner.arc_handle(EntityId(id)))?;
+        Ok(Arc { id: a.id().0 })
+    }
+
+    /// Every entity, in id order: its id, kind and tag.
+    fn entities(&self) -> Vec<EntityRef> {
+        self.inner
+            .entities()
+            .map(|(id, e)| {
+                EntityRef::named(
+                    id.0,
+                    e.kind().to_string(),
+                    self.inner.tag_of(id).map(str::to_owned),
+                )
+            })
+            .collect()
+    }
+
+    /// Every constraint, in id order: its id, kind and tag.
+    fn constraints(&self) -> Vec<ConstraintRef> {
+        self.inner
+            .constraints()
+            .map(|(id, c)| {
+                ConstraintRef::named(
+                    id.0,
+                    c.kind().to_string(),
+                    self.inner.constraint_tag_of(id).map(str::to_owned),
+                )
+            })
+            .collect()
+    }
+
+    /// The entities constraint `id` names, in field order, or `None` for an
+    /// id the sketch lacks.
+    fn constraint_entities(&self, id: u32) -> Option<Vec<u32>> {
+        self.inner
+            .constraint(ConstraintId(id))
+            .map(|c| c.entities().into_iter().map(|e| e.0).collect())
+    }
+
+    /// The value of a dimension (`distance`, `point_line_distance`,
+    /// `radius`, `angle`), or `None` for any other constraint or a missing
+    /// id.
+    fn constraint_value(&self, id: u32) -> Option<f64> {
+        match self.inner.constraint(ConstraintId(id))? {
+            Constraint::Distance { value, .. }
+            | Constraint::PointLineDistance { value, .. }
+            | Constraint::Radius { value, .. }
+            | Constraint::Angle { value, .. } => Some(*value),
+            Constraint::Coincident { .. }
+            | Constraint::PointOnLine { .. }
+            | Constraint::PointOnCircle { .. }
+            | Constraint::Horizontal(_)
+            | Constraint::Vertical(_)
+            | Constraint::Parallel { .. }
+            | Constraint::Perpendicular { .. }
+            | Constraint::EqualLength { .. }
+            | Constraint::EqualRadius { .. }
+            | Constraint::TangentLineCircle { .. }
+            | Constraint::TangentCircles { .. }
+            | Constraint::Midpoint { .. }
+            | Constraint::Symmetric { .. }
+            | Constraint::Fix { .. } => None,
+        }
     }
 
     // ---- entities ----

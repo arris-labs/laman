@@ -102,6 +102,11 @@ pub struct EntityRef {
 }
 
 impl EntityRef {
+    /// An entity of a sketch by id, kind and tag, for `Sketch.entities`.
+    pub fn named(id: u32, kind: String, tag: Option<String>) -> Self {
+        Self { id, kind, tag }
+    }
+
     fn of(r: &laman::solution::EntityRef) -> Self {
         Self {
             id: r.id.0,
@@ -137,6 +142,11 @@ pub struct ConstraintRef {
 }
 
 impl ConstraintRef {
+    /// A constraint of a sketch by id, kind and tag, for `Sketch.constraints`.
+    pub fn named(id: u32, kind: String, tag: Option<String>) -> Self {
+        Self { id, kind, tag }
+    }
+
     fn of(r: &laman::solution::ConstraintRef) -> Self {
         Self {
             id: r.id.0,

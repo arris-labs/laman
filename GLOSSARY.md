@@ -23,6 +23,14 @@ A geometric object of a sketch built from parameters: a point, line
 segment, circle or arc.
 _Avoid_: primitive, element, shape
 
+**Handle**:
+A typed, frozen reference to one entity of a sketch by its id: Rust's
+`Point`, `Line`, `Circle`, `Arc` and the Python classes of those names. It
+carries no coordinates and is checked against the sketch at every use, so
+a handle of another sketch or of a removed entity is refused with a typed
+error; a loaded sketch hands them out by id (`Sketch.point_handle`, ...).
+_Avoid_: pointer, object, proxy
+
 **Ground**:
 A fixed parameter, or a point with both coordinates fixed: not an unknown,
 never blamed (DATA-MODEL.md §Entities). The `fix` constraint is not
