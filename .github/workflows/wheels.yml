@@ -2,6 +2,11 @@ name: Wheels
 
 on:
   workflow_call:
+    inputs:
+      metadata-artifact:
+        description: Release rehearsal metadata, prepared by release.yml
+        type: string
+        default: ""
   push:
     branches: [main, plan/m4-platforms]
 
@@ -33,6 +38,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        if: inputs.metadata-artifact != ''
+        with:
+          name: ${{ inputs.metadata-artifact }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -73,6 +82,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
+        if: inputs.metadata-artifact != ''
+        with:
+          name: ${{ inputs.metadata-artifact }}
+      - uses: actions/download-artifact@v4
         with:
           name: wheels-${{ matrix.platform }}
           path: dist
@@ -91,6 +104,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        if: inputs.metadata-artifact != ''
+        with:
+          name: ${{ inputs.metadata-artifact }}
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
@@ -106,6 +123,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        if: inputs.metadata-artifact != ''
+        with:
+          name: ${{ inputs.metadata-artifact }}
       - uses: actions/download-artifact@v4
         with:
           name: sdist

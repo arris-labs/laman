@@ -25,7 +25,9 @@ base64 = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest.workspace = true
-laman-check.workspace = true
+# Path-only dev dependencies are omitted from the published manifest. The
+# independent checker stays unpublished; it is used by workspace tests only.
+laman-check = { path = "../laman-check" }
 laman-debug = { path = "../laman-debug" }
 serde_json.workspace = true
 

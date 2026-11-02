@@ -70,6 +70,14 @@ plan: the release workflow is proven by a dry run.
 - **`.agents/rules/git.md` §Tags and publishing** — rewritten: publishing
   is `release.yml` from a tag the human pushes; by hand only if it is down.
 - No public type or signature changes.
+- **Release rehearsal** — dry runs prepare `Cargo.toml`, `Cargo.lock` and
+  the changelog heading as an isolated metadata artefact, overlaid only in
+  runner checkouts by the reusable workflows. The committed `-dev` version
+  stays unchanged. Only the rehearsal uses `--allow-dirty` with
+  `cargo publish --dry-run`; real publishing requires a clean, guarded tag.
+- **Crate packaging** — `laman`'s checker dev-dependency is path-only,
+  like `laman-debug`, so Cargo omits the unpublished checker from its
+  registry manifest. Workspace tests still use the independent checker.
 
 ## Steps
 Grades: **[1]** routine; **[2]** careful; **[3]** unproven. **[CI]**: the
@@ -107,6 +115,11 @@ only test is a CI run on `plan/m4-platforms`.
   heading); the gate runs that self-test as a stage.
 - [ ] Step 6 **[2, CI]** — `release.yml`; a `workflow_dispatch` dry run on
   the branch is green end to end and uploads nothing.
+  Implementation checked locally: actionlint, the guard self-test and
+  rehearsal metadata test pass; an isolated stable copy passes
+  `cargo publish -p laman --dry-run --locked --allow-dirty`, including
+  package verification. Dispatch validation is pending valid GitHub CLI
+  authentication; no registry upload was attempted.
 - [ ] Step 7 **[1]** — the `/release` skill; `git.md` §Tags and publishing
   rewritten; `/next`'s "release due" reads the new rule.
 - [ ] Step 8 **[1]** — merge: `plan/m4-platforms` rebased on `main`,
@@ -139,6 +152,14 @@ On the plan's last CI run, all green:
 ## Open questions
 - Settled: the human authorized pushing `plan/m4-platforms` and running
   CI, including macOS and Windows, before step 2.
+- Settled: rehearse the stable metadata in runner copies, since the guard
+  must refuse the branch's `-dev` version and this plan cannot prepare a
+  real release. CI, wheels and crate packaging all receive the same
+  temporary metadata; no version bump or release heading lands on main.
+- Settled: Cargo's packaging trial found `laman-check` absent on crates.io.
+  Its version-pinned dev-dependency would require publishing the checker,
+  which is outside scope; a path-only dev-dependency is omitted by Cargo
+  and preserves the existing workspace checks.
 - ⚠ OPEN: crates.io and PyPI trusted publishers for `release.yml`, and the
   `release` environment's reviewer, are set up in their web UIs. The
   human, before the first real release; the dry run does not need them.
