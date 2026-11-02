@@ -50,13 +50,27 @@ Name any public type or signature it changes.
 
 ## Tags and publishing
 
-- `vX.Y.Z` tags mark releases on `main`, created and pushed by the human.
-  Until the release workflow exists (`docs/BACKLOG.md`), publishing is by
-  hand and only when the human asks: `cargo publish -p laman`, then the
-  wheels and sdist built by maturin from `crates/laman-py` uploaded to PyPI.
-  The crate and the Python package carry the same version.
+- Publishing is `.github/workflows/release.yml`, run from a `vX.Y.Z` tag
+  that the human pushes (`/release` walks it). A `workflow_dispatch` run
+  with `dry_run` (the default) rehearses with temporary stable metadata
+  and uploads nothing.
+- `release.yml` refuses a tag that is not `v` plus `[workspace.package].version`
+  with no `-dev`, or whose `CHANGELOG.md` lacks its `## X.Y.Z` heading
+  (`tools/release-check.sh`). It then runs `ci.yml` and `wheels.yml`, and
+  publishes: `publish-crate` (`cargo publish -p laman`, crates.io trusted
+  publishing, GitHub environment `crates-io`) and `publish-pypi` (the
+  wheels and sdist, PyPI trusted publishing, GitHub environment `pypi`).
+  Each environment has a required reviewer: every upload waits for the
+  human's approval.
+- The trusted publishers and the environments' reviewers are configured
+  in the crates.io, PyPI and GitHub web UIs by the human, before the first
+  real release. An agent never publishes by hand, unless `release.yml` is
+  down and the human asks: `cargo publish -p laman`, then the wheels and
+  sdist built by maturin from `crates/laman-py` uploaded to PyPI.
+- The crate and the Python package carry the same version.
 - `laman-debug` and `laman-py` are `publish = false` on crates.io;
-  `laman-py` is what PyPI's `laman` is built from.
+  `laman-py` is what PyPI's `laman` is built from. `laman-check` is not
+  published (`docs/BACKLOG.md`).
 
 ### The version
 

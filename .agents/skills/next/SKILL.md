@@ -16,6 +16,13 @@ Read-only: it changes nothing, it orients the human. Gather in parallel:
 - `docs/BACKLOG.md` §Findings: how many, and any naming the open cycle;
 - `CHANGELOG.md` `## Unreleased`: whether it has bullets, and a
   `### Breaking`;
+- **Release due** (`.agents/rules/git.md` §Tags and publishing and §The
+  version): a release is due when the open cycle is closed (its
+  `docs/ROADMAP.md` section is compressed to its status line) or
+  `## Unreleased` has bullets a consumer would see. The version is the
+  one §The version gives (minor on a cycle close or a `### Breaking`
+  bullet, patch otherwise). `Due` names it as `release X.Y.Z`: the tag is
+  the human's, pushed after `/release` prepares the commit;
 - `git status --short`, `git log --oneline origin/main..main | wc -l`
   (unpushed; no remote yet is said as such), `git describe --tags --match
   'v*' --abbrev=0` and the commits since it;
@@ -30,7 +37,7 @@ Ideas    arc-parametrisation: round 2 unanswered
 Findings 1 open, on this cycle (fuzz: NaN radius)
 Tree     clean | 4 files staged by another session
 Git      9 unpushed; last release v0.0.1, 41 commits since; CI green
-Due      push
+Due      push; release 0.1.0 (cycle closed; /release)
 
 → /work harness step 4-5   both [2]; Sonnet fits
   or: /idea arc-parametrisation   (one line on why it waits or wins)
