@@ -96,7 +96,7 @@ current and `tools/py-test.sh` green.
   under both algorithms, every listed coordinate, `Q`'s bits, no flips,
   each step digest equal to `digests.txt`; `finish()` then `apply`; a
   stale `apply` raises `ModelError.Stale`; a finished session refuses.
-- [ ] Step 6 **[1]** — the builder: every entity and constraint method with
+- [x] Step 6 **[1]** — the builder: every entity and constraint method with
   its keywords, `set_fixed`, `set_construction`, `tag`, `payload`,
   `remove`, `remove_with_constraints`; the `ModelError` subclasses. Tests:
   fixtures 1–3 built by hand in Python have the loaded fixture's run
@@ -145,6 +145,7 @@ property green at the step-8 count. `cargo test`, the gate and
   this plan runs locally, so it goes first. The human may swap them.
 - ⚠ OPEN: the `hypothesis` example count: the agent, by step 8, sized so
   `py-test.sh` stays under a minute, with a `ci` profile that raises it.
-- ⚠ OPEN: constraint ids as `int` rather than a handle class: the agent's
-  pick (no kind to check on a constraint id); revisited in step 6 if the
-  stub reads worse for it.
+- Settled (step 6): constraint ids stay `int`. `fixed=` is on `point` and
+  `circle` only (a line or arc has nothing to fix); `tangent_*` take `sense=`
+  (and `external=`) to override the drawing's reading. `IncompleteSolution`
+  and `FixedMoved` cannot be raised from Python; Rust doctests hold them.

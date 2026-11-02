@@ -10,6 +10,8 @@ frameworks (Laman's theorem) is `rigidity`.
 
 from ._errors import ModelError
 from ._laman import (
+    Arc,
+    Circle,
     ConstraintRef,
     Coordinates,
     Degenerate,
@@ -19,7 +21,10 @@ from ._laman import (
     EntityRef,
     Flip,
     FlipSubject,
+    Line,
     Motion,
+    Point,
+    Removed,
     Rigidity,
     RigidityError,
     Sketch,
@@ -27,10 +32,12 @@ from ._laman import (
     SolverOptions,
     rigidity,
 )
-from ._types import Algorithm, Status
+from ._types import Algorithm, Sense, Status
 
 __all__ = [
     "Algorithm",
+    "Arc",
+    "Circle",
     "ConstraintRef",
     "Coordinates",
     "Degenerate",
@@ -40,10 +47,14 @@ __all__ = [
     "EntityRef",
     "Flip",
     "FlipSubject",
+    "Line",
     "ModelError",
     "Motion",
+    "Point",
+    "Removed",
     "Rigidity",
     "RigidityError",
+    "Sense",
     "Sketch",
     "Solution",
     "SolverOptions",

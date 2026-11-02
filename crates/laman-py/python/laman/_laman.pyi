@@ -1,9 +1,14 @@
 from collections.abc import Iterator, Mapping, Sequence
 from typing import final
 
-from ._types import Algorithm, Status
+from ._types import Algorithm, Sense, Status
 
 __all__ = [
+    "Arc",
+    "Circle",
+    "Line",
+    "Point",
+    "Removed",
     "ConstraintRef",
     "Degenerate",
     "DragSession",
@@ -212,6 +217,52 @@ class Solution:
     def source_revision(self) -> int: ...
 
 @final
+class Point:
+    """A point of a sketch, by id."""
+
+    @property
+    def id(self) -> int: ...
+    def __eq__(self, other: object, /) -> bool: ...
+    def __hash__(self) -> int: ...
+
+@final
+class Line:
+    """A line segment of a sketch, by id."""
+
+    @property
+    def id(self) -> int: ...
+    def __eq__(self, other: object, /) -> bool: ...
+    def __hash__(self) -> int: ...
+
+@final
+class Circle:
+    """A circle of a sketch, by id."""
+
+    @property
+    def id(self) -> int: ...
+    def __eq__(self, other: object, /) -> bool: ...
+    def __hash__(self) -> int: ...
+
+@final
+class Arc:
+    """A circular arc of a sketch, by id."""
+
+    @property
+    def id(self) -> int: ...
+    def __eq__(self, other: object, /) -> bool: ...
+    def __hash__(self) -> int: ...
+
+@final
+class Removed:
+    """What a cascading removal took out of a sketch, in id order."""
+
+    @property
+    def entities(self) -> list[int]: ...
+    @property
+    def constraints(self) -> list[int]: ...
+    def __eq__(self, other: object, /) -> bool: ...
+
+@final
 class Sketch:
     """A sketch: entities and the constraints between them."""
 
@@ -223,6 +274,230 @@ class Sketch:
     def revision(self) -> int: ...
     def coordinates(self) -> Coordinates: ...
     def solve(self, options: SolverOptions | None = None) -> Solution: ...
+    def point(
+        self,
+        x: float,
+        y: float,
+        *,
+        fixed: bool = False,
+        construction: bool = False,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> Point: ...
+    def line(
+        self,
+        a: Point,
+        b: Point,
+        *,
+        construction: bool = False,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> Line: ...
+    def circle(
+        self,
+        centre: Point,
+        r: float,
+        *,
+        fixed: bool = False,
+        construction: bool = False,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> Circle: ...
+    def arc(
+        self,
+        centre: Point,
+        start: Point,
+        end: Point,
+        *,
+        construction: bool = False,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> Arc: ...
+    def set_fixed(self, id: int, coordinate: str, fixed: bool) -> None: ...
+    def is_fixed(self, id: int, coordinate: str) -> bool: ...
+    def set_construction(self, id: int, construction: bool) -> None: ...
+    def is_construction(self, id: int) -> bool: ...
+    def tag(self, id: int, tag: str) -> None: ...
+    def payload(self, id: int, payload: bytes) -> None: ...
+    def remove(self, id: int) -> None: ...
+    def remove_with_constraints(self, id: int) -> Removed: ...
+    def remove_constraint(self, id: int) -> None: ...
+    def tag_constraint(self, id: int, tag: str) -> None: ...
+    def payload_constraint(self, id: int, payload: bytes) -> None: ...
+    def coincident(
+        self,
+        p: Point,
+        q: Point,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def point_on_line(
+        self,
+        p: Point,
+        line: Line,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def point_on_circle(
+        self,
+        p: Point,
+        on: Circle | Arc,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def horizontal(
+        self,
+        a: Line | Point,
+        b: Point | None = None,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def vertical(
+        self,
+        a: Line | Point,
+        b: Point | None = None,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def parallel(
+        self,
+        a: Line,
+        b: Line,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def perpendicular(
+        self,
+        a: Line,
+        b: Line,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def equal_length(
+        self,
+        a: Line,
+        b: Line,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def equal_radius(
+        self,
+        a: Circle | Arc,
+        b: Circle | Arc,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def tangent_line_circle(
+        self,
+        line: Line,
+        round: Circle | Arc,
+        *,
+        sense: Sense | None = None,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def tangent_circles(
+        self,
+        a: Circle | Arc,
+        b: Circle | Arc,
+        *,
+        external: bool = False,
+        sense: Sense | None = None,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def midpoint(
+        self,
+        p: Point,
+        line: Line,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def symmetric(
+        self,
+        p: Point,
+        q: Point,
+        axis: Line,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def fix(
+        self,
+        p: Point,
+        x: float,
+        y: float,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def distance(
+        self,
+        p: Point,
+        q: Point,
+        value: float,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def point_line_distance(
+        self,
+        p: Point,
+        line: Line,
+        value: float,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def radius(
+        self,
+        round: Circle | Arc,
+        value: float,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
+    def angle(
+        self,
+        a: Line,
+        b: Line,
+        value: float,
+        *,
+        tag: str | None = None,
+        payload: bytes | None = None,
+        id: int | None = None,
+    ) -> int: ...
     def apply(self, solution: Solution) -> None: ...
     def drag(self, point: int, options: SolverOptions | None = None) -> DragSession: ...
     def tag_of(self, id: int) -> str | None: ...

@@ -6,7 +6,7 @@ them by name, so the values are never compared with the Rust ones.
 
 import enum
 
-__all__ = ["Algorithm", "Status"]
+__all__ = ["Algorithm", "Sense", "Status"]
 
 
 class Algorithm(enum.Enum):
@@ -29,3 +29,12 @@ class Status(enum.Enum):
     """A conflict set exists; the coordinates are the best effort."""
     NotConverged = "NotConverged"
     """A cap was hit with equations unsatisfied and no conflict proven."""
+
+
+class Sense(enum.Enum):
+    """The side a drawing was on: the branch a tangent or distance keeps."""
+
+    Positive = "Positive"
+    """`sigma = +1`."""
+    Negative = "Negative"
+    """`sigma = -1`."""

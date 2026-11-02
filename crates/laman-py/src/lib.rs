@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 #![cfg(not(target_arch = "wasm32"))]
 
+mod build;
 mod check;
 mod debug;
 mod enums;
@@ -81,6 +82,11 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<solve::SolverOptions>()?;
     m.add_class::<solve::Solution>()?;
     m.add_class::<model::DragSession>()?;
+    m.add_class::<build::Point>()?;
+    m.add_class::<build::Line>()?;
+    m.add_class::<build::Circle>()?;
+    m.add_class::<build::Arc>()?;
+    m.add_class::<build::Removed>()?;
     m.add_class::<solve::Diagnostics>()?;
     m.add_class::<solve::EntityRef>()?;
     m.add_class::<solve::ConstraintRef>()?;
