@@ -94,11 +94,14 @@ only test is a CI run on `plan/m4-platforms`.
   on `286a0bf`: all ten Python jobs green on the pinned runner matrix.
   Four native gates green; the pinned macOS arm64 gate is still queued
   and must be checked before merge.
-- [ ] Step 4 **[2, CI]** — `wheels.yml`: the five wheels and the sdist built,
+- [x] Step 4 **[2, CI]** — `wheels.yml`: the five wheels and the sdist built,
   each installed on a clean runner and its tests green. CHANGELOG bullet:
   wheels for the five platforms (glibc ≥ 2.17), not one.
-  Implementation and local isolated sdist tests are ready; the box waits
-  for the five clean wheel installs and sdist tests in branch CI.
+  Validated by [41489534890](https://github.com/arris-labs/laman/actions/runs/41489534890)
+  on `16d1731`: all five wheel builds and clean installs, plus the sdist
+  build and isolated install, green (12 jobs). Both Linux auditwheel
+  checks require `manylinux_2_17`; every installed package runs the
+  corpus, all 50 digests, stubtest and strict mypy on Python 3.10.
 - [ ] Step 5 **[1]** — `tools/release-check.sh` with its own shell test
   (accepts `v0.1.0` against `0.1.0`; refuses `-dev`, a mismatch, a missing
   heading); the gate runs that self-test as a stage.
