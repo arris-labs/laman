@@ -725,7 +725,6 @@ fn goals_on_free_fixed_and_met_points() {
 /// nor rises. Such a step is no progress: the pursuit stops, not converged,
 /// instead of accepting it until the iteration budget is spent.
 #[test]
-#[ignore = "a non-decreasing goal step is accepted until the budget (plans/m3 review)"]
 fn a_goal_step_lost_to_rounding_ends_the_pursuit() {
     for algorithm in ALGORITHMS {
         let mut sk = Sketch::new();

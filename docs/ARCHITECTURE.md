@@ -165,9 +165,15 @@ difference (step √eps) of the analytic Jacobian along each null vector.
 The step `N z`, `(H + μI) z = −p`, is of least norm within the null space;
 `μ` is LM's damping, adapted as above; the step is cut to one component
 size, then corrected back onto the required equations by the required
-descent, and accepted when that converges and the goal's objective falls
-by more than the correction's own noise. A component without required
-equations takes the exact Gauss–Newton step.
+descent, and accepted when that converges and the goal's objective does
+not rise by more than the correction's own noise: near stationarity the
+true decrease is below that noise, and refusing such steps stalls short of
+it. A step that does not fall is accepted at most `LEVEL_STEPS` (3) times
+in a row; a longer run is a stall (measured: a step that rounds away
+against an origin 1e74 away leaves the objective unchanged and was
+accepted until the budget), and the goal ends not converged at the last
+iterate. A component without required equations takes the exact
+Gauss–Newton step.
 
 The Gauss–Newton model alone (no `W`) is not enough: it ignores the
 curvature the correction follows. Measured, a point on a circle reaching

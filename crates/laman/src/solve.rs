@@ -64,6 +64,14 @@ const GOAL_RADIUS: f64 = 1.0;
 /// (`REJECT_MULTIPLIER`), so 20 take the first damping 1e20 times higher,
 /// where the step is steepest descent shorter than any rounding.
 const GOAL_RAISES: usize = 20;
+/// Accepted goal steps in a row whose objective did not fall (a rise
+/// within the correction's noise, or none at all) before the pursuit stops,
+/// not converged. Near stationarity such a step is how the iteration gets
+/// there: measured over the test suite, at most 2 in a row before a step
+/// that falls or the stationary exit. A longer run is a stall, such as a
+/// step that rounds away against a far origin and leaves the objective
+/// unchanged, which would otherwise be accepted until the budget is spent.
+const LEVEL_STEPS: usize = 3;
 /// The forward-difference step of the required curvature along a unit null
 /// vector, in normalized coordinates: sqrt of machine epsilon, the step that
 /// balances truncation against rounding for a first difference of an
@@ -303,14 +311,17 @@ fn descend(
 /// exact. The step is cut to
 /// [`GOAL_RADIUS`], corrected back onto the required equations by
 /// [`descend`] and accepted when that converges and the goal's objective
-/// falls ([`Pursuit::decreased`]). Every probe costs one iteration and one evaluation of the shared
-/// budgets, its correction its own.
+/// does not rise beyond the correction's noise ([`Pursuit::decreased`]),
+/// at most [`LEVEL_STEPS`] times in a row without falling. Every probe
+/// costs one iteration and one evaluation of the shared budgets, its
+/// correction its own.
 ///
 /// Converged when every goal is met within the length acceptance (its
 /// polishing target after a step, as in [`descend`]), or the goal is
 /// stationary in the null space: `|p|` within that acceptance plus
 /// [`GOAL_ROUNDING`] `· |g|` (an unreachable target, such as fixture 4's y). A goal that cannot be
-/// decreased, or a spent budget, is not converged; the coordinates are then
+/// decreased, one that stalls for more than [`LEVEL_STEPS`] steps, or a
+/// spent budget, is not converged; the coordinates are then
 /// the last iterate whose required equations held, so a goal never leaves a
 /// required residual over acceptance.
 fn pursue(
@@ -343,6 +354,7 @@ fn pursue(
     // As in `descend`: a goal met at the start takes no step; one an
     // iteration reached must meet the polishing target.
     let mut target = 1.0;
+    let mut level = 0;
     loop {
         let Some(g) = pursuit.residuals(&out.coordinates) else {
             return false;
@@ -420,7 +432,14 @@ fn pursue(
                 let Some(probe) = pursuit.probe(out, &start, &position, &step) else {
                     break;
                 };
-                if let Some(coordinates) = probe.filter(|c| pursuit.decreased(&start, &g, c)) {
+                let verdict = probe.and_then(|c| pursuit.decreased(&start, &g, &c).map(|f| (c, f)));
+                if let Some((coordinates, fell)) = verdict {
+                    level = if fell { 0 } else { level + 1 };
+                    if level > LEVEL_STEPS {
+                        // A stall: the last iterate stays, its required
+                        // equations held.
+                        return false;
+                    }
                     out.coordinates = coordinates;
                     damping = (damping / ACCEPT_DIVISOR).max(MIN_DAMPING);
                     accepted = true;
@@ -596,10 +615,13 @@ impl Pursuit<'_, '_> {
         Some(reached)
     }
 
-    /// Whether the goal objective at `next` is below its value at `start`,
-    /// whose residuals are `g`, beyond what the required equations'
+    /// Whether the goal objective at `next` is not above its value at
+    /// `start`, whose residuals are `g`, by more than the required equations'
     /// acceptance can move it: `Σ (r'_i − r_i)(r'_i + r_i) < a Σ |r'_i + r_i|`,
-    /// `a` the length acceptance in normalized units. Each difference is
+    /// `a` the length acceptance in normalized units. `None` refuses the
+    /// step; `Some(fell)` accepts it and says whether the objective fell
+    /// (the sum below zero) or only stayed within that noise, which
+    /// [`pursue`] admits at most [`LEVEL_STEPS`] times in a row. Each difference is
     /// taken from the coordinates themselves: the product form keeps a
     /// decrease of a goal's reachable part visible beside a large
     /// unreachable part, where a difference of two sums of squares rounds it
@@ -607,7 +629,7 @@ impl Pursuit<'_, '_> {
     /// anywhere within acceptance of the required equations, and near a
     /// stationary point the true decrease is smaller than that; refusing such
     /// a step would stall the reduced Newton iteration short of stationarity.
-    fn decreased(&self, start: &Coordinates, g: &[f64], next: &Coordinates) -> bool {
+    fn decreased(&self, start: &Coordinates, g: &[f64], next: &Coordinates) -> Option<bool> {
         let acceptance = self.system.acceptance(self.component, next) / self.scale;
         let change = self
             .goals
@@ -620,7 +642,9 @@ impl Pursuit<'_, '_> {
                 let r_next = (after - goal.target) / self.scale;
                 Some((sum + delta * (r_next + r), margin + (r_next + r).abs()))
             });
-        change.is_some_and(|(c, margin)| c < acceptance * margin)
+        change
+            .filter(|(c, margin)| *c < acceptance * margin)
+            .map(|(c, _)| c < 0.0)
     }
 }
 
