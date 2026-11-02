@@ -718,6 +718,31 @@ fn goals_on_free_fixed_and_met_points() {
     }
 }
 
+/// A free point frozen 3.8e74 away from its target, its component at the
+/// length floor (found by `any_point_of_any_sketch_drags_to_any_targets`):
+/// the first exact step lands on 0, within rounding of the origin, and every
+/// later step rounds away against it, so the goal's objective neither falls
+/// nor rises. Such a step is no progress: the pursuit stops, not converged,
+/// instead of accepting it until the iteration budget is spent.
+#[test]
+#[ignore = "a non-decreasing goal step is accepted until the budget (plans/m3 review)"]
+fn a_goal_step_lost_to_rounding_ends_the_pursuit() {
+    for algorithm in ALGORITHMS {
+        let mut sk = Sketch::new();
+        let p = sk
+            .point(-22.212_764_685_787_416, 3.830_903_802_466_835_6e74)
+            .unwrap();
+        let goal = [Goal {
+            param: (p.id(), Coordinate::Y),
+            target: 683.049_825_835_683_7,
+        }];
+        let out = solve_toward(&sk, &goal, with(algorithm));
+        assert!(!out.converged, "{algorithm:?}: {out:?}");
+        assert!(out.iterations <= 8, "{algorithm:?}: {out:?}");
+        assert!(out.coordinates.values().all(|v| v.is_finite()));
+    }
+}
+
 /// A goal on a component whose required equations cannot hold is not
 /// pursued: the component reports not converged as without the goal, with
 /// the same coordinates.
