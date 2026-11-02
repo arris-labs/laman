@@ -1,0 +1,23 @@
+{
+  "sss-triangle-conflicting": [
+    "apex",
+    "base",
+    "left",
+    "right"
+  ],
+  "belt-conflicting": [
+    "r1",
+    "r2",
+    "span",
+    "top-length",
+    "top-on-c1",
+    "top-on-c2",
+    "top-tangent-c1",
+    "top-tangent-c2"
+  ],
+  "slotted-plate-conflicting": [
+    "same-ends",
+    "slot-r",
+    "slot-r2"
+  ]
+}

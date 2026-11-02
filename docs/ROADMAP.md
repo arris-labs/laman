@@ -19,14 +19,16 @@ The unit of acceptance: a directory `tests/fixtures/<area>/<slug>/` with
   form), its coordinates being the **guesses** the solve starts from;
 - `expected.json`: status, DoF, every free point's expected coordinates
   with the comparison tolerance, the redundant constraints and each
-  conflict set **by tag**, the expected flips (usually none), and the
-  blessed digest;
+  conflict set **by tag**, and the expected flips (usually none);
 - for a drag, `drag.json`: the dragged point, the targets in order, and the
   expected coordinates after chosen steps.
 
 Expected values come from a closed form or from how the sketch was built,
 never from laman's output (`.agents/rules/solver.md`). The digest is the
-exception: it is a regression guard, blessed from the first green run, and
+exception: it lives apart, one `<name> <hex>` per line in
+`tests/fixtures/c1/digests.txt` (with the conflicting twins' best-effort
+violations in `violations.json`), read by `determinism.rs` and by pytest. It
+is a regression guard, blessed from the first green run, and
 its acceptance is equality across targets. Coordinates compare within
 `1e-9` of the sketch's size unless a fixture says otherwise. The test for
 a fixture loads it, solves, runs the checker, compares, and compares the
