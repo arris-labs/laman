@@ -45,10 +45,25 @@ jobs:
 
   # The Python binding: maturin, pytest, mypy.stubtest (tools/py-test.sh).
   python:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+        python-version: ["3.10", "3.13"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
       - run: tools/py-test.sh
