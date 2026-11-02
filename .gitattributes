@@ -1,0 +1,2 @@
+# Embedded fixture text is hashed verbatim; keep checkouts identical on every OS.
+* text=auto eol=lf

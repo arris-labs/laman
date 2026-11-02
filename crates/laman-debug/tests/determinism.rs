@@ -152,6 +152,21 @@ const DRAG_EXPECTED: &str =
 const DRAG_FILE: &str = include_str!("../../../tests/fixtures/c1/slotted-plate-drag/drag.json");
 
 #[test]
+fn embedded_fixtures_use_lf_line_endings() {
+    for (name, sketch, expected) in CORPUS {
+        assert!(!sketch.contains('\r'), "{name}/sketch.json contains CR");
+        assert!(!expected.contains('\r'), "{name}/expected.json contains CR");
+    }
+    for (name, text) in [
+        ("digests.txt", DIGESTS),
+        ("violations.json", VIOLATIONS),
+        ("slotted-plate-drag/drag.json", DRAG_FILE),
+    ] {
+        assert!(!text.contains('\r'), "{name} contains CR");
+    }
+}
+
+#[test]
 fn drag_step_digests_match_the_blessed_ones() {
     let fixture = Fixture::parse(DRAG_SKETCH, DRAG_EXPECTED, Some(DRAG_FILE)).unwrap();
     let mut wrong = Vec::new();
