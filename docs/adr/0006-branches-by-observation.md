@@ -107,9 +107,16 @@ named.
 ## Consequences
 
 - Diagnostics gain flips; DoF, redundancy and conflicts are unchanged.
-- Tracking assumes less than half a turn of sweep per solve. A static solve
-  whose guesses are more than that from the solution reads the sweep at the
-  nearest representative; a drag keeps its steps under it by bisection.
+- Tracking assumes less than half a turn of sweep per solve, and nothing
+  enforces it. A static solve whose guesses are more than that from the
+  solution reads the sweep at the nearest representative. So does a drag
+  frame: bisection runs only once a flip is seen, so a frame that carries
+  an arc's end more than half a turn (sweep 0.3 to −3.2) reads it the
+  short way round (+3.08), neither flips nor bisects, and lands where many
+  smaller frames along the same path would have been refused. Bisecting
+  a frame whose sweep moves more than a fraction of a turn is in the
+  backlog. (Corrected in the M3 retirement review, before any release: the
+  first text said a drag keeps its steps under half a turn by bisection.)
 - A sketch below the length floor (ADR-0003) has no known branch, so
   nothing in it can flip; that is the floor's meaning, not a hole.
 - A caller who wants the other branch does not get it from a drag session:

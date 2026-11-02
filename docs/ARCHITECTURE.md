@@ -406,7 +406,10 @@ there (SEED.md §4, differentiator 2).
   still flipping returns the solution at the farthest target that kept
   every branch, with the flip named; the session stays on its branch.
 
-Tracking assumes a solve moves a sweep by less than half a turn. Below the
+Tracking assumes a solve moves a sweep by less than half a turn; nothing
+enforces it. A drag frame bisects only once it sees a flip, so a frame
+that carries an arc's end more than half a turn is read the short way
+round and neither flips nor bisects (ADR-0006, Consequences). Below the
 length floor (ADR-0003) no branch is known and nothing flips.
 
 ## Drag sessions

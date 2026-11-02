@@ -22,6 +22,7 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Fuzz target: also call `to_form` and `check(&sk, &sk.coordinates())`; the serde property only mints dense ids, so `to_form`'s dependency-first reordering is covered by one hand test
 - The checker's `ANGLE` is absolute; short lines far from the origin can fail it at rounding level: input to the M2 tolerance ADR
 - Degenerate-point tests for `parallel`, `perpendicular`, `angle`, `equal_length`, `symmetric` and tangent at coincident centres (only `point_on_line`, `distance` and an arc end on its centre have one); the FD strategies never draw an exactly degenerate configuration
+- A drag frame that moves an arc's sweep more than half a turn is read the short way round and neither flips nor bisects (ADR-0006, Consequences; measured: an end dragged from 0.3 to −3.2 rad in one frame lands at 3.08 with no flip, where 40 frames refuse at 0). Bisect a frame whose tracked sweep moves more than a named fraction of a turn; open: what a frame whose last halving still moves that far returns
 - `laman-debug`'s `configuration` strategy and its `Mode` use words GLOSSARY.md lists under _Avoid_ for **Branch**; rename one side. `tests/residual.rs` also has dead `covered()` scaffolding and picks arcs by `name.contains("Arc")`
 
 ## Findings
