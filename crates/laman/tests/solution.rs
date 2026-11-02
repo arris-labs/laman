@@ -215,3 +215,51 @@ fn malformed_serialized_solutions_are_refused() {
         v.as_object_mut().unwrap().remove("diagnostics");
     }));
 }
+
+/// A line `b` drawn antiparallel to the fixed line `a`, its free end pulled
+/// to the one place that is parallel the other way: by construction the
+/// solve crosses from `dot < 0` to `dot > 0`, and names it.
+fn antiparallel_then_pulled() -> Sketch {
+    let mut sk = Sketch::new();
+    let o = sk.point_fixed(0.0, 0.0).unwrap();
+    let e = sk.point_fixed(1.0, 0.0).unwrap();
+    let a = sk.line(o, e).unwrap();
+    let s = sk.point_fixed(0.0, 1.0).unwrap();
+    let p = sk.point(-1.0, 0.3).unwrap();
+    let b = sk.line(s, p).unwrap();
+    let q = sk.point_fixed(1.0, 1.0).unwrap();
+    let parallel = sk.parallel(a, b).unwrap();
+    sk.tag_constraint(parallel, "same-way").unwrap();
+    sk.coincident(p, q).unwrap();
+    sk
+}
+
+#[test]
+fn a_solve_that_crosses_to_the_other_root_names_the_flip() {
+    use laman::solution::FlipSubject;
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let sk = antiparallel_then_pulled();
+        let s = sk.solve(&options(algorithm));
+        assert!(check(&sk, &s.coordinates).is_clean(), "{algorithm:?}");
+        let flips = &s.diagnostics.flips;
+        assert_eq!(flips.len(), 1, "{algorithm:?}: {flips:?}");
+        let FlipSubject::Constraint(c) = &flips[0].subject else {
+            panic!("a constraint flips");
+        };
+        assert_eq!(c.tag.as_deref(), Some("same-way"));
+        assert!(flips[0].was < 0.0 && flips[0].now > 0.0, "{flips:?}");
+        // The serde form carries the flips and reads them back.
+        let text = serde_json::to_string(&s).unwrap();
+        assert!(text.contains("\"flips\""));
+        let back: Solution = serde_json::from_str(&text).unwrap();
+        assert_eq!(back.diagnostics.flips, s.diagnostics.flips);
+    }
+}
+
+#[test]
+fn a_solve_that_keeps_every_branch_omits_flips_from_the_form() {
+    let (sk, _, _) = rod();
+    let s = sk.solve(&SolverOptions::default());
+    assert!(s.diagnostics.flips.is_empty());
+    assert!(!serde_json::to_string(&s).unwrap().contains("flips"));
+}

@@ -19,7 +19,7 @@
 use crate::fixture::coordinate_name;
 use crate::json::sketch_to_string;
 use laman::model::Sketch;
-use laman::solution::{ConstraintRef, EntityRef, Origin, Solution};
+use laman::solution::{ConstraintRef, EntityRef, FlipSubject, Origin, Solution};
 use laman_check::{Degeneracy, Report, Source, Subject};
 use sha2::{Digest as _, Sha256};
 use std::fmt;
@@ -258,6 +258,21 @@ pub fn of_solution(sketch: &Sketch, solution: &Solution, report: &Report) -> Dig
         origins(&mut b, &g.equations);
     }
     origins(&mut b, &d.ill_conditioned);
+    b.u64(len_of(d.flips.len()));
+    for f in &d.flips {
+        match &f.subject {
+            FlipSubject::Entity(e) => {
+                b.u32(0);
+                entity_ref(&mut b, e);
+            }
+            FlipSubject::Constraint(c) => {
+                b.u32(1);
+                constraint_ref(&mut b, c);
+            }
+        }
+        b.float(f.was);
+        b.float(f.now);
+    }
     feed_report(&mut b, report);
     b.finish()
 }

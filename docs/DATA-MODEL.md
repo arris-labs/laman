@@ -255,7 +255,10 @@ JSON (or any serde format) with this shape:
 `id`, `coordinate`, `value`) and `diagnostics`. References to entities and
 constraints are `id`, `kind`, optional `tag`; the two tangents are
 `tangent_line_circle` and `tangent_circles` here, as a diagnostic has no
-fields to tell them apart. A non-finite degenerate `size` is `null`. Reading
+fields to tell them apart. A non-finite degenerate `size` is `null`.
+`diagnostics.flips` is absent when empty (an optional member, no version
+bump): each flip is `{"of": "entity" | "constraint", id, kind, tag?, was,
+now}`, the quantities `null` when not finite. Reading
 a solution validates its shape only (format, version, digest, no repeated
 coordinate); `Sketch::apply` decides whether it fits, so a file cannot bypass
 the checks. The checker's `Report` has no

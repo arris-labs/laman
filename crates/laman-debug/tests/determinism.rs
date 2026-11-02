@@ -100,53 +100,53 @@ fn corpus_digests_match_the_blessed_ones() {
 const SOLVED: [(&str, &str, &str); 10] = [
     (
         "sss-triangle",
-        "9c57f391fd5b35d5544686860250558d901d6ac634c6ab74cc7325c34e49c01a",
-        "6c75203c3d1ee7e03d6462683bcec2c46942e5fecb2ff4fed655f94e1098c304",
+        "fd6c58a9f0b9c42204a9f7b8df7d006f76b8e2f4cac57ff5b17d49ce0c1c954e",
+        "10cdebe3cdb191f37011f378d0fa7d97565c6a935afcbdc57b80183d46f53d90",
     ),
     (
         "sss-triangle-redundant",
-        "b37683d8050579d2e246561c08dfbd22fd813dd9e3d2141b5521d3c5496bf346",
-        "60b6c2abf04a25ec899a30b341d67c74604d94bb67f841b142b4ae4c02006f88",
+        "85cb1a0445c4990713e48e25345aec58c2db060e383db1190c3ab58614d6a8f6",
+        "aabc782d2920824792fed187619b2a47bb3a1182b682518bfa17845a03806001",
     ),
     (
         "sss-triangle-conflicting",
-        "b20b9a0d6383001fbcc8030d308b52efbfd247700e419476ffe63ffe3bab1b90",
-        "dc5d273412f79266f4ff9c4123037488c278249a6d2e03d291153c05f48d2cec",
+        "4c4d4d30eed7c174bb8292ab910748457bf3d60acbf5d6ebb4137a508a888784",
+        "94ce90a09019840c83cc2345777d98069a26a2e18315a4af7716e29b30e2355b",
     ),
     (
         "belt",
-        "dbcd82faf434144c0deaf6e24fd325ccd306e84a203c59db363912f94550c8d9",
-        "678121e6438cfc6a015c67797c22d5c0314c42f55448503b819c064b4d238de2",
+        "89ea22612d7d37bd56168384654ecc2bdbf73448c79ec2100f7ea9872a595cb2",
+        "5f7b4f5290f3dab65fbd4401d2ab9b261d2e592c84feb1229222fb21019190af",
     ),
     (
         "belt-redundant",
-        "b15b5b2635870ea54ec0757ca9fd4442359749d47922bfe06d288e1a3e885daa",
-        "4b6fd5125dc5dd56f84aea0b28b7fc2b9a5aa89079551b74294b418e19beddd3",
+        "a4f84fa0e20d5f291cd92ae3ed00fa1a1d13ab6b1779037813216aac05b53124",
+        "c0d983232c873cb1bc18ec50fb1414ccbb9e198c294d67d5084facb6649ca9fd",
     ),
     (
         "belt-conflicting",
-        "f31cd6947ba89e3f39f2039f43168e96b671df1165bafc3d6d2103c648877bd4",
-        "ce47596c612bd3fe9127c7dc0744384b5bb9be2afa56d91377ea9b208f16aa2b",
+        "5f6e83eb80ca6ab4d9fb6c81917b80a05ffad18a8bcb4fa91c74c1e0c837bb1a",
+        "84098a75a643d8e8eda496b212633bd29fca0de5f7c7b2a886e3f69d2b2ad722",
     ),
     (
         "slotted-plate",
-        "b82d254cee2b99b56d524ee1e65c124f081a31c6d047a77c3e99b9a6afe0c2a3",
-        "e76f8ab8dc05dd227979f95e7fc84029a3d8383c53ae1b2d89fc801194f2aae4",
+        "e313fce60bc40ce6baad58ba3045acae9bee2714d22c0a30d7dc1c954379c9e7",
+        "bdf25b2c79c24061ce86d94e5fa407d947235fdac8cd2efe155b2b4e09224c44",
     ),
     (
         "slotted-plate-redundant",
-        "806b77a9e625b785b9778605f72fb8adaccfe260ba83372bcab37b8d63abd769",
-        "175e9b53a968e356a696f1f2f21fd9f13de957e29bc779a915b8eab2057be703",
+        "7b4289630e39d9492f46d215e4e65423cc8168021c0769fc08a98d94a59c2365",
+        "ede797d52d5b79d56733f7cde0ad90ae7caafd41d9dc5f509adeaac1372a5813",
     ),
     (
         "slotted-plate-conflicting",
-        "ef04cc7e1f77b39f941c2465c3b9085f7b7941b88d76c503e3476689fab89520",
-        "a23db42f1e983130ce487465890f880b8f624bbd2f161829dcbbe376fcb74345",
+        "3c3d7400a99ae4e2c48bfeb65d982d1a747a6df4cdfc7c9fa75c1bb0d00bc827",
+        "3634f460017a1f0fd6036637a6fa8716dead94703d682593b28e5d408b9a33a7",
     ),
     (
         "slotted-plate-drag",
-        "20dcdeffd28a63e5067e3d6589e90848bb5d0ffe73808118fc8add6ff224bbe2",
-        "37bab180a8908f5b99d4b3e9058674c7256efb1d61a6c73ebb807f12e300d6f2",
+        "3c2e2a7f979006106fec7844376658448c2f8e43d09422de6a4d2c9c99602f4b",
+        "d43da1e1e38b9bdf6a6778c9e6788e49ba7fa7a70c731ce1f7560045dd6dfaaf",
     ),
 ];
 

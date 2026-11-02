@@ -9,7 +9,7 @@
 use laman::model::{
     Constraint, Contact, Coordinate, Coordinates, Entity, EntityId, Sense, Sketch, Span,
 };
-use laman::solution::{ConstraintRef, EntityRef, Origin, Solution};
+use laman::solution::{ConstraintRef, EntityRef, FlipSubject, Origin, Solution};
 use laman_check::{Report, Source, check};
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -239,7 +239,7 @@ fn origin_label(o: &Origin) -> String {
 
 /// A solution as text, for [`solution_text`]: status, DoF, each entity's
 /// DoF, the free directions, and every redundant, conflicting, degenerate and
-/// ill-conditioned finding with its constraint ids and tags.
+/// ill-conditioned finding, and every flip of branch with its constraint ids and tags.
 fn diagnostics_text(solution: &Solution) -> String {
     let d = &solution.diagnostics;
     let mut out = String::new();
@@ -274,6 +274,13 @@ fn diagnostics_text(solution: &Solution) -> String {
     }
     for o in &d.ill_conditioned {
         let _ = writeln!(out, "  ill-conditioned {}", origin_label(o));
+    }
+    for f in &d.flips {
+        let subject = match &f.subject {
+            FlipSubject::Entity(e) => entity_label(e),
+            FlipSubject::Constraint(c) => constraint_label(c),
+        };
+        let _ = writeln!(out, "  flip {subject} {} -> {}", f.was, f.now);
     }
     out
 }

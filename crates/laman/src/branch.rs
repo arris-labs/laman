@@ -7,8 +7,6 @@
 //! entity degenerate or its lines meet the other root; inside it, the last
 //! known branch is carried, so a crossing spread over two solves is still a
 //! [`Flip`].
-// Internal until `Diagnostics.flips` and the drag session read it.
-#![allow(dead_code)]
 
 use crate::model::tolerance::{ANGLE, Tolerances};
 use crate::model::{
@@ -98,6 +96,7 @@ impl Observations {
     }
 
     /// One subject's observation.
+    #[cfg(test)]
     pub(crate) fn get(&self, subject: Subject) -> Option<&Observation> {
         self.0.get(&subject)
     }

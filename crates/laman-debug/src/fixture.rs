@@ -15,13 +15,15 @@
 //!   "coordinates": [{"id": 1, "coordinate": "x", "value": 50.0}],
 //!   "redundant": ["right-angle"],
 //!   "conflicts": [["base", "right", "apex"]],
+//!   "flips": ["slot-arc"],
 //!   "tolerance": 1e-9,
 //!   "digest": "aec3…"
 //! }
 //! ```
 //!
-//! `status`, `redundant`, `conflicts` and `digest` are read as written; the
-//! solver compares them from M2 on. `tolerance` defaults to
+//! `status`, `redundant`, `conflicts`, `flips` and `digest` are read as
+//! written; the solver compares them from M2 on. `flips` (default none) are
+//! the tags of the entities and constraints that change branch. `tolerance` defaults to
 //! `laman::model::tolerance::LENGTH`. Every coordinate names a parameter the
 //! sketch has, or the file is refused with its id.
 //!
@@ -152,6 +154,9 @@ pub struct Expected {
     pub redundant: Vec<String>,
     /// Each conflict set, as tags.
     pub conflicts: Vec<Vec<String>>,
+    /// The tags of the entities and constraints that change branch (empty
+    /// when the solve keeps every one).
+    pub flips: Vec<String>,
     /// The blessed digest, as lower-case hex, when there is one.
     pub digest: Option<String>,
 }
@@ -269,6 +274,8 @@ struct ExpectedFile {
     redundant: Vec<String>,
     #[serde(default)]
     conflicts: Vec<Vec<String>>,
+    #[serde(default)]
+    flips: Vec<String>,
     tolerance: Option<f64>,
     digest: Option<String>,
 }
@@ -323,11 +330,13 @@ fn parse_expected(known: &Coordinates, text: &str) -> Result<Expected, FixtureEr
         tolerance,
         redundant: file.redundant,
         conflicts: file.conflicts,
+        flips: file.flips,
         digest: file.digest,
     })
 }
 
-/// Refuses a `redundant` or `conflicts` tag that no constraint carries.
+/// Refuses a `redundant` or `conflicts` tag that no constraint carries, and
+/// a `flips` tag that no entity or constraint carries.
 fn check_tags(sketch: &Sketch, expected: &Expected) -> Result<(), FixtureError> {
     let named = expected
         .redundant
@@ -337,6 +346,20 @@ fn check_tags(sketch: &Sketch, expected: &Expected) -> Result<(), FixtureError> 
         let exists = sketch
             .constraints()
             .any(|(id, _)| sketch.constraint_tag_of(id) == Some(tag.as_str()));
+        if !exists {
+            return Err(FixtureError::UnknownTag {
+                file: EXPECTED_FILE,
+                tag: tag.clone(),
+            });
+        }
+    }
+    for tag in &expected.flips {
+        let exists = sketch
+            .constraints()
+            .any(|(id, _)| sketch.constraint_tag_of(id) == Some(tag.as_str()))
+            || sketch
+                .entities()
+                .any(|(id, _)| sketch.tag_of(id) == Some(tag.as_str()));
         if !exists {
             return Err(FixtureError::UnknownTag {
                 file: EXPECTED_FILE,

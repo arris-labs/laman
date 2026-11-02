@@ -19,6 +19,13 @@ release by release. Written in the commit that makes the change, under
   `FixedMoved`). Solutions save to and load from JSON.
   `ModelError` gains these four variants (it is non-exhaustive).
 
+- `Diagnostics::flips`: a solve names each arc, circle and `parallel`,
+  `perpendicular` or `angle` constraint that ended on a different branch
+  than the sketch was drawn on (an arc turned the other way round, a
+  circle's radius changed sign, a line pair swapped orientation), with the
+  observed quantity before and after (`Flip`, `FlipSubject`). Empty when
+  every branch is kept; absent from a solution's JSON then.
+
 - Checking uses translation-independent, component-relative length tolerances,
   with an absolute floor, measured at the coordinates being checked: neither
   unrelated geometry nor the sketch's starting guesses can loosen acceptance.

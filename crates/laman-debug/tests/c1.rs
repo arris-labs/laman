@@ -368,6 +368,8 @@ fn the_solve_reaches_the_expected_coordinates() {
             assert!(solution.diagnostics.free_directions.is_empty(), "{label}");
             assert!(solution.diagnostics.conflicts.is_empty(), "{label}");
             assert!(solution.diagnostics.degenerate.is_empty(), "{label}");
+            assert!(fixture.expected.flips.is_empty(), "{label}");
+            assert!(solution.diagnostics.flips.is_empty(), "{label}: flips");
             assert_eq!(
                 sorted_tags(&solution.diagnostics.redundant),
                 sorted(&fixture.expected.redundant),
@@ -431,6 +433,7 @@ fn the_conflicting_twins_name_exactly_the_roadmap_sets() {
                 "{label}"
             );
             assert_eq!(solution.diagnostics.conflicts.len(), 1, "{label}");
+            assert!(solution.diagnostics.flips.is_empty(), "{label}: flips");
             assert_eq!(
                 sorted_tags(&solution.diagnostics.conflicts[0]),
                 sorted(&fixture.expected.conflicts[0]),

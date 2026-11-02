@@ -6,8 +6,8 @@
 //! coordinates into a sketch it was not solved for.
 
 use super::{
-    Collapse, ConstraintRef, Degenerate, Diagnostics, EntityFreedom, EntityRef, Motion, Origin,
-    Provenance, Solution, Status,
+    Collapse, ConstraintRef, Degenerate, Diagnostics, EntityFreedom, EntityRef, Flip, FlipSubject,
+    Motion, Origin, Provenance, Solution, Status,
 };
 use crate::model::{ConstraintId, ConstraintKind, Coordinate, EntityId, EntityKind};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -226,6 +226,22 @@ struct DegenerateForm {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(tag = "of", rename_all = "snake_case")]
+enum FlipSubjectForm {
+    Entity(EntityRefForm),
+    Constraint(ConstraintRefForm),
+}
+
+#[derive(Serialize, Deserialize)]
+struct FlipForm {
+    #[serde(flatten)]
+    subject: FlipSubjectForm,
+    /// `null` for a quantity that is not finite (read back as NaN).
+    was: Option<f64>,
+    now: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize)]
 struct DiagnosticsForm {
     dof: usize,
     entities: Vec<EntityFreedomForm>,
@@ -234,6 +250,9 @@ struct DiagnosticsForm {
     conflicts: Vec<Vec<ConstraintRefForm>>,
     degenerate: Vec<DegenerateForm>,
     ill_conditioned: Vec<OriginForm>,
+    /// Absent when empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    flips: Vec<FlipForm>,
 }
 
 impl From<&EntityRef> for EntityRefForm {
@@ -353,6 +372,18 @@ fn form_of(s: &Solution) -> SolutionForm {
                 })
                 .collect(),
             ill_conditioned: d.ill_conditioned.iter().map(Into::into).collect(),
+            flips: d
+                .flips
+                .iter()
+                .map(|f| FlipForm {
+                    subject: match &f.subject {
+                        FlipSubject::Entity(e) => FlipSubjectForm::Entity(e.into()),
+                        FlipSubject::Constraint(c) => FlipSubjectForm::Constraint(c.into()),
+                    },
+                    was: f.was.is_finite().then_some(f.was),
+                    now: f.now.is_finite().then_some(f.now),
+                })
+                .collect(),
         },
     }
 }
@@ -430,6 +461,18 @@ fn solution_of(form: SolutionForm) -> Result<Solution, String> {
                 })
                 .collect(),
             ill_conditioned: d.ill_conditioned.into_iter().map(Into::into).collect(),
+            flips: d
+                .flips
+                .into_iter()
+                .map(|f| Flip {
+                    subject: match f.subject {
+                        FlipSubjectForm::Entity(e) => FlipSubject::Entity(e.into()),
+                        FlipSubjectForm::Constraint(c) => FlipSubject::Constraint(c.into()),
+                    },
+                    was: f.was.unwrap_or(f64::NAN),
+                    now: f.now.unwrap_or(f64::NAN),
+                })
+                .collect(),
         },
         source: Provenance {
             revision: form.source.revision,

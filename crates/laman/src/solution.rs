@@ -19,6 +19,7 @@
 //! # Ok::<(), laman::model::ModelError>(())
 //! ```
 
+use crate::branch::{self, Observations};
 use crate::diagnose::{self, Diagnosis};
 use crate::model::tolerance::Source;
 use crate::model::{
@@ -187,6 +188,46 @@ pub struct Diagnostics {
     pub degenerate: Vec<Degenerate>,
     /// Equations undefined or non-finite at the solution.
     pub ill_conditioned: Vec<Origin>,
+    /// Branches the solution left that no equation holds (ADR-0006): empty
+    /// when it sits on the branch the sketch was drawn on. A static solve
+    /// compares with the guesses. In subject order: entities by id, then
+    /// constraints by id.
+    pub flips: Vec<Flip>,
+}
+
+/// What changed branch: an arc or circle, or a `parallel`, `perpendicular`
+/// or `angle` constraint.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FlipSubject {
+    /// An arc (it turned the other way round) or a circle (its radius
+    /// changed sign).
+    Entity(EntityRef),
+    /// A constraint whose pair of lines swapped to the other orientation.
+    Constraint(ConstraintRef),
+}
+
+/// A change of branch (`docs/DATA-MODEL.md` §Diagnostics, ADR-0006).
+///
+/// `was` and `now` are the observed quantity where the old branch was last
+/// known and on the new one: an arc's sweep in radians, a circle's radius,
+/// the cosine or dot of a line pair's orientation.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman::solution::SolverOptions;
+/// let mut sk = Sketch::new();
+/// sk.point(1.0, 1.0)?;
+/// assert!(sk.solve(&SolverOptions::default()).diagnostics.flips.is_empty());
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct Flip {
+    /// What flipped.
+    pub subject: FlipSubject,
+    /// The quantity where the old branch was last known.
+    pub was: f64,
+    /// The quantity on the new branch.
+    pub now: f64,
 }
 
 /// The sketch a solution was solved from, so [`Sketch::apply`] can refuse
@@ -265,10 +306,12 @@ impl Sketch {
         let internal = options.internal();
         let outcome = solve::solve(self, internal);
         let diagnosis = diagnose::analyse(self, &outcome, &internal);
+        let before = Observations::at(self, &self.coordinates());
+        let flips = before.flips(&before.next(self, &outcome.coordinates));
         Solution {
             coordinates: outcome.coordinates,
             status: diagnosis.status,
-            diagnostics: diagnostics(self, &diagnosis),
+            diagnostics: diagnostics(self, &diagnosis, &flips),
             source: Provenance {
                 revision: self.revision(),
                 digest: self.source_digest(),
@@ -382,7 +425,26 @@ fn constraint_refs(sketch: &Sketch, ids: &[ConstraintId]) -> Vec<ConstraintRef> 
         .collect()
 }
 
-fn diagnostics(sketch: &Sketch, d: &Diagnosis) -> Diagnostics {
+pub(crate) fn flips_of(sketch: &Sketch, flips: &[branch::Flip]) -> Vec<Flip> {
+    flips
+        .iter()
+        .filter_map(|f| {
+            let subject = match f.subject {
+                branch::Subject::Entity(id) => FlipSubject::Entity(entity_ref(sketch, id)?),
+                branch::Subject::Constraint(id) => {
+                    FlipSubject::Constraint(constraint_ref(sketch, id)?)
+                }
+            };
+            Some(Flip {
+                subject,
+                was: f.was,
+                now: f.now,
+            })
+        })
+        .collect()
+}
+
+fn diagnostics(sketch: &Sketch, d: &Diagnosis, flips: &[branch::Flip]) -> Diagnostics {
     Diagnostics {
         dof: d.freedom.dof,
         entities: d
@@ -437,5 +499,6 @@ fn diagnostics(sketch: &Sketch, d: &Diagnosis) -> Diagnostics {
             .iter()
             .filter_map(|s| origin(sketch, *s))
             .collect(),
+        flips: flips_of(sketch, flips),
     }
 }
