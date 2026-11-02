@@ -90,8 +90,9 @@ pub(crate) fn freedom_of(system: &System<'_>, values: &Coordinates) -> Freedom {
     }
 }
 
-/// A component's rank and its null basis over `component.params`.
-fn null_space(
+/// A component's rank and its null basis over `component.params`: the
+/// required equations' only, which is also the space a goal moves in.
+pub(crate) fn null_space(
     system: &System<'_>,
     component: &Component,
     values: &Coordinates,

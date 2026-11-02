@@ -155,8 +155,11 @@ sketch follows, by priority, with least change.
 _Avoid_: drag solve, interactive solve
 
 **Goal**:
-The priority of a drag target's equations: solved within the freedom the
-required constraints leave, never blamed in a conflict.
+The priority of a drag target's equations: solved lexicographically after
+the required ones, only in the null space they leave (least squares there,
+of least motion), so it never pushes a required constraint off; met, or
+stationary when unreachable; never seen by a diagnostic or blamed in a
+conflict.
 _Avoid_: soft constraint, weight
 
 **Flip**:

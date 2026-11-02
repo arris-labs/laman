@@ -33,11 +33,28 @@ pub(crate) struct Equation {
     pub contact: Option<Contact>,
 }
 
+/// A goal equation, `value(param) − target = 0`: a drag target's
+/// coordinate, of the `Goal` priority (ARCHITECTURE.md §Solve, Priorities).
+/// Required equations are solved first; a goal only in the null space they
+/// leave, so it can never push one off. It reads one free parameter and
+/// joins that parameter's component; it is compiled after every required
+/// equation and kept out of [`System::equations`], so no diagnostic (DoF,
+/// redundancy, conflicts) ever reads one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Goal {
+    pub param: Param,
+    pub target: f64,
+}
+
 #[derive(Debug)]
 pub(crate) struct System<'a> {
     pub sketch: &'a Sketch,
     pub components: Vec<Component>,
+    /// Every required equation, in source order.
     pub equations: Vec<Equation>,
+    /// Every goal equation, after the required ones, in the caller's order;
+    /// a goal on a fixed or unknown parameter is dropped.
+    pub goals: Vec<Goal>,
 }
 
 #[derive(Debug)]
@@ -94,7 +111,36 @@ impl<'a> System<'a> {
             sketch,
             components: policy.components,
             equations,
+            goals: vec![],
         }
+    }
+
+    /// The system of `sketch` with `goals` compiled after its required
+    /// equations. A goal whose parameter is fixed or not in the sketch reads
+    /// no free parameter and is dropped: a point with one fixed coordinate is
+    /// pursued along the other.
+    pub fn with_goals(sketch: &'a Sketch, goals: &[Goal]) -> Self {
+        let mut system = Self::new(sketch);
+        system.goals = goals
+            .iter()
+            .filter(|g| {
+                system
+                    .components
+                    .iter()
+                    .any(|c| c.params.contains(&g.param))
+            })
+            .copied()
+            .collect();
+        system
+    }
+
+    /// The goals that read `component`'s parameters, in compiled order.
+    pub fn goals_of(&self, component: &Component) -> Vec<Goal> {
+        self.goals
+            .iter()
+            .filter(|g| component.params.contains(&g.param))
+            .copied()
+            .collect()
     }
 
     /// Length acceptance at `coordinates`: the frozen input tolerance, tightened

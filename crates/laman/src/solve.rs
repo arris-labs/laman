@@ -10,7 +10,7 @@
 //! engine”; no reference solver code is used.
 use crate::model::tolerance::{Component, LENGTH_FLOOR, Source};
 use crate::model::{Constraint, Coordinate, Coordinates, Sketch};
-use crate::system::{Evaluation, System};
+use crate::system::{Evaluation, Goal, System};
 use nalgebra::{DMatrix, DVector};
 
 // Dimensionless damping and hard global budgets, measured in ARCHITECTURE.md. Damping
@@ -46,6 +46,29 @@ const RADIUS_SHRINK: f64 = 0.5;
 /// equations. A step control, not a rank decision (DoF uses ADR-0003's QR).
 /// Measured in ARCHITECTURE.md “DogLeg engine”.
 const GN_CUTOFF: f64 = 1e-10;
+/// A goal is stationary when its projected gradient `|Nᵀ J_gᵀ g|`, the
+/// distance its point could still close to first order, is within the
+/// polishing target of the length acceptance plus this fraction of the
+/// residual `|g|`: the rounding of the null basis and of its projection,
+/// some thousands of ulps of an order-one sum, which matters only for a
+/// target thousands of component sizes away. Measured, unreachable goals
+/// end with `|p|` from 2e-16 to 8e-13 of the scale, against an acceptance
+/// of 1e-12 (ARCHITECTURE.md “Priorities”).
+const GOAL_ROUNDING: f64 = 1e-12;
+/// The longest goal step, in normalized coordinates: the component's own
+/// size, as DogLeg's first radius. Near a singular configuration the reduced
+/// model proposes steps hundreds of sizes long, whose corrections land
+/// anywhere.
+const GOAL_RADIUS: f64 = 1.0;
+/// Damping raises of one goal iteration before it gives up: tenfold each
+/// (`REJECT_MULTIPLIER`), so 20 take the first damping 1e20 times higher,
+/// where the step is steepest descent shorter than any rounding.
+const GOAL_RAISES: usize = 20;
+/// The forward-difference step of the required curvature along a unit null
+/// vector, in normalized coordinates: sqrt of machine epsilon, the step that
+/// balances truncation against rounding for a first difference of an
+/// analytic derivative (Nocedal & Wright, *Numerical Optimization*, §8.1).
+const CURVATURE_STEP: f64 = 1.490_116_119_384_765_6e-8;
 /// LAPACK's bidiagonal SVD (xBDSQR) allows 6 k^2 inner QR steps for k
 /// singular values; the same hard bound, so a factorization cannot hang.
 const SVD_STEPS_PER_VALUE_SQUARED: usize = 6;
@@ -160,7 +183,15 @@ impl Control {
 }
 
 pub(crate) fn solve(sketch: &Sketch, options: Options) -> Outcome {
-    let system = System::new(sketch);
+    solve_toward(sketch, &[], options)
+}
+
+/// [`solve`] with `goals` (ARCHITECTURE.md §Solve, Priorities): each
+/// component's required equations are solved first, exactly as without
+/// goals; then a component with goals pursues them lexicographically by
+/// [`pursue`]. Without goals this is [`solve`], bit for bit.
+pub(crate) fn solve_toward(sketch: &Sketch, goals: &[Goal], options: Options) -> Outcome {
+    let system = System::with_goals(sketch, goals);
     let mut out = Outcome {
         coordinates: sketch.coordinates(),
         converged: true,
@@ -169,75 +200,428 @@ pub(crate) fn solve(sketch: &Sketch, options: Options) -> Outcome {
         rejected: 0,
     };
     for component in &system.components {
-        if component.sources.is_empty() {
+        let goals = system.goals_of(component);
+        if component.sources.is_empty() && goals.is_empty() {
             continue;
         }
-        if out.evaluations == options.max_evaluations {
-            out.converged = false;
-            continue;
+        let mut converged = descend(&system, component, &options, &mut out);
+        if converged && !goals.is_empty() {
+            converged = pursue(&system, component, &goals, &options, &mut out);
         }
-        out.evaluations += 1;
-        let mut current = system.evaluate(component, &out.coordinates);
-        current.satisfied &= vector_acceptance(&system, component, &out.coordinates, 1.0);
-        if current.satisfied {
-            continue;
-        } // Preserve every bit, including signed zero.
-        let Some(mut position) = normalized(component, &out.coordinates) else {
-            out.converged = false;
-            continue;
-        };
-        if !current.valid || component.params.is_empty() {
-            out.converged = false;
-            continue;
-        }
-        let mut cost = objective(&current);
-        let Some(mut control) = Control::new(&options).filter(|_| cost.is_finite()) else {
-            out.converged = false;
-            continue;
-        };
-        while out.iterations < options.max_iterations && out.evaluations < options.max_evaluations {
-            out.iterations += 1;
-            let proposal = control.propose(&current);
-            let candidate = proposal
-                .as_ref()
-                .and_then(|p| trial(component, &out.coordinates, &position, &p.step));
-            // An attempted trial, including a non-finite one, consumes one
-            // evaluation allowance. Linear factorization failures consume both.
-            out.evaluations += 1;
-            if let (Some((coordinates, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
-                let mut next = system.evaluate_to(component, &coordinates, SOLVE_TARGET);
-                next.satisfied &= vector_acceptance(&system, component, &coordinates, SOLVE_TARGET);
-                let next_cost = objective(&next);
-                if next.valid && next_cost.is_finite() && (next_cost < cost || next.satisfied) {
-                    // A non-positive prediction (rounding) is a poor model.
-                    let gain = if p.predicted > 0.0 {
-                        (cost - next_cost) / p.predicted
-                    } else {
-                        0.0
-                    };
-                    control.accepted(gain, norm(&p.step));
-                    out.coordinates = coordinates;
-                    position = next_position;
-                    current = next;
-                    cost = next_cost;
-                    if current.satisfied {
-                        break;
-                    }
-                    continue;
-                }
-            }
-            out.rejected += 1;
-            if !control.rejected() {
-                break;
-            }
-            // A zero step above tolerance is stagnation, never convergence.
-            if proposal.is_some_and(|p| p.step.iter().all(|x| *x == 0.0)) {
-                break;
-            }
-        }
-        out.converged &= current.satisfied;
+        out.converged &= converged;
     }
     out
+}
+
+/// The required descent of one component from `out.coordinates`, under the
+/// shared budgets: true when its required equations meet acceptance. A
+/// satisfied start takes no step and keeps every bit, signed zeros included.
+fn descend(
+    system: &System<'_>,
+    component: &Component,
+    options: &Options,
+    out: &mut Outcome,
+) -> bool {
+    if out.evaluations == options.max_evaluations {
+        return false;
+    }
+    out.evaluations += 1;
+    let mut current = system.evaluate(component, &out.coordinates);
+    current.satisfied &= vector_acceptance(system, component, &out.coordinates, 1.0);
+    if current.satisfied {
+        return true;
+    }
+    let Some(mut position) = normalized(component, &out.coordinates) else {
+        return false;
+    };
+    if !current.valid || component.params.is_empty() {
+        return false;
+    }
+    let mut cost = objective(&current);
+    let Some(mut control) = Control::new(options).filter(|_| cost.is_finite()) else {
+        return false;
+    };
+    while out.iterations < options.max_iterations && out.evaluations < options.max_evaluations {
+        out.iterations += 1;
+        let proposal = control.propose(&current);
+        let candidate = proposal
+            .as_ref()
+            .and_then(|p| trial(component, &out.coordinates, &position, &p.step));
+        // An attempted trial, including a non-finite one, consumes one
+        // evaluation allowance. Linear factorization failures consume both.
+        out.evaluations += 1;
+        if let (Some((coordinates, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
+            let mut next = system.evaluate_to(component, &coordinates, SOLVE_TARGET);
+            next.satisfied &= vector_acceptance(system, component, &coordinates, SOLVE_TARGET);
+            let next_cost = objective(&next);
+            if next.valid && next_cost.is_finite() && (next_cost < cost || next.satisfied) {
+                // A non-positive prediction (rounding) is a poor model.
+                let gain = if p.predicted > 0.0 {
+                    (cost - next_cost) / p.predicted
+                } else {
+                    0.0
+                };
+                control.accepted(gain, norm(&p.step));
+                out.coordinates = coordinates;
+                position = next_position;
+                current = next;
+                cost = next_cost;
+                if current.satisfied {
+                    break;
+                }
+                continue;
+            }
+        }
+        out.rejected += 1;
+        if !control.rejected() {
+            break;
+        }
+        // A zero step above tolerance is stagnation, never convergence.
+        if proposal.is_some_and(|p| p.step.iter().all(|x| *x == 0.0)) {
+            break;
+        }
+    }
+    current.satisfied
+}
+
+/// The goal phase of one component whose required equations hold at
+/// `out.coordinates`: a lexicographic least-squares descent on the goals,
+/// Levenberg–Marquardt on the reduced problem (sequential quadratic
+/// programming on the required equations; Nocedal & Wright, *Numerical
+/// Optimization*, 2006, §18.1).
+///
+/// Each iteration takes the null basis `N` of the required Jacobian
+/// (ADR-0003's QR, [`crate::diagnose::null_space`]), the goal's projected
+/// gradient `p = Nᵀ J_gᵀ g` and its reduced Hessian `H` ([`Pursuit::hessian`]),
+/// and the step `N z`, `(H + μ I) z = −p`: of least norm, since `N` is
+/// orthonormal and `z` has no part outside it. `μ` is LM's dimensionless
+/// damping times `max(1, max diag H)`, from `INITIAL_DAMPING`, divided by
+/// `ACCEPT_DIVISOR` on an accepted step and multiplied by
+/// `REJECT_MULTIPLIER` on a rejected one or a failed factorization, at most
+/// [`GOAL_RAISES`] times an iteration. A component without required
+/// equations takes the minimum-norm Gauss–Newton step: its goal model is
+/// exact. The step is cut to
+/// [`GOAL_RADIUS`], corrected back onto the required equations by
+/// [`descend`] and accepted when that converges and the goal's objective
+/// falls ([`Pursuit::decreased`]). Every probe costs one iteration and one evaluation of the shared
+/// budgets, its correction its own.
+///
+/// Converged when every goal is met within the length acceptance (its
+/// polishing target after a step, as in [`descend`]), or the goal is
+/// stationary in the null space: `|p|` within that acceptance plus
+/// [`GOAL_ROUNDING`] `· |g|` (an unreachable target, such as fixture 4's y). A goal that cannot be
+/// decreased, or a spent budget, is not converged; the coordinates are then
+/// the last iterate whose required equations held, so a goal never leaves a
+/// required residual over acceptance.
+fn pursue(
+    system: &System<'_>,
+    component: &Component,
+    goals: &[Goal],
+    options: &Options,
+    out: &mut Outcome,
+) -> bool {
+    let index: Option<Vec<usize>> = goals
+        .iter()
+        .map(|g| component.params.iter().position(|p| *p == g.param))
+        .collect();
+    let Some(index) = index else {
+        return false;
+    };
+    let pursuit = Pursuit {
+        system,
+        component,
+        goals,
+        index,
+        options,
+        scale: component.scale.max(LENGTH_FLOOR),
+    };
+    let exact = component.sources.is_empty();
+    let mut damping = options.initial_damping;
+    if !(damping.is_finite() && damping > 0.0) {
+        return false;
+    }
+    // As in `descend`: a goal met at the start takes no step; one an
+    // iteration reached must meet the polishing target.
+    let mut target = 1.0;
+    loop {
+        let Some(g) = pursuit.residuals(&out.coordinates) else {
+            return false;
+        };
+        let acceptance = target * system.acceptance(component, &out.coordinates) / pursuit.scale;
+        target = SOLVE_TARGET;
+        if g.iter().all(|r| r.abs() <= acceptance) {
+            return true;
+        }
+        let (_, basis) = crate::diagnose::null_space(system, component, &out.coordinates);
+        // J_g N: a goal row is the unit row of its parameter in normalized
+        // coordinates, so its product with N is that parameter's entries.
+        let reduced: Vec<Vec<f64>> = pursuit
+            .index
+            .iter()
+            .map(|i| basis.iter().map(|v| v[*i]).collect())
+            .collect();
+        let projected: Vec<f64> = (0..basis.len())
+            .map(|k| {
+                reduced
+                    .iter()
+                    .zip(&g)
+                    .fold(0.0, |sum, (row, r)| sum + row[k] * r)
+            })
+            .collect();
+        if basis.is_empty() || norm(&projected) <= acceptance + GOAL_ROUNDING * norm(&g) {
+            return true;
+        }
+        let Some(position) = normalized(component, &out.coordinates) else {
+            return false;
+        };
+        let hessian = pursuit.hessian(out, &position, &basis, &reduced, &g);
+        let magnitude = (0..basis.len())
+            .map(|i| hessian[(i, i)].abs())
+            .fold(1.0, f64::max);
+        let rhs = DVector::<f64>::from_iterator(basis.len(), projected.iter().map(|x| -x));
+        let start = out.coordinates.clone();
+        let mut accepted = false;
+        for _ in 0..=GOAL_RAISES {
+            let z = if exact {
+                // Without required equations the goal is linear: its
+                // minimum-norm Gauss–Newton step is exact.
+                let model = Evaluation {
+                    values: g.clone(),
+                    jacobian: reduced.clone(),
+                    satisfied: false,
+                    valid: true,
+                };
+                gauss_newton(&model, GN_CUTOFF).map(DVector::from_vec)
+            } else {
+                let mut damped = hessian.clone();
+                for i in 0..basis.len() {
+                    damped[(i, i)] += damping * magnitude;
+                }
+                damped
+                    .cholesky()
+                    .map(|f| f.solve(&rhs))
+                    .filter(|z| z.iter().all(|x| x.is_finite()))
+            };
+            if let Some(z) = z {
+                let mut step: Vec<f64> = (0..component.params.len())
+                    .map(|c| {
+                        basis
+                            .iter()
+                            .zip(z.iter())
+                            .fold(0.0, |sum, (v, zk)| sum + zk * v[c])
+                    })
+                    .collect();
+                let reach = norm(&step);
+                if !exact && reach > GOAL_RADIUS {
+                    for x in &mut step {
+                        *x *= GOAL_RADIUS / reach;
+                    }
+                }
+                let Some(probe) = pursuit.probe(out, &start, &position, &step) else {
+                    break;
+                };
+                if let Some(coordinates) = probe.filter(|c| pursuit.decreased(&start, &g, c)) {
+                    out.coordinates = coordinates;
+                    damping = (damping / ACCEPT_DIVISOR).max(MIN_DAMPING);
+                    accepted = true;
+                    break;
+                }
+                out.rejected += 1;
+            }
+            if exact {
+                // The exact step does not change with the damping.
+                break;
+            }
+            damping *= REJECT_MULTIPLIER;
+            if !damping.is_finite() {
+                break;
+            }
+        }
+        if !accepted {
+            out.coordinates = start;
+            return false;
+        }
+    }
+}
+
+fn dot(a: &[f64], b: &[f64]) -> f64 {
+    a.iter().zip(b).fold(0.0, |sum, (x, y)| sum + x * y)
+}
+
+/// What [`pursue`] holds fixed while it iterates.
+struct Pursuit<'s, 'a> {
+    system: &'s System<'a>,
+    component: &'s Component,
+    goals: &'s [Goal],
+    /// Each goal's parameter's index in `component.params`.
+    index: Vec<usize>,
+    options: &'s Options,
+    scale: f64,
+}
+
+impl Pursuit<'_, '_> {
+    /// The goals' residuals at `values` in normalized units; None when one
+    /// is unreadable or non-finite.
+    fn residuals(&self, values: &Coordinates) -> Option<Vec<f64>> {
+        self.goals
+            .iter()
+            .map(|g| {
+                let r = (values.get(&g.param)? - g.target) / self.scale;
+                r.is_finite().then_some(r)
+            })
+            .collect()
+    }
+
+    /// The reduced Hessian of the goal objective (halved) in the null basis
+    /// `N`: `H = (J_g N)ᵀ (J_g N) + Nᵀ W N`, `W = Σ λ_i ∇²c_i` the required
+    /// equations' curvature weighted by their least-squares multipliers
+    /// `λ = −(J_rᵀ)⁺ J_gᵀ g`. `W N_k` is a forward difference of the analytic
+    /// required Jacobian along each null vector, one evaluation each, at
+    /// [`CURVATURE_STEP`]. That curvature is what the Gauss–Newton model in
+    /// the null space misses: a linkage reaching for a target beyond it bends
+    /// and straightens in turn without it, and a point on a circle reaching
+    /// for a target inside undershoots by the ratio of their radii. When the
+    /// curvature cannot be read (no required equation, an unreadable
+    /// evaluation, a spent budget), `H` is the Gauss–Newton part alone.
+    fn hessian(
+        &self,
+        out: &mut Outcome,
+        position: &[f64],
+        basis: &[Vec<f64>],
+        reduced: &[Vec<f64>],
+        g: &[f64],
+    ) -> DMatrix<f64> {
+        let k = basis.len();
+        let mut hessian = DMatrix::<f64>::from_fn(k, k, |a, b| {
+            reduced.iter().fold(0.0, |sum, row| sum + row[a] * row[b])
+        });
+        if let Some(curvature) = self.curvature(out, position, basis, g) {
+            for a in 0..k {
+                for b in 0..k {
+                    // Symmetrized: the forward difference is not exactly so.
+                    hessian[(a, b)] +=
+                        0.5 * (dot(&basis[a], &curvature[b]) + dot(&basis[b], &curvature[a]));
+                }
+            }
+        }
+        hessian
+    }
+
+    /// `W N_k` for each null vector, or None (see [`Pursuit::hessian`]).
+    fn curvature(
+        &self,
+        out: &mut Outcome,
+        position: &[f64],
+        basis: &[Vec<f64>],
+        g: &[f64],
+    ) -> Option<Vec<Vec<f64>>> {
+        if self.component.sources.is_empty() {
+            return None;
+        }
+        let n = self.component.params.len();
+        let here = &out.coordinates;
+        let jr = self.system.evaluate(self.component, here);
+        if !jr.valid {
+            return None;
+        }
+        // J_gᵀ g over the parameters: each goal's residual at its parameter.
+        let mut pulled = vec![0.0; n];
+        for (i, r) in self.index.iter().zip(g) {
+            pulled[*i] += r;
+        }
+        let m = jr.jacobian.len();
+        let transposed = Evaluation {
+            values: pulled,
+            jacobian: (0..n)
+                .map(|c| jr.jacobian.iter().map(|row| row[c]).collect())
+                .collect(),
+            satisfied: false,
+            valid: true,
+        };
+        let lambda = gauss_newton(&transposed, GN_CUTOFF)?;
+        let mut curvature = Vec::with_capacity(basis.len());
+        for v in basis {
+            if out.evaluations >= self.options.max_evaluations {
+                return None;
+            }
+            out.evaluations += 1;
+            let probe: Vec<f64> = v.iter().map(|x| x * CURVATURE_STEP).collect();
+            let (moved, _) = trial(self.component, &out.coordinates, position, &probe)?;
+            let jm = self.system.evaluate(self.component, &moved);
+            if !jm.valid || jm.jacobian.len() != m {
+                return None;
+            }
+            // (J_r(x + h v) − J_r(x))ᵀ λ / h, summed in equation order.
+            let w: Vec<f64> = (0..n)
+                .map(|c| {
+                    (0..m).fold(0.0, |sum, i| {
+                        sum + (jm.jacobian[i][c] - jr.jacobian[i][c]) * lambda[i]
+                    }) / CURVATURE_STEP
+                })
+                .collect();
+            if !w.iter().all(|x| x.is_finite()) {
+                return None;
+            }
+            curvature.push(w);
+        }
+        Some(curvature)
+    }
+
+    /// The coordinates after the trial `start + step` and its correction:
+    /// `None` when the budgets are spent, `Some(None)` when the trial or its
+    /// correction failed. `out.coordinates` is left at `start`.
+    #[allow(clippy::option_option)] // three outcomes, each read by the caller
+    fn probe(
+        &self,
+        out: &mut Outcome,
+        start: &Coordinates,
+        position: &[f64],
+        step: &[f64],
+    ) -> Option<Option<Coordinates>> {
+        if out.iterations >= self.options.max_iterations
+            || out.evaluations >= self.options.max_evaluations
+        {
+            return None;
+        }
+        out.iterations += 1;
+        out.evaluations += 1;
+        let mut reached = None;
+        if let Some((coordinates, _)) = trial(self.component, start, position, step) {
+            out.coordinates = coordinates;
+            if descend(self.system, self.component, self.options, out) {
+                reached = Some(out.coordinates.clone());
+            }
+        }
+        out.coordinates = start.clone();
+        Some(reached)
+    }
+
+    /// Whether the goal objective at `next` is below its value at `start`,
+    /// whose residuals are `g`, beyond what the required equations'
+    /// acceptance can move it: `Σ (r'_i − r_i)(r'_i + r_i) < a Σ |r'_i + r_i|`,
+    /// `a` the length acceptance in normalized units. Each difference is
+    /// taken from the coordinates themselves: the product form keeps a
+    /// decrease of a goal's reachable part visible beside a large
+    /// unreachable part, where a difference of two sums of squares rounds it
+    /// away. The margin is the correction's own noise: a corrected point sits
+    /// anywhere within acceptance of the required equations, and near a
+    /// stationary point the true decrease is smaller than that; refusing such
+    /// a step would stall the reduced Newton iteration short of stationarity.
+    fn decreased(&self, start: &Coordinates, g: &[f64], next: &Coordinates) -> bool {
+        let acceptance = self.system.acceptance(self.component, next) / self.scale;
+        let change = self
+            .goals
+            .iter()
+            .zip(g)
+            .try_fold((0.0, 0.0), |(sum, margin), (goal, r)| {
+                let before = start.get(&goal.param)?;
+                let after = next.get(&goal.param)?;
+                let delta = (after - before) / self.scale;
+                let r_next = (after - goal.target) / self.scale;
+                Some((sum + delta * (r_next + r), margin + (r_next + r).abs()))
+            });
+        change.is_some_and(|(c, margin)| c < acceptance * margin)
+    }
 }
 
 /// Whether every equation of `component` holds at `values` with geometric

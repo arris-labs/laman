@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use super::*;
-use crate::model::Coordinate;
+use crate::model::{Coordinate, EntityId};
 
 use laman_debug::{dump, fixture::Fixture};
 use std::path::PathBuf;
@@ -550,6 +550,216 @@ fn c1_twins_under_both_engines() {
                 assert!(!out.converged, "{algorithm:?} {slug}");
                 assert!(!report.violations.is_empty());
             }
+        }
+    }
+}
+
+/// A coordinate of the other `laman` (the one `laman-debug` links) in this
+/// crate's types; its Debug names it.
+fn ours(id: u32, coordinate: &dyn std::fmt::Debug) -> (EntityId, Coordinate) {
+    let coordinate = match format!("{coordinate:?}").as_str() {
+        "X" => Coordinate::X,
+        "Y" => Coordinate::Y,
+        "R" => Coordinate::R,
+        other => panic!("unknown coordinate {other}"),
+    };
+    (EntityId(id), coordinate)
+}
+
+fn goal_at(p: crate::model::Point, [x, y]: [f64; 2]) -> [Goal; 2] {
+    [
+        Goal {
+            param: (p.id(), Coordinate::X),
+            target: x,
+        },
+        Goal {
+            param: (p.id(), Coordinate::Y),
+            target: y,
+        },
+    ]
+}
+
+/// ROADMAP fixture 4 on the driver: from the closed-form "Before", each of
+/// the ten targets is pursued from the previous step's solution (the warm
+/// start a drag session makes). The plate's width follows the target's x;
+/// its y is unreachable (`height` and `top` hold it), so the goal ends
+/// stationary, converged. `P3` stays, `Q` keeps its bits, the checker is
+/// clean at every step, under both engines.
+#[test]
+fn goal_drags_the_slotted_plate_along_its_width() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/c1/slotted-plate-drag");
+    let fixture = Fixture::load(&path).unwrap();
+    let drag = fixture.drag.as_ref().unwrap();
+    let mut base: Sketch =
+        serde_json::from_str(&serde_json::to_string(&fixture.sketch).unwrap()).unwrap();
+    base.place(
+        &fixture
+            .expected
+            .coordinates
+            .iter()
+            .map(|(k, v)| (ours(k.0.0, &k.1), *v))
+            .collect(),
+    );
+    let p2 = base.point_handle(EntityId(drag.dragged.0)).unwrap();
+    let q = EntityId(21);
+    for algorithm in ALGORITHMS {
+        let mut sk = base.clone();
+        let mut counts = vec![];
+        for (k, (target, after)) in drag.targets.iter().zip(&drag.after).enumerate() {
+            let out = solve_toward(&sk, &goal_at(p2, *target), with(algorithm));
+            assert!(out.converged, "{algorithm:?} step {}", k + 1);
+            assert!(
+                check(&sk, &out.coordinates).is_clean(),
+                "{algorithm:?} step {}",
+                k + 1
+            );
+            for (key, want) in &after.coordinates {
+                let got = out.coordinates[&ours(key.0.0, &key.1)];
+                assert!(
+                    (got - want).abs() <= fixture.expected.tolerance,
+                    "{algorithm:?} step {}: {key:?} {got} != {want}",
+                    k + 1
+                );
+            }
+            for c in [Coordinate::X, Coordinate::Y] {
+                assert_eq!(
+                    out.coordinates[&(q, c)].to_bits(),
+                    base.coordinates()[&(q, c)].to_bits()
+                );
+            }
+            counts.push((out.iterations, out.evaluations, out.rejected));
+            sk.place(&out.coordinates);
+        }
+        eprintln!(
+            "{algorithm:?} fixture 4 per step (iterations, evaluations, rejected): {counts:?}"
+        );
+    }
+}
+
+/// A target off a circle the point is held to is unreachable: the goal ends
+/// stationary at the closed-form nearest point, `c + r (t − c) / |t − c|`,
+/// converged, the circle held.
+#[test]
+fn unreachable_goal_converges_stationary_at_the_nearest_point() {
+    for algorithm in ALGORITHMS {
+        for (start, target) in [
+            ([10.0, 0.0], [30.0, 40.0]),
+            ([10.0, 0.0], [0.0, 1.0]),
+            ([0.0, -10.0], [-3.0, 0.5]),
+        ] {
+            let mut sk = Sketch::new();
+            let c = sk.point_fixed(0.0, 0.0).unwrap();
+            let p = sk.point(start[0], start[1]).unwrap();
+            sk.distance(c, p, 10.0).unwrap();
+            let out = solve_toward(&sk, &goal_at(p, target), with(algorithm));
+            eprintln!(
+                "{algorithm:?} circle {target:?}: iterations={} evaluations={} rejected={}",
+                out.iterations, out.evaluations, out.rejected
+            );
+            assert!(out.converged, "{algorithm:?} {target:?}");
+            assert!(check(&sk, &out.coordinates).is_clean());
+            let d = libm::hypot(target[0], target[1]);
+            // At stationarity the first-order distance left is within the
+            // polishing target of length acceptance (1e-12 of the scale here)
+            // plus GOAL_ROUNDING of |t − nearest|; it moves the point by at
+            // most r / |r − d| of itself, under 10 / 9 for these targets.
+            let bound = COORDINATE_ERROR;
+            for (coordinate, want) in [
+                (Coordinate::X, 10.0 * target[0] / d),
+                (Coordinate::Y, 10.0 * target[1] / d),
+            ] {
+                let got = out.coordinates[&(p.id(), coordinate)];
+                assert!(
+                    (got - want).abs() <= bound,
+                    "{algorithm:?} {target:?} {got} {want}"
+                );
+            }
+        }
+    }
+}
+
+/// A free point with no constraint reaches its target; with x fixed it
+/// moves along y only; a goal already met takes no step and keeps every
+/// bit; a goal elsewhere leaves other components' bits alone.
+#[test]
+fn goals_on_free_fixed_and_met_points() {
+    for algorithm in ALGORITHMS {
+        let mut sk = Sketch::new();
+        let p = sk.point(1.0, 2.0).unwrap();
+        let other = sk.point(-0.0, 7.0).unwrap();
+        let out = solve_toward(&sk, &goal_at(p, [4.0, -6.0]), with(algorithm));
+        assert!(out.converged);
+        assert!((out.coordinates[&(p.id(), Coordinate::X)] - 4.0).abs() < COORDINATE_ERROR);
+        assert!((out.coordinates[&(p.id(), Coordinate::Y)] + 6.0).abs() < COORDINATE_ERROR);
+        assert!(out.coordinates[&(other.id(), Coordinate::X)].is_sign_negative());
+
+        sk.set_fixed(p.id(), Coordinate::X, true).unwrap();
+        let out = solve_toward(&sk, &goal_at(p, [4.0, -6.0]), with(algorithm));
+        assert!(out.converged);
+        assert_eq!(out.coordinates[&(p.id(), Coordinate::X)], 1.0);
+        assert!((out.coordinates[&(p.id(), Coordinate::Y)] + 6.0).abs() < COORDINATE_ERROR);
+
+        let out = solve_toward(&sk, &goal_at(p, [1.0, 2.0]), with(algorithm));
+        assert!(out.converged);
+        assert_eq!((out.iterations, out.evaluations), (0, 1));
+        assert_eq!(out.coordinates, sk.coordinates());
+
+        // One goal on a point free in both: the other coordinate stays.
+        let q = sk.point(3.0, 5.0).unwrap();
+        let only_x = [Goal {
+            param: (q.id(), Coordinate::X),
+            target: -2.0,
+        }];
+        let out = solve_toward(&sk, &only_x, with(algorithm));
+        assert!(out.converged);
+        assert!((out.coordinates[&(q.id(), Coordinate::X)] + 2.0).abs() < COORDINATE_ERROR);
+        assert_eq!(out.coordinates[&(q.id(), Coordinate::Y)], 5.0);
+    }
+}
+
+/// A goal on a component whose required equations cannot hold is not
+/// pursued: the component reports not converged as without the goal, with
+/// the same coordinates.
+#[test]
+fn goal_on_an_unsatisfiable_component_is_not_pursued() {
+    for algorithm in ALGORITHMS {
+        let mut sk = Sketch::new();
+        let p = sk.point(0.0, 0.0).unwrap();
+        sk.fix(p, 1.0, 0.0).unwrap();
+        sk.fix(p, 2.0, 0.0).unwrap();
+        let plain = solve(&sk, with(algorithm));
+        let out = solve_toward(&sk, &goal_at(p, [5.0, 5.0]), with(algorithm));
+        assert!(!out.converged);
+        assert_eq!(out.coordinates, plain.coordinates);
+    }
+}
+
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config::with_cases(128))]
+    /// A two-bar linkage built satisfied (ground `O`, `A` at `r1` from it, `B`
+    /// at `r2` from `A`), its tip dragged to any target near the drawing: the
+    /// goal never leaves a required residual over acceptance (the checker is
+    /// clean), and the drag converges, met or stationary.
+    #[test]
+    fn a_goal_never_leaves_a_required_residual(
+        r1 in 1.0f64..10.0, r2 in 1.0f64..10.0, a1 in -3.0f64..3.0, a2 in -3.0f64..3.0,
+        dx in -5.0f64..5.0, dy in -5.0f64..5.0, exponent in -3i32..4,
+    ) {
+        let scale = libm::pow(10.0, exponent as f64);
+        let mut sk = Sketch::new();
+        let o = sk.point_fixed(0.0, 0.0).unwrap();
+        let a = [scale * r1 * libm::cos(a1), scale * r1 * libm::sin(a1)];
+        let b = [a[0] + scale * r2 * libm::cos(a2), a[1] + scale * r2 * libm::sin(a2)];
+        let pa = sk.point(a[0], a[1]).unwrap();
+        let pb = sk.point(b[0], b[1]).unwrap();
+        sk.distance(o, pa, scale * r1).unwrap();
+        sk.distance(pa, pb, scale * r2).unwrap();
+        let target = [b[0] + scale * dx, b[1] + scale * dy];
+        for algorithm in ALGORITHMS {
+            let out = solve_toward(&sk, &goal_at(pb, target), with(algorithm));
+            proptest::prop_assert!(check(&sk, &out.coordinates).is_clean());
+            proptest::prop_assert!(out.converged, "{algorithm:?}: {out:?}");
         }
     }
 }

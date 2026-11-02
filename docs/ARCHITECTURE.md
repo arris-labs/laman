@@ -145,6 +145,62 @@ goal is solved in the null space the required equations leave, so a goal
 can never push a required constraint off. Diagnostics never blame a goal
 for a conflict.
 
+A goal is `value(param) − target` on one free parameter, compiled after
+every required equation into a list of its own, never into the required
+equations: DoF, redundancy and conflicts read only those, so no diagnostic
+can see a goal. A goal on a fixed parameter is dropped (a point with one
+fixed coordinate is pursued along the other); a goal joins the component
+of its parameter, and a component without one solves exactly as before.
+
+A component with goals first solves its required equations as above, then
+pursues the goals lexicographically: Levenberg–Marquardt on the reduced
+problem, sequential quadratic programming on the required equations
+(Nocedal & Wright, *Numerical Optimization*, §18.1). Each iteration takes
+the null basis `N` of the required Jacobian (ADR-0003's QR), the projected
+gradient `p = Nᵀ J_gᵀ g`, and the reduced Hessian `H = (J_g N)ᵀ(J_g N) +
+Nᵀ W N`, where `W = Σ λᵢ ∇²cᵢ` is the required curvature weighted by the
+least-squares multipliers `λ = −(J_rᵀ)⁺ J_gᵀ g`, read as a forward
+difference (step √eps) of the analytic Jacobian along each null vector.
+The step `N z`, `(H + μI) z = −p`, is of least norm within the null space;
+`μ` is LM's damping, adapted as above; the step is cut to one component
+size, then corrected back onto the required equations by the required
+descent, and accepted when that converges and the goal's objective falls
+by more than the correction's own noise. A component without required
+equations takes the exact Gauss–Newton step.
+
+The Gauss–Newton model alone (no `W`) is not enough: it ignores the
+curvature the correction follows. Measured, a point on a circle reaching
+for a target inside it undershoots by the ratio of their radii every
+iteration (128 iterations spent, not converged), and a two-bar linkage
+reaching past its span bends and straightens in turn. Damping an
+indefinite `H` instead of adapting `μ`, or a line search on the Newton
+step's length, proposed steps hundreds of sizes long near a fold.
+
+A component with goals converges when the required equations meet
+acceptance and every goal is met within it (its polishing target after a
+step), or the goal is **stationary** in the null space: `|p|` within that
+acceptance plus `GOAL_ROUNDING = 1e-12` of `|g|`. An unreachable target
+(fixture 4's y) is therefore converged, not `NotConverged`. A goal that
+cannot be decreased or a spent budget is `NotConverged` with the last
+iterate whose required equations held: a goal never leaves a required
+residual over acceptance. Goal probes, curvature evaluations and their
+corrections count against the shared iteration and evaluation caps.
+
+Measured (`solve::tests`), under both engines:
+
+| Case | Iterations / evaluations |
+|---|---:|
+| Fixture 4, each of the ten steps from the previous one | 4 / 13, no rejection |
+| Point on a circle of radius 10, target (30, 40) (outside) | LM 13 / 22, DogLeg 7 / 16 |
+| Same, target (0, 1) (inside) | LM 15 / 26, DogLeg 8 / 19 |
+| Same from (0, −10), target (−3, 0.5) | LM 23 / 38, DogLeg 12 / 27 |
+| Two-bar linkage, targets up to 5 link-lengths away, 5 000 cases | all converged, checker clean |
+
+Stationary exits end with `|p|` from 2e-16 to 8e-13 of the component's
+scale against an acceptance of 1e-12. A fixture-4 step's 4 iterations are
+4 probes, each exact up to the damping (1e-3, then divided by 3) that the
+next one removes; its corrections take no step.
+
 **Least change**: among the solutions of an under-constrained component,
 the solver takes the one nearest the starting point: the damped step is
 the minimum-norm one, and a component with nothing to change takes no
