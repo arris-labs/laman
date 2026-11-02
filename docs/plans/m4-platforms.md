@@ -60,8 +60,8 @@ plan: the release workflow is proven by a dry run.
   its heading (`tools/release-check.sh`, also runnable locally); calls
   `ci.yml` and `wheels.yml`; then `publish-crate` (`cargo publish -p
   laman`, crates.io trusted publishing) and `publish-pypi`
-  (`pypa/gh-action-pypi-publish`, PyPI trusted publishing), each in the
-  GitHub environment `release` with a required reviewer. A dry run ends
+  (`pypa/gh-action-pypi-publish`, PyPI trusted publishing), each in its own
+  GitHub environment (`crates-io`, `pypi`) with a required reviewer. A dry run ends
   at `cargo publish --dry-run` and the built artefacts, never uploading.
 - **`/release` skill** (`.agents/skills/release/SKILL.md`) — drops `-dev`
   in one commit with the `CHANGELOG.md` heading, lets the human tag and
@@ -113,8 +113,12 @@ only test is a CI run on `plan/m4-platforms`.
 - [x] Step 5 **[1]** — `tools/release-check.sh` with its own shell test
   (accepts `v0.1.0` against `0.1.0`; refuses `-dev`, a mismatch, a missing
   heading); the gate runs that self-test as a stage.
-- [ ] Step 6 **[2, CI]** — `release.yml`; a `workflow_dispatch` dry run on
+- [x] Step 6 **[2, CI]** — `release.yml`; a `workflow_dispatch` dry run on
   the branch is green end to end and uploads nothing.
+  Validated by [41500346650](https://github.com/arris-labs/laman/actions/runs/41500346650)
+  on `694d2b0`: all jobs green after rerunning the macOS arm64 wheel build,
+  which first lost its runner to capacity; publish jobs skipped. Publish
+  environments renamed `crates-io` and `pypi` to match arris.
   Implementation checked locally: actionlint, the guard self-test and
   rehearsal metadata test pass; an isolated stable copy passes
   `cargo publish -p laman --dry-run --locked --allow-dirty`, including
@@ -164,7 +168,7 @@ On the plan's last CI run, all green:
   which is outside scope; a path-only dev-dependency is omitted by Cargo
   and preserves the existing workspace checks.
 - ⚠ OPEN: crates.io and PyPI trusted publishers for `release.yml`, and the
-  `release` environment's reviewer, are set up in their web UIs. The
+  `crates-io` and `pypi` environments' reviewers, are set up in their web UIs. The
   human, before the first real release; the dry run does not need them.
 - Settled: `macos-15-intel` is available and passed the native gate in
   step 2; no Rosetta fallback is needed.

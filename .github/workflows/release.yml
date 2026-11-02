@@ -82,12 +82,12 @@ jobs:
           if [ "$DRY_RUN" = true ]; then args+=(--allow-dirty); fi
           cargo publish -p laman --locked --dry-run "${args[@]}"
 
-  # Configure the release environment with a required reviewer before the
+  # Configure the crates-io and pypi environments with a required reviewer before the
   # first real release. Only these two jobs can request a publisher identity.
   publish-crate:
     needs: [release-check, crate-dry-run]
     if: needs.release-check.outputs.dry-run == 'false'
-    environment: release
+    environment: crates-io
     permissions:
       contents: read
       id-token: write
@@ -105,7 +105,7 @@ jobs:
   publish-pypi:
     needs: [release-check, publish-crate]
     if: needs.release-check.outputs.dry-run == 'false'
-    environment: release
+    environment: pypi
     permissions:
       contents: read
       id-token: write
