@@ -13,7 +13,11 @@ if [ -n "$bad" ]; then
 fi
 # ADR-0007: the binding carries laman-debug without its strategies, so
 # `proptest` stays out of the extension module.
-if cargo tree -p laman-py -e normal --prefix none 2>/dev/null | grep -q '^proptest '; then
+if ! tree=$(cargo tree -p laman-py -e normal --prefix none); then
+  echo "check-layers: cargo tree -p laman-py failed" >&2
+  exit 1
+fi
+if grep -q '^proptest ' <<<"$tree"; then
   echo "check-layers: proptest is in laman-py's dependencies (ADR-0007)" >&2
   exit 1
 fi
