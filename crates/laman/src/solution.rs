@@ -25,7 +25,7 @@ use crate::model::tolerance::Source;
 use crate::model::{
     ConstraintId, ConstraintKind, Coordinate, Coordinates, EntityId, EntityKind, ModelError, Sketch,
 };
-use crate::solve::{self, Options};
+use crate::solve::{self, Options, Outcome};
 use crate::system::Goal;
 
 #[cfg(feature = "serde")]
@@ -60,7 +60,18 @@ pub struct SolverOptions {
     /// Re-solves the conflict analysis may spend in all; running out names
     /// no conflict and leaves the status `NotConverged`.
     pub max_analysis_solves: usize,
+    /// Halvings of a drag step that flips a branch, toward the last good
+    /// target, before the step gives up and stays put (ADR-0006). Zero
+    /// tries the target alone. A static solve ignores it.
+    pub max_bisections: usize,
 }
+
+/// Default halvings of a flipping drag step: the step shrinks to 1/256, a
+/// fraction of a pixel of a frame's motion, so a flip refused at that size
+/// is a boundary the point sits on rather than one it skips over; the
+/// most a refused frame costs is this many extra solves
+/// (`docs/ARCHITECTURE.md` §Drag sessions).
+const MAX_BISECTIONS: usize = 8;
 
 impl Default for SolverOptions {
     /// Levenberg–Marquardt with the measured caps.
@@ -71,6 +82,7 @@ impl Default for SolverOptions {
             max_iterations: internal.max_iterations,
             max_evaluations: internal.max_evaluations,
             max_analysis_solves: internal.max_analysis_solves,
+            max_bisections: MAX_BISECTIONS,
         }
     }
 }
@@ -239,10 +251,55 @@ pub(crate) struct Provenance {
     digest: u64,
 }
 
-/// One solve of `sketch` toward `goals`, diagnosed, with its branches
-/// observed after `before` (the guesses' for a static solve, the last
-/// frame's for a drag step) and the flips between the two. The solution
-/// claims `source`; the observations returned are the next `before`.
+/// A solve toward `goals` and its branches, before it is diagnosed: what a
+/// drag step needs to decide whether to keep it.
+pub(crate) struct Attempt {
+    outcome: Outcome,
+    /// The branches at the outcome's coordinates, observed after the
+    /// earlier frame's.
+    pub(crate) observed: Observations,
+    /// The flips from that earlier frame to this one.
+    pub(crate) flips: Vec<branch::Flip>,
+}
+
+/// One solve of `sketch` toward `goals`, its branches observed after
+/// `before` (the guesses' for a static solve, the last frame's for a drag
+/// step) and compared with them.
+pub(crate) fn attempt(
+    sketch: &Sketch,
+    goals: &[Goal],
+    options: &SolverOptions,
+    before: &Observations,
+) -> Attempt {
+    let outcome = solve::solve_toward(sketch, goals, options.internal());
+    let observed = before.next(sketch, &outcome.coordinates);
+    let flips = before.flips(&observed);
+    Attempt {
+        outcome,
+        observed,
+        flips,
+    }
+}
+
+/// An attempt diagnosed into the solution that claims `source`, with the
+/// observations that are the next `before`.
+pub(crate) fn conclude(
+    sketch: &Sketch,
+    options: &SolverOptions,
+    attempt: Attempt,
+    source: Provenance,
+) -> (Solution, Observations) {
+    let diagnosis = diagnose::analyse(sketch, &attempt.outcome, &options.internal());
+    let solution = Solution {
+        coordinates: attempt.outcome.coordinates,
+        status: diagnosis.status,
+        diagnostics: diagnostics(sketch, &diagnosis, &attempt.flips),
+        source,
+    };
+    (solution, attempt.observed)
+}
+
+/// [`attempt`] and [`conclude`] in one.
 pub(crate) fn solve_observed(
     sketch: &Sketch,
     goals: &[Goal],
@@ -250,18 +307,12 @@ pub(crate) fn solve_observed(
     before: &Observations,
     source: Provenance,
 ) -> (Solution, Observations) {
-    let internal = options.internal();
-    let outcome = solve::solve_toward(sketch, goals, internal);
-    let diagnosis = diagnose::analyse(sketch, &outcome, &internal);
-    let after = before.next(sketch, &outcome.coordinates);
-    let flips = before.flips(&after);
-    let solution = Solution {
-        coordinates: outcome.coordinates,
-        status: diagnosis.status,
-        diagnostics: diagnostics(sketch, &diagnosis, &flips),
+    conclude(
+        sketch,
+        options,
+        attempt(sketch, goals, options, before),
         source,
-    };
-    (solution, after)
+    )
 }
 
 /// The answer to a solve: coordinates for every parameter, a status and the

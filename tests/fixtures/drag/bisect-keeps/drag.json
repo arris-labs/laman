@@ -1,0 +1,14 @@
+{
+  "dragged": 4,
+  "targets": [[-1.0, 1.0], [2.0, 1.0]],
+  "after": [
+    {"step": 1, "coordinates": [
+      {"id": 4, "coordinate": "x", "value": 1.0},
+      {"id": 4, "coordinate": "y", "value": 1.0}
+    ]},
+    {"step": 2, "coordinates": [
+      {"id": 4, "coordinate": "x", "value": 2.0},
+      {"id": 4, "coordinate": "y", "value": 1.0}
+    ]}
+  ]
+}

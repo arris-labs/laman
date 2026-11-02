@@ -28,7 +28,8 @@
 //! sketch has, or the file is refused with its id.
 //!
 //! `drag.json` names the dragged point, its targets in order (`[x, y]`), and
-//! the expected coordinates after chosen steps (1-based, into `targets`).
+//! the expected coordinates after chosen steps (1-based, into `targets`),
+//! and for each the tags it names as flipped (`flips`, default none).
 
 use crate::json::{LoadError, sketch_from_str};
 use laman::model::{Coordinate, Coordinates, EntityId, EntityKind, Sketch, tolerance};
@@ -179,6 +180,9 @@ pub struct DragStep {
     pub step: usize,
     /// The expected coordinates after the step.
     pub coordinates: Coordinates,
+    /// The tags of the entities and constraints the step names as flipped
+    /// (empty: none).
+    pub flips: Vec<String>,
 }
 
 impl Fixture {
@@ -294,6 +298,8 @@ struct DragFile {
 struct StepFile {
     step: usize,
     coordinates: Vec<Entry>,
+    #[serde(default)]
+    flips: Vec<String>,
 }
 
 fn read(path: &Path) -> Result<String, FixtureError> {
@@ -394,6 +400,7 @@ fn parse_drag(sketch: &Sketch, known: &Coordinates, text: &str) -> Result<Drag, 
         after.push(DragStep {
             step: step.step,
             coordinates: coordinates(DRAG_FILE, known, &step.coordinates)?,
+            flips: step.flips,
         });
     }
     Ok(Drag {

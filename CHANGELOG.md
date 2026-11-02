@@ -28,7 +28,11 @@ release by release. Written in the commit that makes the change, under
   target that is not finite returns the last frame as `NotConverged`.
   Dragging a point fixed in both coordinates is refused with the new
   `ModelError::FixedPoint`; a point with one fixed coordinate drags along
-  the other.
+  the other. A frame whose solve would flip an arc, a circle or a line
+  pair is halved toward the last target (`SolverOptions::max_bisections`,
+  default 8) and the first halving that keeps every branch is the frame; if
+  none does, the last solution comes back with the flip named and the
+  session stays on its branch.
 
 - `Diagnostics::flips`: a solve names each arc, circle and `parallel`,
   `perpendicular` or `angle` constraint that ended on a different branch

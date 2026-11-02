@@ -19,7 +19,9 @@
 
 use crate::branch::Observations;
 use crate::model::{Coordinate, EntityId, ModelError, Sketch};
-use crate::solution::{Provenance, Solution, SolverOptions, Status, solve_observed};
+use crate::solution::{
+    Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of, solve_observed,
+};
 use crate::system::Goal;
 
 /// A point being dragged through a series of targets, one frame per
@@ -58,6 +60,9 @@ pub struct DragSession {
     last: Solution,
     /// The branches `last` sits on.
     observed: Observations,
+    /// The target `last` was solved toward: where a flipping step is
+    /// bisected to.
+    reached: [f64; 2],
 }
 
 impl Sketch {
@@ -92,6 +97,8 @@ impl Sketch {
         let (last, observed) = solve_observed(self, &[], options, &before, source);
         let mut sketch = self.clone();
         sketch.place(&last.coordinates);
+        let at = |c| last.coordinates.get(&(id, c)).copied().unwrap_or(f64::NAN);
+        let reached = [at(Coordinate::X), at(Coordinate::Y)];
         Ok(DragSession {
             sketch,
             point: id,
@@ -99,15 +106,36 @@ impl Sketch {
             source,
             last,
             observed,
+            reached,
         })
     }
+}
+
+/// The point `halvings` halvings of the way from `from` to `to`; `to` itself
+/// for none. A convex combination, so it overflows nowhere, and exactly
+/// `from` once the weight underflows.
+fn toward(from: [f64; 2], to: [f64; 2], halvings: usize) -> [f64; 2] {
+    if halvings == 0 {
+        return to;
+    }
+    let weight = libm::ldexp(1.0, -i32::try_from(halvings).unwrap_or(i32::MAX));
+    let mix = |a: f64, b: f64| a * (1.0 - weight) + b * weight;
+    [mix(from[0], to[0]), mix(from[1], to[1])]
 }
 
 impl DragSession {
     /// One frame: solves with the point pulled toward `target`, from the
     /// previous step, and returns the full [`Solution`].
     ///
-    /// Always returns a solution. The target is a goal, never a constraint:
+    /// Always returns a solution. A step that would change a branch no
+    /// equation holds (an arc turning the other way round, a line pair
+    /// swapping orientation, a radius changing sign; ADR-0006) is halved
+    /// toward the last target, at most `max_bisections` times, and the first
+    /// halving that keeps every branch is the frame. If every halving
+    /// flips, the frame is the last solution unchanged, its `flips` naming
+    /// what the nearest halving would have changed; the session stays on
+    /// its branch, and the caller can finish and solve statically to take
+    /// the other. The target is a goal, never a constraint:
     /// one the sketch makes unreachable ends at the nearest reachable place,
     /// `UnderConstrained` or better, not `NotConverged`. A target that is
     /// not finite is refused as a frame: the last solution's coordinates
@@ -130,27 +158,41 @@ impl DragSession {
             kept.status = Status::NotConverged;
             return kept;
         }
-        let goals = [
-            Goal {
-                param: (self.point, Coordinate::X),
-                target: target[0],
-            },
-            Goal {
-                param: (self.point, Coordinate::Y),
-                target: target[1],
-            },
-        ];
-        let (solution, observed) = solve_observed(
-            &self.sketch,
-            &goals,
-            &self.options,
-            &self.observed,
-            self.source,
-        );
-        self.sketch.place(&solution.coordinates);
-        self.observed = observed;
-        self.last = solution.clone();
-        solution
+        let from = self.reached;
+        let mut refused = None;
+        for halvings in 0..=self.options.max_bisections {
+            let here = toward(from, target, halvings);
+            let goals = [
+                Goal {
+                    param: (self.point, Coordinate::X),
+                    target: here[0],
+                },
+                Goal {
+                    param: (self.point, Coordinate::Y),
+                    target: here[1],
+                },
+            ];
+            let tried = attempt(&self.sketch, &goals, &self.options, &self.observed);
+            if !tried.flips.is_empty() {
+                // Keep the flips of the nearest halving tried, then halve.
+                refused = Some(flips_of(&self.sketch, &tried.flips));
+                if halvings > 0 && here == from {
+                    break; // no nearer target exists in f64
+                }
+                continue;
+            }
+            let (solution, observed) = conclude(&self.sketch, &self.options, tried, self.source);
+            self.sketch.place(&solution.coordinates);
+            self.observed = observed;
+            self.reached = here;
+            self.last = solution.clone();
+            return solution;
+        }
+        // Every try flipped: stay on the branch, and say what the nearest
+        // one would have flipped.
+        let mut stayed = self.last.clone();
+        stayed.diagnostics.flips = refused.unwrap_or_default();
+        stayed
     }
 
     /// Ends the session and returns its last solution, which

@@ -431,6 +431,22 @@ the session is unchanged. Every solution of a session claims the sketch it
 was opened on, so `apply` takes any of them on it, unedited. The frame
 budget a step must meet is ROADMAP.md's.
 
+**Bisection.** A step whose solve flips a branch (§Branches) is retried
+toward the last good target: the full step, then half of it, a quarter, and
+so on, each solved from the last solution (never from the failed try), at
+most `SolverOptions::max_bisections` halvings. The first try that keeps
+every branch is the frame, `flips` empty and the dragged point stopped
+short of the target; the session's reference target moves to it. If every
+try flips, the frame is the last solution unchanged with the nearest try's
+flips named, and the session stays where it was (ADR-0006): a drag cannot
+cross a branch, only a static solve can. `max_bisections` defaults to 8:
+the smallest step tried is 1/256 of the frame's, below what the eye reads
+on a drag, and a refused frame costs at most that many extra solves,
+measured at about 280 µs against 42 µs for a plain step on the two-line
+fixture (`tests/fixtures/drag/bisect-stuck`, release, one machine; ≈ 30 µs
+per solve, diagnostics only on the frame returned). Zero tries the target
+alone.
+
 ## The checker
 
 `laman_check::check(&Sketch, &Coordinates) -> Report`. For every

@@ -152,3 +152,51 @@ fn finish_before_any_step_is_the_static_solution() {
     let drag = sk.drag(p, &SolverOptions::default()).unwrap();
     assert_eq!(drag.finish(), sk.solve(&SolverOptions::default()));
 }
+
+/// A fixed horizontal line, and a line from the fixed (0, 1) to a free tip
+/// at (3, 1) held parallel to it: the tip slides along y = 1 and crossing
+/// x = 0 reverses the line (`tests/fixtures/drag/bisect-keeps`).
+fn tip() -> (Sketch, EntityId) {
+    let mut sk = Sketch::new();
+    let o = sk.point_fixed(0.0, 0.0).unwrap();
+    let e = sk.point_fixed(1.0, 0.0).unwrap();
+    let a = sk.line(o, e).unwrap();
+    let s = sk.point_fixed(0.0, 1.0).unwrap();
+    let p = sk.point(3.0, 1.0).unwrap();
+    let b = sk.line(s, p).unwrap();
+    let c = sk.parallel(a, b).unwrap();
+    sk.tag_constraint(c, "same-way").unwrap();
+    (sk, p.id())
+}
+
+#[test]
+fn without_bisections_a_flipping_frame_stays_put_and_the_session_recovers() {
+    let (sk, p) = tip();
+    let mut options = SolverOptions::default();
+    options.max_bisections = 0;
+    let mut drag = sk.drag(p, &options).unwrap();
+    let stuck = drag.to([-1.0, 1.0]);
+    assert_eq!(at(&stuck.coordinates, p), [3.0, 1.0]);
+    assert_eq!(stuck.diagnostics.flips.len(), 1);
+    let flip = &stuck.diagnostics.flips[0];
+    assert!(flip.was > 0.0 && flip.now < 0.0, "{flip:?}");
+    // The session is still on its branch: a target on the near side lands.
+    let back = drag.to([2.0, 1.0]);
+    assert!((at(&back.coordinates, p)[0] - 2.0).abs() < 1e-9);
+    assert!(back.diagnostics.flips.is_empty());
+}
+
+#[test]
+fn an_unbounded_number_of_bisections_still_terminates() {
+    let (sk, p) = tip();
+    let mut options = SolverOptions::default();
+    options.max_bisections = usize::MAX;
+    let mut drag = sk.drag(p, &options).unwrap();
+    // The boundary is crossed in one frame; the nearest keeping halving is
+    // taken, however many it needs.
+    for _ in 0..3 {
+        let step = drag.to([-1.0, 1.0]);
+        assert!(at(&step.coordinates, p)[0] > 0.0);
+        assert!(step.diagnostics.flips.is_empty());
+    }
+}
