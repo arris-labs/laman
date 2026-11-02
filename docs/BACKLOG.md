@@ -64,16 +64,16 @@ A defect a run measured, one block each:
 - Where: `laman::diagnose`, the stationary-point certificate (ADR-0005) taking a local minimum for a contradiction
 - Seen: same property, M2 step 8
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored false_conflict_rigid_framework`
-- Measured: conflicts `[[stated, stretched], [8 members]]`, Levenberg-Marquardt
-- State: regression/false-conflict-rigid-framework
+- Measured: conflicts `[[stated, stretched], [8 members]]`, Levenberg-Marquardt; after the fix `[[stated, stretched]]`. DogLeg ends `NotConverged` before and after (the `dogleg-conflict-inconclusive` family; its half of the fixture stays ignored)
+- State: fixed (a test tries every start before certifying; ADR-0005 amendment)
 
 ### false-conflict-excludes-contradiction
 - What: every reported conflict excludes the one contradictory constraint
 - Where: same
 - Seen: same property, M2 step 8
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored false_conflict_excludes_contradiction`
-- Measured: 7 points, 10 distances; conflicts without `stretched`
-- State: regression/false-conflict-excludes-contradiction
+- Measured: 7 points, 10 distances; conflicts without `stretched` (one 8-member set), Levenberg-Marquardt; after the fix one 10-member set containing `stretched`. DogLeg ends `NotConverged` before and after (its half stays ignored)
+- State: fixed (same fix)
 
 ## Rejected
 

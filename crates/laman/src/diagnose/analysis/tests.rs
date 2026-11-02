@@ -166,7 +166,7 @@ fn c1_conflicting_twins() {
             "sss-triangle-conflicting",
             vec!["base", "right", "apex"],
             vec!["base", "left", "right", "apex"],
-            6,
+            8,
         ),
         (
             "belt-conflicting",
@@ -190,13 +190,13 @@ fn c1_conflicting_twins() {
                 "top-tangent-c2",
                 "top-length",
             ],
-            14,
+            19,
         ),
         (
             "slotted-plate-conflicting",
             vec!["same-ends", "slot-r", "slot-r2"],
             vec!["same-ends", "slot-r", "slot-r2"],
-            19,
+            34,
         ),
     ] {
         let sk = load(slug);
@@ -213,8 +213,9 @@ fn c1_conflicting_twins() {
             assert_eq!(d.conflicts, vec![ids(&sk, &set)], "{slug} {algorithm:?}");
             assert!(d.redundant.is_empty(), "{slug}: {:?}", d.redundant);
             assert_eq!(d.freedom.dof, 0);
-            // One re-solve per constraint of the failed component, one for
-            // the rest after the set; no test needed its second start.
+            // One re-solve per constraint of the failed component and one
+            // for the rest after the set, each from the best effort; every
+            // test that ends unsatisfiable tries the guesses too.
             assert_eq!(d.solves, solves, "{slug} {algorithm:?}");
             assert_witnessed(&sk, &d.conflicts[0], options);
             // Deterministic: the same input gives the same diagnosis.
@@ -242,7 +243,7 @@ fn separate_conflicts_and_several_in_one_component() {
         // q, which is re-solved alone first; DogLeg's region collapses
         // first and reaches both.
         let (support, solves) = match algorithm {
-            Algorithm::LevenbergMarquardt => (vec![f1, f2, g2], 7),
+            Algorithm::LevenbergMarquardt => (vec![f1, f2, g2], 8),
             Algorithm::DogLeg => (vec![f1, g1, f2, g2], 6),
         };
         assert_eq!(violated(&report), constraints(&support), "{algorithm:?}");

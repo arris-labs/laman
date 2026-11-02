@@ -123,6 +123,35 @@ certifies nothing and stays `NotConverged`
 (`degenerating_subset_is_inconclusive`). That is the price of never
 blaming a ghost.
 
+## Amendment 2026-11-02: every start before a certificate
+
+**Search**, as first decided, let the first start settle a test: a test
+returned unsatisfiable as soon as the re-solve from the caller's best
+effort ended certified, and tried the sketch's own coordinates only when
+that first re-solve settled nothing. The certificate is local, so a first
+start that stops at a stationary point of a *satisfiable* subset was
+certified, and the filter reported false conflicts: a set of eight true
+distances that hold together at the guesses
+(`false-conflict-rigid-framework`), and a set excluding the one
+contradictory distance (`false-conflict-excludes-contradiction`).
+
+A test now re-solves from every start, the best effort and then the
+sketch's own coordinates. Any converged start is the satisfiability
+witness, whatever another start certified. The subset is unsatisfiable
+only when every start was tried, none converged, and at least one ended
+certified. A budget spent before the last start is inconclusive. The
+filter, the guarantee and the bound are otherwise unchanged. The caller's
+own solve, which starts from the sketch's coordinates, stays the gate on
+a failed component.
+
+Cost: every test that ends unsatisfiable now spends both starts. The C1
+conflicting twins spend 8 (triangle), 19 (belt) and 34 (plate) re-solves
+under both engines, not 6, 14 and 19. `MAX_ANALYSIS_SOLVES = 256` already
+budgeted both starts of every test (a 127-constraint component's filter
+and rest), so it stands. DogLeg still ends `NotConverged` on both
+regressions, as on `dogleg-conflict-inconclusive`; that is a separate
+defect.
+
 ## Alternatives considered
 
 - **Failed solve or rank deficiency as proof**: both hold for consistent

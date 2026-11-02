@@ -197,7 +197,9 @@ proptest! {
             );
 
             let mut sk = built.sketch.clone();
-            sk.distance(built.points[i], built.points[j], d * false_by).unwrap();
+            let stretched = sk
+                .distance(built.points[i], built.points[j], d * false_by)
+                .unwrap();
             let solution = sk.solve(&options(algorithm));
             // The conflict analysis may be inconclusive (regressions
             // `dogleg-conflict-inconclusive`, `framework-conflict-inconclusive`):
@@ -206,12 +208,17 @@ proptest! {
             let proven = solution.status == Status::Unsatisfiable;
             let inconclusive = solution.status == Status::NotConverged;
             prop_assert!(proven || inconclusive, "{:?}: {:?}", algorithm, solution.status);
-            // Every genuine conflict contains the stretched distance, but
-            // the analysis can report false ones (regressions
-            // `false-conflict-rigid-framework`,
-            // `false-conflict-excludes-contradiction`), so membership is
-            // held by those fixtures, not here.
+            // Every genuine conflict contains the stretched distance: the
+            // rest hold together at the construction.
             prop_assert_eq!(proven, !solution.diagnostics.conflicts.is_empty());
+            for set in &solution.diagnostics.conflicts {
+                prop_assert!(
+                    set.iter().any(|c| c.id == stretched),
+                    "{:?}: a conflict without the stretched distance: {:?}",
+                    algorithm,
+                    set
+                );
+            }
             prop_assert!(solution.coordinates.values().all(|v| v.is_finite()));
         }
     }

@@ -62,52 +62,69 @@ fn framework_conflict_inconclusive() {
     }
 }
 
-#[test]
-#[ignore = "a second conflict names eight constraints that hold together at the guesses"]
-fn false_conflict_rigid_framework() {
+/// The only conflict is {`stated`, `stretched`}; the eight true distances
+/// hold together at the guesses and are never named.
+fn assert_rigid_framework(algorithm: Algorithm) {
     let f = load("false-conflict-rigid-framework");
-    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
-        let mut options = SolverOptions::default();
-        options.algorithm = algorithm;
-        let solution = f.sketch.solve(&options);
-        assert_eq!(
-            solution.status.to_string(),
-            f.expected.status,
-            "{algorithm:?}"
+    let mut options = SolverOptions::default();
+    options.algorithm = algorithm;
+    let solution = f.sketch.solve(&options);
+    assert_eq!(
+        solution.status.to_string(),
+        f.expected.status,
+        "{algorithm:?}"
+    );
+    let found: Vec<Vec<&str>> = solution
+        .diagnostics
+        .conflicts
+        .iter()
+        .map(|set| {
+            set.iter()
+                .map(|c| c.tag.as_deref().unwrap_or("?"))
+                .collect()
+        })
+        .collect();
+    assert_eq!(found, [["stated", "stretched"]], "{algorithm:?}");
+}
+
+#[test]
+fn false_conflict_rigid_framework() {
+    assert_rigid_framework(Algorithm::LevenbergMarquardt);
+}
+
+#[test]
+#[ignore = "DogLeg ends NotConverged on a conflict Levenberg-Marquardt proves"]
+fn false_conflict_rigid_framework_dogleg() {
+    assert_rigid_framework(Algorithm::DogLeg);
+}
+
+/// Every conflict reported contains `stretched`, the one contradiction.
+fn assert_excludes_contradiction(algorithm: Algorithm) {
+    let f = load("false-conflict-excludes-contradiction");
+    let mut options = SolverOptions::default();
+    options.algorithm = algorithm;
+    let solution = f.sketch.solve(&options);
+    assert_eq!(
+        solution.status.to_string(),
+        f.expected.status,
+        "{algorithm:?}"
+    );
+    assert!(!solution.diagnostics.conflicts.is_empty(), "{algorithm:?}");
+    for set in &solution.diagnostics.conflicts {
+        assert!(
+            set.iter().any(|c| c.tag.as_deref() == Some("stretched")),
+            "{algorithm:?}: a conflict without `stretched`: {set:?}"
         );
-        let found: Vec<Vec<&str>> = solution
-            .diagnostics
-            .conflicts
-            .iter()
-            .map(|set| {
-                set.iter()
-                    .map(|c| c.tag.as_deref().unwrap_or("?"))
-                    .collect()
-            })
-            .collect();
-        assert_eq!(found, [["stated", "stretched"]], "{algorithm:?}");
     }
 }
 
 #[test]
-#[ignore = "every conflict reported excludes the one contradictory constraint"]
 fn false_conflict_excludes_contradiction() {
-    let f = load("false-conflict-excludes-contradiction");
-    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
-        let mut options = SolverOptions::default();
-        options.algorithm = algorithm;
-        let solution = f.sketch.solve(&options);
-        assert_eq!(
-            solution.status.to_string(),
-            f.expected.status,
-            "{algorithm:?}"
-        );
-        assert!(!solution.diagnostics.conflicts.is_empty(), "{algorithm:?}");
-        for set in &solution.diagnostics.conflicts {
-            assert!(
-                set.iter().any(|c| c.tag.as_deref() == Some("stretched")),
-                "{algorithm:?}: a conflict without `stretched`: {set:?}"
-            );
-        }
-    }
+    assert_excludes_contradiction(Algorithm::LevenbergMarquardt);
+}
+
+#[test]
+#[ignore = "DogLeg ends NotConverged on a conflict Levenberg-Marquardt proves"]
+fn false_conflict_excludes_contradiction_dogleg() {
+    assert_excludes_contradiction(Algorithm::DogLeg);
 }

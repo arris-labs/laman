@@ -280,10 +280,13 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the
-  guesses. A subset counts as unsatisfiable only when a re-solve ends at a
+  guesses. It counts as satisfiable when either re-solve converges. It
+  counts as unsatisfiable only when neither converges and one ends at a
   certified stationary least-squares point: `|Jᵀf| ≤ STATIONARY ·
-  |(f_i |J_i|)|`, with `STATIONARY = 1e-6`. It counts as satisfiable when a
-  re-solve converges. Anything else is inconclusive. Every member a set
+  |(f_i |J_i|)|`, with `STATIONARY = 1e-6`. A certified local minimum of a
+  satisfiable subset therefore never settles a test while the other start
+  can still converge. Anything else, a budget spent before the last start
+  included, is inconclusive. Every member a set
   keeps has a converged removal witness, so the set is inclusion-minimal;
   its unsatisfiability is the local certificate. Once a set is found, its
   greatest id is set aside and the rest is filtered again for a further
@@ -296,8 +299,8 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
 
 Measured under both engines: the C1 bases and redundant twins take no
 re-solve and name exactly `right-angle`, `same-belt` and `level`. The
-conflicting twins take 6, 14 and 19 re-solves. No test needs its second
-start. The belt and plate sets are the roadmap's. The triangle's is
+conflicting twins take 8, 19 and 34 re-solves: every test that ends
+unsatisfiable spends both starts. The belt and plate sets are the roadmap's. The triangle's is
 {`base`, `right`, `apex`}, which is inclusion-minimal; the roadmap's
 four-member set is the residual's support (ADR-0005 Consequences). The
 C1 twins' best efforts end with stationarity 1.6e-10 to 3.2e-8, and their

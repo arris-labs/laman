@@ -140,11 +140,13 @@ free directions, redundant, conflicting and degenerate sets are computed
   nothing. A partly implied constraint is not named. Redundancy is a
   warning, not a status.
 - **Conflicting**: constraints established to be jointly unsatisfiable
-  (ADR-0005). A subset is unsatisfiable when a re-solve of it ends at a
-  least-squares point that is evaluable, outside tolerance and certified
-  stationary (`|Jᵀf| ≤ STATIONARY · |(f_i |J_i|)|`). That certificate is
-  local: it rules out a solution near that point, not one in another
-  basin. Linear dependence or a failed numerical solve alone proves
+  (ADR-0005). A subset is re-solved from the best effort and from the
+  guesses; it is satisfiable when either converges, and unsatisfiable when
+  neither does and one ends at a least-squares point that is evaluable,
+  outside tolerance and certified stationary (`|Jᵀf| ≤ STATIONARY ·
+  |(f_i |J_i|)|`). That certificate is local: it rules out a solution near
+  that point, not one in another basin, so no start's certificate settles a
+  subset another start satisfies. Linear dependence or a failed numerical solve alone proves
   nothing. Each set is inclusion-minimal: every member has a removal
   witness, a converged re-solve of the set without it. Minimal means no
   member can be removed, not minimum cardinality. Not every conflict is

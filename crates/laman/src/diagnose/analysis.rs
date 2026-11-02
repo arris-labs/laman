@@ -24,9 +24,9 @@ use std::collections::BTreeSet;
 /// Re-solves one analysis may spend in all, across the conflict search of
 /// every failed component (redundancy and degeneracy cost none). A filter
 /// spends one per constraint of the component and one for the rest after
-/// each set, two when a test needs its second start: the C1 conflicting
-/// twins spend 6 (triangle), 14 (belt) and 19 (plate) under both engines.
-/// 256 holds both starts of every test of a 127-constraint component; past
+/// each set, two when a test's first start does not converge: the C1
+/// conflicting twins spend 8 (triangle), 19 (belt) and 34 (plate) under both
+/// engines. 256 holds both starts of every test of a 127-constraint component; past
 /// it the analysis is inconclusive, never a conflict (ADR-0005). C2's sizes
 /// measure it again.
 pub(crate) const MAX_ANALYSIS_SOLVES: usize = 256;
@@ -245,8 +245,14 @@ fn conflict_sets(
     }
 }
 
-/// Re-solves `sketch` with only the constraints `keep`, from `values`, then
-/// from the sketch's own coordinates when the first start settles nothing.
+/// Re-solves `sketch` with only the constraints `keep` from every start: the
+/// caller's best effort `values`, then the sketch's own coordinates. Any
+/// converged start proves the subset satisfiable; it is unsatisfiable only
+/// when every start was tried, none converged and one was certified. A
+/// certificate is local, so a start that stops at a stationary point of a
+/// satisfiable subset must not settle the verdict while another start can
+/// still converge (ADR-0005, amendment). A budget spent before the last
+/// start is inconclusive.
 fn test(
     sketch: &Sketch,
     values: &Coordinates,
@@ -270,6 +276,7 @@ fn test(
         // Present by construction: the ids were just read from the copy.
         let _ = copy.remove_constraint(id);
     }
+    let mut certificate = false;
     for start in starts {
         if *solves >= options.max_analysis_solves {
             return Verdict::Inconclusive;
@@ -281,15 +288,16 @@ fn test(
             return Verdict::Satisfiable;
         }
         let system = System::new(&copy);
-        if system
+        certificate |= system
             .components
             .iter()
-            .any(|c| certified(&system, c, &out.coordinates))
-        {
-            return Verdict::Unsatisfiable;
-        }
+            .any(|c| certified(&system, c, &out.coordinates));
     }
-    Verdict::Inconclusive
+    if certificate {
+        Verdict::Unsatisfiable
+    } else {
+        Verdict::Inconclusive
+    }
 }
 
 /// Satisfied constraints of satisfied components, in reverse source order,
