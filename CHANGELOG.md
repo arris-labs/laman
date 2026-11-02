@@ -6,6 +6,10 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- Python: abi3 wheels for Linux x86_64 and aarch64 (glibc ≥ 2.17),
+  macOS arm64 and x86_64, and Windows x86_64; Python 3.10 and newer.
+  A source distribution is available for other build environments.
+
 - Python: `laman.Sketch` is built by hand or loaded from JSON, solved,
   applied and dragged (`DragSession`), with `Solution` and every diagnostic
   readable, `laman.check` for the independent check and `laman.debug` for

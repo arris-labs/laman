@@ -97,6 +97,8 @@ only test is a CI run on `plan/m4-platforms`.
 - [ ] Step 4 **[2, CI]** — `wheels.yml`: the five wheels and the sdist built,
   each installed on a clean runner and its tests green. CHANGELOG bullet:
   wheels for the five platforms (glibc ≥ 2.17), not one.
+  Implementation and local isolated sdist tests are ready; the box waits
+  for the five clean wheel installs and sdist tests in branch CI.
 - [ ] Step 5 **[1]** — `tools/release-check.sh` with its own shell test
   (accepts `v0.1.0` against `0.1.0`; refuses `-dev`, a mismatch, a missing
   heading); the gate runs that self-test as a stage.
