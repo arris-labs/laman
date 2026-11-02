@@ -1,7 +1,7 @@
 //! Solver options and the solution of a solve.
 
 use crate::enums::{algorithm_from_py, algorithm_to_py, status_to_py};
-use crate::model::Coordinates;
+use crate::model::{Coordinates, coordinate_name_of};
 use pyo3::prelude::*;
 
 /// How a solve runs: the algorithm and its hard caps. Defaults are Rust's.
@@ -84,22 +84,324 @@ impl SolverOptions {
     }
 }
 
-/// What a solve established about the sketch.
-#[pyclass(frozen, module = "laman")]
-pub struct Diagnostics {
+fn tag_repr(tag: &Option<String>) -> String {
+    tag.as_ref()
+        .map_or_else(|| "None".to_owned(), |t| format!("{t:?}"))
+}
+
+/// An entity as a diagnostic names it: the caller's id, its kind and its tag.
+#[pyclass(frozen, eq, hash, get_all, module = "laman")]
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct EntityRef {
+    /// The entity's id.
+    id: u32,
+    /// Its kind: `"point"`, `"line"`, `"circle"` or `"arc"`.
+    kind: String,
+    /// Its tag, when it has one.
+    tag: Option<String>,
+}
+
+impl EntityRef {
+    fn of(r: &laman::solution::EntityRef) -> Self {
+        Self {
+            id: r.id.0,
+            kind: r.kind.to_string(),
+            tag: r.tag.clone(),
+        }
+    }
+}
+
+#[pymethods]
+impl EntityRef {
+    fn __repr__(&self) -> String {
+        format!(
+            "EntityRef(id={}, kind={:?}, tag={})",
+            self.id,
+            self.kind,
+            tag_repr(&self.tag)
+        )
+    }
+}
+
+/// A constraint as a diagnostic names it: the caller's id, its kind and its
+/// tag.
+#[pyclass(frozen, eq, hash, get_all, module = "laman")]
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ConstraintRef {
+    /// The constraint's id.
+    id: u32,
+    /// Its kind name, as the serde form spells it (`"distance"`).
+    kind: String,
+    /// Its tag, when it has one.
+    tag: Option<String>,
+}
+
+impl ConstraintRef {
+    fn of(r: &laman::solution::ConstraintRef) -> Self {
+        Self {
+            id: r.id.0,
+            kind: r.kind.to_string(),
+            tag: r.tag.clone(),
+        }
+    }
+}
+
+#[pymethods]
+impl ConstraintRef {
+    fn __repr__(&self) -> String {
+        format!(
+            "ConstraintRef(id={}, kind={:?}, tag={})",
+            self.id,
+            self.kind,
+            tag_repr(&self.tag)
+        )
+    }
+}
+
+/// An entity's remaining freedom.
+#[pyclass(frozen, eq, hash, get_all, module = "laman")]
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct EntityFreedom {
+    /// The entity.
+    entity: EntityRef,
+    /// Its degrees of freedom: 0 when it cannot move relative to the ground.
     dof: usize,
 }
 
 #[pymethods]
-impl Diagnostics {
-    /// The geometric degrees of freedom left.
-    #[getter]
-    fn dof(&self) -> usize {
-        self.dof
-    }
-
+impl EntityFreedom {
     fn __repr__(&self) -> String {
-        format!("Diagnostics(dof={})", self.dof)
+        format!(
+            "EntityFreedom(entity={}, dof={})",
+            self.entity.__repr__(),
+            self.dof
+        )
+    }
+}
+
+/// One parameter's share of a free direction.
+#[pyclass(frozen, eq, get_all, module = "laman")]
+#[derive(Clone, PartialEq)]
+pub struct Motion {
+    /// The id of the entity that moves.
+    entity: u32,
+    /// The parameter of it: `"x"`, `"y"` or `"r"`.
+    coordinate: String,
+    /// Its component of the unit direction; never within rounding of zero.
+    amount: f64,
+}
+
+#[pymethods]
+impl Motion {
+    fn __repr__(&self) -> String {
+        format!(
+            "Motion(entity={}, coordinate={:?}, amount={})",
+            self.entity, self.coordinate, self.amount
+        )
+    }
+}
+
+/// Where an equation comes from, as Python holds it: a `ConstraintRef`, or
+/// the `EntityRef` of an arc whose own equation it is.
+fn origin(py: Python<'_>, o: &laman::solution::Origin) -> PyResult<Py<PyAny>> {
+    match o {
+        laman::solution::Origin::Constraint(c) => Ok(Py::new(py, ConstraintRef::of(c))?.into_any()),
+        laman::solution::Origin::Arc(e) => Ok(Py::new(py, EntityRef::of(e))?.into_any()),
+    }
+}
+
+/// An entity that collapsed at the solution, and what that makes
+/// ill-conditioned.
+#[pyclass(frozen, get_all, module = "laman")]
+pub struct Degenerate {
+    /// The collapsed entity.
+    entity: EntityRef,
+    /// How it collapsed: `"zero_length_line"`, `"zero_radius"`,
+    /// `"zero_radius_arc"` or `"empty_arc"`.
+    collapse: String,
+    /// Its size at the solution, in the sketch's units.
+    size: f64,
+    /// The equations that read it: each a `ConstraintRef`, or the
+    /// `EntityRef` of an arc whose own equation it is.
+    equations: Vec<Py<PyAny>>,
+}
+
+#[pymethods]
+impl Degenerate {
+    fn __repr__(&self) -> String {
+        format!(
+            "Degenerate(entity={}, collapse={:?}, size={})",
+            self.entity.__repr__(),
+            self.collapse,
+            self.size
+        )
+    }
+}
+
+/// What changed branch: an entity (`.entity`, an arc or circle) or a
+/// constraint (`.constraint`); the other is `None`.
+#[pyclass(frozen, eq, get_all, module = "laman")]
+#[derive(Clone, PartialEq, Eq)]
+pub struct FlipSubject {
+    /// The arc or circle that flipped, else `None`.
+    entity: Option<EntityRef>,
+    /// The `parallel`, `perpendicular` or `angle` constraint that flipped,
+    /// else `None`.
+    constraint: Option<ConstraintRef>,
+}
+
+#[pymethods]
+impl FlipSubject {
+    fn __repr__(&self) -> String {
+        match (&self.entity, &self.constraint) {
+            (Some(e), _) => format!("FlipSubject(entity={})", e.__repr__()),
+            (None, Some(c)) => format!("FlipSubject(constraint={})", c.__repr__()),
+            (None, None) => "FlipSubject()".to_owned(),
+        }
+    }
+}
+
+/// A change of branch.
+#[pyclass(frozen, eq, get_all, module = "laman")]
+#[derive(Clone, PartialEq)]
+pub struct Flip {
+    /// What flipped.
+    subject: FlipSubject,
+    /// The quantity where the old branch was last known.
+    was: f64,
+    /// The quantity on the new branch.
+    now: f64,
+}
+
+#[pymethods]
+impl Flip {
+    fn __repr__(&self) -> String {
+        format!(
+            "Flip(subject={}, was={}, now={})",
+            self.subject.__repr__(),
+            self.was,
+            self.now
+        )
+    }
+}
+
+/// What a solve established about the sketch.
+#[pyclass(frozen, get_all, module = "laman")]
+pub struct Diagnostics {
+    /// The geometric degrees of freedom left.
+    dof: usize,
+    /// Every entity's freedom, in id order.
+    entities: Vec<EntityFreedom>,
+    /// An orthonormal basis of the free motions.
+    free_directions: Vec<Vec<Motion>>,
+    /// Satisfied constraints whose removal leaves the DoF unchanged.
+    redundant: Vec<ConstraintRef>,
+    /// Inclusion-minimal sets of constraints jointly unsatisfiable.
+    conflicts: Vec<Vec<ConstraintRef>>,
+    /// Entities collapsed below the length tolerance.
+    degenerate: Vec<Py<Degenerate>>,
+    /// Equations undefined or non-finite at the solution: each a
+    /// `ConstraintRef`, or the `EntityRef` of an arc.
+    ill_conditioned: Vec<Py<PyAny>>,
+    /// Branches the solution left that no equation holds.
+    flips: Vec<Flip>,
+}
+
+impl Diagnostics {
+    fn of(py: Python<'_>, d: &laman::solution::Diagnostics) -> PyResult<Self> {
+        let refs = |v: &[laman::solution::ConstraintRef]| v.iter().map(ConstraintRef::of).collect();
+        Ok(Self {
+            dof: d.dof,
+            entities: d
+                .entities
+                .iter()
+                .map(|f| EntityFreedom {
+                    entity: EntityRef::of(&f.entity),
+                    dof: f.dof,
+                })
+                .collect(),
+            free_directions: d
+                .free_directions
+                .iter()
+                .map(|v| {
+                    v.iter()
+                        .map(|m| Motion {
+                            entity: m.entity.0,
+                            coordinate: coordinate_name_of(m.coordinate).to_owned(),
+                            amount: m.amount,
+                        })
+                        .collect()
+                })
+                .collect(),
+            redundant: refs(&d.redundant),
+            conflicts: d.conflicts.iter().map(|set| refs(set)).collect(),
+            degenerate: d
+                .degenerate
+                .iter()
+                .map(|g| {
+                    Py::new(
+                        py,
+                        Degenerate {
+                            entity: EntityRef::of(&g.entity),
+                            collapse: collapse_name(g.collapse).to_owned(),
+                            size: g.size,
+                            equations: g
+                                .equations
+                                .iter()
+                                .map(|o| origin(py, o))
+                                .collect::<PyResult<_>>()?,
+                        },
+                    )
+                })
+                .collect::<PyResult<_>>()?,
+            ill_conditioned: d
+                .ill_conditioned
+                .iter()
+                .map(|o| origin(py, o))
+                .collect::<PyResult<_>>()?,
+            flips: d.flips.iter().map(flip).collect(),
+        })
+    }
+}
+
+fn flip(f: &laman::solution::Flip) -> Flip {
+    let subject = match &f.subject {
+        laman::solution::FlipSubject::Entity(e) => FlipSubject {
+            entity: Some(EntityRef::of(e)),
+            constraint: None,
+        },
+        laman::solution::FlipSubject::Constraint(c) => FlipSubject {
+            entity: None,
+            constraint: Some(ConstraintRef::of(c)),
+        },
+    };
+    Flip {
+        subject,
+        was: f.was,
+        now: f.now,
+    }
+}
+
+// `Collapse` is exhaustive today; the names are the checker's spelling.
+fn collapse_name(c: laman::solution::Collapse) -> &'static str {
+    match c {
+        laman::solution::Collapse::ZeroLengthLine => "zero_length_line",
+        laman::solution::Collapse::ZeroRadius => "zero_radius",
+        laman::solution::Collapse::ZeroRadiusArc => "zero_radius_arc",
+        laman::solution::Collapse::EmptyArc => "empty_arc",
+    }
+}
+
+#[pymethods]
+impl Diagnostics {
+    fn __repr__(&self) -> String {
+        format!(
+            "Diagnostics(dof={}, redundant={}, conflicts={}, flips={})",
+            self.dof,
+            self.redundant.len(),
+            self.conflicts.len(),
+            self.flips.len()
+        )
     }
 }
 
@@ -107,11 +409,13 @@ impl Diagnostics {
 #[pyclass(frozen, module = "laman")]
 pub struct Solution {
     pub inner: laman::solution::Solution,
+    diagnostics: Py<Diagnostics>,
 }
 
 impl Solution {
-    pub fn new(inner: laman::solution::Solution) -> Self {
-        Self { inner }
+    pub fn new(py: Python<'_>, inner: laman::solution::Solution) -> PyResult<Self> {
+        let diagnostics = Py::new(py, Diagnostics::of(py, &inner.diagnostics)?)?;
+        Ok(Self { inner, diagnostics })
     }
 }
 
@@ -133,10 +437,8 @@ impl Solution {
 
     /// What the solve established.
     #[getter]
-    fn diagnostics(&self) -> Diagnostics {
-        Diagnostics {
-            dof: self.inner.diagnostics.dof,
-        }
+    fn diagnostics(&self, py: Python<'_>) -> Py<Diagnostics> {
+        self.diagnostics.clone_ref(py)
     }
 
     /// The revision of the sketch this was solved from.

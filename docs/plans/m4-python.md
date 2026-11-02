@@ -89,7 +89,7 @@ current and `tools/py-test.sh` green.
   coordinates within `1e-9` of the sketch's size, the checker's report
   (clean, or exactly the listed violations), each run and solved digest
   equal to `digests.txt`.
-- [ ] Step 4 **[2]** — every diagnostic: redundant and conflict sets by tag
+- [x] Step 4 **[2]** — every diagnostic: redundant and conflict sets by tag
   (the six twins), per-entity DoF and free directions (fixture 4: `Q` 2,
   the plate 1), degenerate entities, flips, tags and payloads round-trip.
 - [ ] Step 5 **[2]** — `apply` and the drag session: fixture 4's ten steps

@@ -9,6 +9,7 @@
 mod check;
 mod debug;
 mod enums;
+mod errors;
 mod model;
 mod solve;
 
@@ -79,7 +80,15 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<model::Coordinates>()?;
     m.add_class::<solve::SolverOptions>()?;
     m.add_class::<solve::Solution>()?;
+    m.add_class::<model::DragSession>()?;
     m.add_class::<solve::Diagnostics>()?;
+    m.add_class::<solve::EntityRef>()?;
+    m.add_class::<solve::ConstraintRef>()?;
+    m.add_class::<solve::EntityFreedom>()?;
+    m.add_class::<solve::Motion>()?;
+    m.add_class::<solve::Degenerate>()?;
+    m.add_class::<solve::FlipSubject>()?;
+    m.add_class::<solve::Flip>()?;
     // `laman.check` and `laman.debug` re-export these under their own names.
     m.add("CheckReport", m.py().get_type::<check::CheckReport>())?;
     m.add("CheckViolation", m.py().get_type::<check::CheckViolation>())?;
