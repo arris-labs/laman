@@ -107,6 +107,9 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(debug::digest_run, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_solution, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_drag_step, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::text, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::svg, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::solution_text, m)?)?;
     m.add("RigidityError", m.py().get_type::<RigidityError>())?;
     Ok(())
 }

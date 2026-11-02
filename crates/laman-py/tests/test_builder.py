@@ -204,7 +204,7 @@ def test_every_constraint_method_and_removal() -> None:
     assert gone.entities == [ci.id]
     assert gone.constraints == sorted(gone.constraints) and gone.constraints
     with pytest.raises(TypeError):
-        sk.horizontal(la, o)  # type: ignore[call-overload]
+        sk.horizontal(la, o)
     with pytest.raises(TypeError):
         sk.horizontal(o)
     with pytest.raises(TypeError):

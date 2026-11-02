@@ -33,4 +33,5 @@ module-name = "laman._laman"
 features = ["extension-module"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "python"]
+addopts = "--doctest-modules"

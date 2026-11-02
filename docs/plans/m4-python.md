@@ -48,8 +48,12 @@ nothing.
     id=None`; constraint builders `*, tag=None, payload=None, id=None`.
     Method names one-for-one with Rust's; `horizontal(line)` or
     `horizontal(p, q)` for `Span`; `Sense` an `enum.Enum`, `Contact`'s
-    `Internal(Sense)` flattened to `sense=`. `Sketch.from_json(str)`,
-    `to_json()`, `revision`, `coordinates() -> Coordinates`.
+    `Internal(Sense)` flattened to `sense=`; `tangent_*` also take
+    `external=` and `sense=` to override the drawing's reading.
+    `Sketch.from_json(str)`, `to_json()`, `revision`,
+    `coordinates() -> Coordinates`; `tag_of(id)` / `payload_of(id)` read
+    back a tag or payload; `remove` / `remove_with_constraints` return
+    `Removed` (`.entities`, `.constraints`, ids in order).
   - `SolverOptions(**kwargs)` (frozen, defaults read from Rust's
     `Default`), `Algorithm` and `Status` as `enum.Enum` with Rust's names.
   - `Sketch.solve(options=None) -> Solution`, `apply(solution)`,
@@ -62,8 +66,9 @@ nothing.
     `str | None`, a payload `bytes | None`.
   - `laman.check.check(sketch, coordinates) -> Report` (and its
     `Violation`, `Degenerate`, `Missing`).
-  - `laman.debug`: `text`, `svg`, `solution_text`, `digest_run`,
-    `digest_solution`, `digest_drag_step` (hex `str`). Tooling: documented
+  - `laman.debug`: `text(sketch, coordinates, report)`,
+    `svg(sketch, coordinates, report)`, `solution_text(sketch, solution)`
+    (`str`), `digest_run`, `digest_solution`, `digest_drag_step` (hex `str`). Tooling: documented
     as outside the API's stability promise.
   - `ModelError(ValueError)` with one subclass per Rust variant, the ids as
     attributes (ARCHITECTURE.md §Errors gains the mapping).
@@ -101,7 +106,7 @@ current and `tools/py-test.sh` green.
   `remove`, `remove_with_constraints`; the `ModelError` subclasses. Tests:
   fixtures 1–3 built by hand in Python have the loaded fixture's run
   digest; each `ModelError` subclass raised once.
-- [ ] Step 7 **[1]** — the dumps (`text`, `svg`, `solution_text`) with tests
+- [x] Step 7 **[1]** — the dumps (`text`, `svg`, `solution_text`) with tests
   (the SVG parses as XML and names each tag); `py-test.sh` adds
   `mypy --strict` over `tests/` and runs the docstring examples
   (`--doctest-modules`).

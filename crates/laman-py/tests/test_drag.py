@@ -66,7 +66,7 @@ def test_finish_then_apply_and_a_second_apply_is_stale() -> None:
     assert fx.sketch.revision > revision
     assert fx.sketch.coordinates() == done.coordinates
     assert abs(fx.sketch.coordinates()[(2, "x")] - 150.0) <= fx.tolerance
-    with pytest.raises(ModelError.Stale) as caught:  # type: ignore[attr-defined]
+    with pytest.raises(ModelError.Stale) as caught:
         fx.sketch.apply(done)
     assert isinstance(caught.value, Stale)
     assert isinstance(caught.value, ValueError)

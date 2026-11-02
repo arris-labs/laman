@@ -33,6 +33,9 @@ __all__ = [
     "digest_run",
     "digest_solution",
     "rigidity",
+    "solution_text",
+    "svg",
+    "text",
 ]
 
 class RigidityError(ValueError):
@@ -567,3 +570,6 @@ def digest_drag_step(
     solution: Solution,
     report: CheckReport,
 ) -> str: ...
+def text(sketch: Sketch, coordinates: Coordinates, report: CheckReport) -> str: ...
+def svg(sketch: Sketch, coordinates: Coordinates, report: CheckReport) -> str: ...
+def solution_text(sketch: Sketch, solution: Solution) -> str: ...
