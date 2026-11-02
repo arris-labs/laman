@@ -129,7 +129,7 @@ only test is a CI run on `plan/m4-platforms`.
   upload was attempted. Ordinary CI and Wheels started on `00ea4cd`.
 - [x] Step 7 **[1]** — the `/release` skill; `git.md` §Tags and publishing
   rewritten; `/next`'s "release due" reads the new rule.
-- [ ] Step 8 **[1]** — merge: `plan/m4-platforms` rebased on `main`,
+- [x] Step 8 **[1]** — merge: `plan/m4-platforms` rebased on `main`,
   `merge --ff-only`, the branch deleted (pushing `main` is the human's).
 
 ## Acceptance
