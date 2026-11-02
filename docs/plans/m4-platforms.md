@@ -76,10 +76,12 @@ only test is a CI run on `plan/m4-platforms`.
 
 - [x] Step 1 **[1]** — `.gitattributes` at LF; `determinism.rs` asserts no
   embedded fixture holds `\r`; `git add --renormalize .` shows no change.
-- [ ] Step 2 **[2, CI]** — the `test` matrix over the five runners running
+- [x] Step 2 **[2, CI]** — the `test` matrix over the five runners running
   the gate. Green means the 50 digests match on every OS; a mismatch is
   shrunk to a finding and a `regression/` fixture (`inspect`) and the plan
   stops for it (the riskiest unknown, so it goes first).
+  Validated by CI run [41481525462](https://github.com/arris-labs/laman/actions/runs/41481525462)
+  on `3a9fb44`: all five gates, Python and wasm green.
 - [ ] Step 3 **[1, CI]** — `py-test.sh` portable; the `python` job over the
   OS matrix × 3.10, 3.13; pytest's digests match on each.
 - [ ] Step 4 **[2, CI]** — `wheels.yml`: the five wheels and the sdist built,
@@ -125,6 +127,5 @@ On the plan's last CI run, all green:
 - ⚠ OPEN: crates.io and PyPI trusted publishers for `release.yml`, and the
   `release` environment's reviewer, are set up in their web UIs. The
   human, before the first real release; the dry run does not need them.
-- ⚠ OPEN: the Intel macOS runner label (`macos-15-intel` today) may be
-  retired; if so, x86_64 macOS wheels cross-build on arm64 and are tested
-  under Rosetta. The agent, at step 2.
+- Settled: `macos-15-intel` is available and passed the native gate in
+  step 2; no Rosetta fallback is needed.
