@@ -92,7 +92,7 @@ current and `tools/py-test.sh` green.
 - [x] Step 4 **[2]** — every diagnostic: redundant and conflict sets by tag
   (the six twins), per-entity DoF and free directions (fixture 4: `Q` 2,
   the plate 1), degenerate entities, flips, tags and payloads round-trip.
-- [ ] Step 5 **[2]** — `apply` and the drag session: fixture 4's ten steps
+- [x] Step 5 **[2]** — `apply` and the drag session: fixture 4's ten steps
   under both algorithms, every listed coordinate, `Q`'s bits, no flips,
   each step digest equal to `digests.txt`; `finish()` then `apply`; a
   stale `apply` raises `ModelError.Stale`; a finished session refuses.
