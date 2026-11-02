@@ -6,8 +6,9 @@
 //! A run digest covers the loaded sketch and the checker's report at the
 //! expected coordinates; a solved digest covers the sketch, the `Solution`
 //! from the guesses (both algorithms) and the checker's report there. A
-//! solved digest is blessed only after the solve checks clean (or, for a
-//! conflicting twin, names its conflict) in `c1.rs`.
+//! solved digest is blessed only for a run the checker passes: clean, or for
+//! a conflicting twin exactly the violations `c1.rs` derives. The test below
+//! holds that itself before it compares a digest.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
 use laman::solution::{Algorithm, SolverOptions};
@@ -149,6 +150,32 @@ const SOLVED: [(&str, &str, &str); 10] = [
     ),
 ];
 
+/// The violations the checker must report at a conflicting twin's best
+/// effort, sorted (derived by analysis in `c1.rs`); every other run is clean.
+const BEST_EFFORT_VIOLATIONS: [(&str, &[&str]); 3] = [
+    (
+        "sss-triangle-conflicting",
+        &["apex", "base", "left", "right"],
+    ),
+    (
+        "belt-conflicting",
+        &[
+            "r1",
+            "r2",
+            "span",
+            "top-length",
+            "top-on-c1",
+            "top-on-c2",
+            "top-tangent-c1",
+            "top-tangent-c2",
+        ],
+    ),
+    (
+        "slotted-plate-conflicting",
+        &["same-ends", "slot-r", "slot-r2"],
+    ),
+];
+
 #[test]
 fn solved_digests_match_the_blessed_ones() {
     let mut wrong = Vec::new();
@@ -161,7 +188,24 @@ fn solved_digests_match_the_blessed_ones() {
         ] {
             let mut options = SolverOptions::default();
             options.algorithm = algorithm;
-            let digest = solve_run(&fixture, &options).digest.to_string();
+            let solved = solve_run(&fixture, &options);
+            // Bless only checker-validated runs: clean, or for a conflicting
+            // twin the violations derived by analysis in `c1.rs`.
+            let mut flagged: Vec<String> = solved
+                .report
+                .violations
+                .iter()
+                .map(|v| v.tag.clone().unwrap_or_default())
+                .collect();
+            flagged.sort();
+            let want = BEST_EFFORT_VIOLATIONS
+                .iter()
+                .find(|row| row.0 == name)
+                .map_or(&[][..], |row| row.1);
+            assert_eq!(flagged, want, "{label} {name}: the checker's verdict");
+            assert!(solved.report.degenerate.is_empty(), "{label} {name}");
+            assert!(solved.report.missing.is_empty(), "{label} {name}");
+            let digest = solved.digest.to_string();
             println!("\ndigest solved-{label}-{name} {digest}");
             if digest != *blessed {
                 wrong.push(format!("{label} {name}"));

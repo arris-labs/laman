@@ -8,12 +8,14 @@
 
 use laman::model::{Point, Sketch};
 use laman::solution::{Algorithm, SolverOptions, Status};
-use laman_check::check;
+use laman_check::{Source, check};
 use laman_debug::strategy::sketch;
 use proptest::prelude::*;
 
 /// Magnitude up to which the checker's products stay finite (well under
-/// sqrt(f64::MAX), about 1.3e154).
+/// sqrt(f64::MAX), about 1.3e154). Past it the checker itself overflows: that
+/// is the gap of the regression fixture `extreme-point-on-line`, not a
+/// property of the solver; its fix lifts this bound.
 const CHECKABLE: f64 = 1e100;
 
 const ALGORITHMS: [Algorithm; 2] = [Algorithm::LevenbergMarquardt, Algorithm::DogLeg];
@@ -211,6 +213,30 @@ proptest! {
             // Every genuine conflict contains the stretched distance: the
             // rest hold together at the construction.
             prop_assert_eq!(proven, !solution.diagnostics.conflicts.is_empty());
+            // The checker, independent of the solve, must see the
+            // contradiction: the other constraints pin every point, so no
+            // coordinates satisfy the stretched distance as well.
+            let report = check(&sk, &solution.coordinates);
+            prop_assert!(
+                !report.violations.is_empty(),
+                "{:?}: {:?} but the checker finds nothing violated",
+                algorithm,
+                solution.status
+            );
+            // A proven conflict is unsatisfiable, so the best effort
+            // violates at least one of its members.
+            for set in &solution.diagnostics.conflicts {
+                prop_assert!(
+                    report.violations.iter().any(|v| match v.id {
+                        Source::Constraint(id) => set.iter().any(|c| c.id == id),
+                        Source::Arc(_) => false,
+                    }),
+                    "{:?}: no member of {:?} violated: {:?}",
+                    algorithm,
+                    set,
+                    report
+                );
+            }
             for set in &solution.diagnostics.conflicts {
                 prop_assert!(
                     set.iter().any(|c| c.id == stretched),
@@ -224,19 +250,37 @@ proptest! {
     }
 
     /// Any well-formed sketch, near the extremes of f64 included, solves to
-    /// a complete answer without a panic under both algorithms; for
-    /// coordinates below `CHECKABLE` a status of satisfied means the checker
-    /// has no violation to report (past it the checker overflows:
-    /// regression `extreme-point-on-line`).
+    /// a complete answer without a panic under both algorithms, and the
+    /// checker judges every solve: a satisfied status has no violation, a
+    /// proven conflict has a violated member. Above `CHECKABLE` the checker
+    /// overflows (regression `extreme-point-on-line`) and is skipped.
     #[test]
     fn any_well_formed_sketch_solves_to_a_complete_answer(sk in sketch(20)) {
         for algorithm in ALGORITHMS {
             let solution = sk.solve(&options(algorithm));
             prop_assert_eq!(solution.coordinates.len(), sk.coordinates().len());
             let checkable = sk.coordinates().values().chain(solution.coordinates.values()).all(|v| v.abs() <= CHECKABLE);
-            if checkable && matches!(solution.status, Status::FullyConstrained | Status::UnderConstrained) {
-                let report = check(&sk, &solution.coordinates);
-                prop_assert!(report.violations.is_empty(), "{algorithm:?}: {report:?}");
+            if !checkable {
+                continue;
+            }
+            let report = check(&sk, &solution.coordinates);
+            match solution.status {
+                Status::FullyConstrained | Status::UnderConstrained => {
+                    prop_assert!(report.violations.is_empty(), "{algorithm:?}: {report:?}");
+                }
+                Status::Unsatisfiable => {
+                    for set in &solution.diagnostics.conflicts {
+                        prop_assert!(
+                            report.violations.iter().any(|v| match v.id {
+                                Source::Constraint(id) => set.iter().any(|c| c.id == id),
+                                Source::Arc(_) => false,
+                            }),
+                            "{algorithm:?}: no member of {set:?} violated: {report:?}"
+                        );
+                    }
+                }
+                // Nothing is proven: the checker's report is taken, no claim made.
+                Status::NotConverged => {}
             }
         }
     }

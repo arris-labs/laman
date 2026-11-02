@@ -384,9 +384,39 @@ fn the_solve_reaches_the_expected_coordinates() {
     }
 }
 
+/// The constraints the checker finds violated at each conflicting twin's
+/// best-effort coordinates, by analysis. Least squares spreads the
+/// contradiction over the constraints that cannot all hold together:
+/// - triangle: `base`, `right` and `apex` cannot hold together (apex puts
+///   b on a line 43.3 from a, `right` says 40), and `left` shares the
+///   residual with them; `horizontal` only picks the rotation and holds.
+/// - belt: the 8-member set (the top's tangent length 99.5 against
+///   `top-length` 100) is all off; the bottom edge is not in it and holds.
+/// - slotted plate: the three radii, `same-ends` against 5 and 6; nothing
+///   else is in tension with them.
+fn violated_at_best_effort(name: &str) -> Vec<&'static str> {
+    let mut tags: Vec<&'static str> = match name {
+        "sss-triangle-conflicting" => vec!["apex", "base", "left", "right"],
+        "belt-conflicting" => vec![
+            "r1",
+            "r2",
+            "span",
+            "top-length",
+            "top-on-c1",
+            "top-on-c2",
+            "top-tangent-c1",
+            "top-tangent-c2",
+        ],
+        "slotted-plate-conflicting" => vec!["same-ends", "slot-r", "slot-r2"],
+        _ => Vec::new(), // not a conflicting twin: the caller asserts non-empty
+    };
+    tags.sort_unstable();
+    tags
+}
+
 /// Each conflicting twin is Unsatisfiable with exactly the roadmap's conflict
 /// set. Its best-effort coordinates are finite, complete and checked: the
-/// checker flags at least one member of the conflict.
+/// checker names exactly the constraints `violated_at_best_effort` derives.
 #[test]
 fn the_conflicting_twins_name_exactly_the_roadmap_sets() {
     for name in CONFLICTING {
@@ -415,22 +445,26 @@ fn the_conflicting_twins_name_exactly_the_roadmap_sets() {
                 solution.coordinates.values().all(|v| v.is_finite()),
                 "{label}"
             );
-            assert!(
-                !solved.report.violations.is_empty(),
-                "{label}: nothing violated"
-            );
-            // Least squares spreads the contradiction: a constraint outside
-            // the minimal set may also be off (the triangle's `left`), but
-            // a member always is.
-            let members = &fixture.expected.conflicts[0];
+            assert!(solved.report.degenerate.is_empty(), "{label}: degenerate");
+            assert!(solved.report.missing.is_empty(), "{label}: missing");
             assert!(
                 solved
                     .report
                     .violations
                     .iter()
-                    .any(|v| members.contains(&v.tag.clone().unwrap_or_default())),
-                "{label}: no member of the conflict is violated"
+                    .all(|v| matches!(v.id, Source::Constraint(_))),
+                "{label}: the checker reports an arc"
             );
+            let mut flagged: Vec<String> = solved
+                .report
+                .violations
+                .iter()
+                .map(|v| v.tag.clone().unwrap_or_default())
+                .collect();
+            flagged.sort();
+            let want = violated_at_best_effort(name);
+            assert!(!want.is_empty(), "{label}: no derivation for this twin");
+            assert_eq!(flagged, want, "{label}");
         }
     }
 }
