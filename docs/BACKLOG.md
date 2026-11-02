@@ -7,6 +7,9 @@ ideas keep one line below with the reason, so the same idea is not
 re-brainstormed. A *measured* defect is not a raw idea: it goes under
 [Findings](#findings) below, in the fixed shape.
 
+- The conflict analysis costs 0.7–28 ms on the conflicting twins (the slotted plate's is the slowest), and the slotted plate's redundant twin peaks at 1.35 ms against the 1 ms budget; profile before M3's frame budget
+- Property tests set an explicit `ProptestConfig` case count, so `PROPTEST_CASES` cannot raise it; let the environment win
+- Step 4 (DogLeg) of the m2 plan has no commit of its own: it landed inside the step 5 commit (e303c7e)
 - Release automation: a `release.yml` that publishes the crate and multi-platform abi3 wheels (Linux, macOS, Windows; manylinux older than 2_34) from a pushed `v*` tag, each behind an environment reviewer, and a `/release` skill, before the first 0.1.0. 0.0.1 went up by hand with one `manylinux_2_34_x86_64` wheel and the sdist
 - `laman-check` on crates.io: ARCHITECTURE.md plans to publish it with the solver's first release (Python users get it as `laman.check`); reserve the name then
 - Trademark search for "LAMAN" in software classes (WIPO, EUIPO, USPTO) before the solver's first public release (SEED.md §2); the human's
@@ -58,22 +61,6 @@ A defect a run measured, one block each:
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored framework_conflict_inconclusive`
 - Measured: rigid distance framework plus one stretched distance
 - State: regression/framework-conflict-inconclusive
-
-### false-conflict-rigid-framework
-- What: a second reported conflict (eight true distances) that hold together at the guesses, beside the genuine {`stated`, `stretched`}
-- Where: `laman::diagnose`, the stationary-point certificate (ADR-0005) taking a local minimum for a contradiction
-- Seen: same property, M2 step 8
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored false_conflict_rigid_framework`
-- Measured: conflicts `[[stated, stretched], [8 members]]`, Levenberg-Marquardt; after the fix `[[stated, stretched]]`. DogLeg ends `NotConverged` before and after (the `dogleg-conflict-inconclusive` family; its half of the fixture stays ignored)
-- State: fixed (a test tries every start before certifying; ADR-0005 amendment)
-
-### false-conflict-excludes-contradiction
-- What: every reported conflict excludes the one contradictory constraint
-- Where: same
-- Seen: same property, M2 step 8
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored false_conflict_excludes_contradiction`
-- Measured: 7 points, 10 distances; conflicts without `stretched` (one 8-member set), Levenberg-Marquardt; after the fix one 10-member set containing `stretched`. DogLeg ends `NotConverged` before and after (its half stays ignored)
-- State: fixed (same fix)
 
 ## Rejected
 

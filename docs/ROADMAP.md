@@ -102,6 +102,12 @@ with the right status, DoF and named constraints.*
   built by construction from a known solution solve back to a solution the
   checker passes, with the DoF of their construction.
 
+*Status: landed. Both algorithms solve the bases and redundant twins within
+the budget and name the conflicting twins' sets exactly; the 20 solved
+digests agree on native and wasm32-wasip1. Known gaps, all findings in
+`docs/BACKLOG.md`: DogLeg ends `NotConverged` on conflicts Levenberg-Marquardt
+proves, and the checker overflows past about 1e154.*
+
 ### M3 — the drag session
 
 *Goal: one drag across a profile keeps its branch and leaves the rest
@@ -182,7 +188,9 @@ reproduces every number above and the same digests.
 
 **Frame budget (C1)**: on the reference machine (named, with its CPU, in
 the benchmark output), release build: each static fixture solves from its
-guesses in ≤ 1 ms, and each drag step in ≤ 1 ms.
+guesses in ≤ 1 ms (the satisfiable and redundant ones: a conflicting twin
+also runs the conflict analysis, which is timed, not budgeted), and each drag
+step in ≤ 1 ms.
 
 ---
 

@@ -40,7 +40,10 @@ fixtures with twins, the digest corpus identical on wasm32-wasip1, the fuzz
 target): everything to judge a solve exists before the solver.
 **M1 landed** (`laman::residual`: every constraint's equations and analytic
 gradients, held against finite differences and the checker at the fixtures).
-**Next:** `/plan` M2 (the solver and its diagnostics).
+**M2 landed** (`Sketch::solve`/`apply`: LM and DogLeg, geometric DoF,
+redundant and conflict sets; static C1 fixtures and twins, digests equal on
+wasm32).
+**Next:** `/plan` M3 (the drag session).
 
 ## Rules that are not derivable from the code
 
