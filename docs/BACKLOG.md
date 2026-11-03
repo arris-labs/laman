@@ -58,8 +58,8 @@ A defect a run measured, one block each:
 - What: a contradictory distance framework: Levenberg-Marquardt proves the conflict, DogLeg ends `NotConverged`
 - Where: `laman::diagnose` (conflict analysis) under `Algorithm::DogLeg`
 - Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, M2 step 8
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored dogleg_conflict_inconclusive`
-- Measured: 6 points, 8 distances; LM `Unsatisfiable`, DogLeg `NotConverged`
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored dogleg`
+- Measured: 6 points, 8 distances; LM `Unsatisfiable`, DogLeg `NotConverged`. The same holds for DogLeg on `false-conflict-rigid-framework` and `false-conflict-excludes-contradiction`, whose LM halves are fixed (`*_dogleg`, ignored)
 - State: regression/dogleg-conflict-inconclusive
 
 ### framework-conflict-inconclusive
