@@ -19,11 +19,10 @@
 
 use crate::branch::Observations;
 use crate::model::{Coordinate, EntityId, ModelError, Sketch};
-use crate::solution::{
-    Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of, solve_observed,
-};
+use crate::solution::{Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of};
 use crate::solve::Path;
-use crate::system::Goal;
+use crate::stage::Decompositions;
+use crate::system::{Goal, System};
 
 /// A point being dragged through a series of targets, one frame per
 /// [`DragSession::to`].
@@ -67,6 +66,10 @@ pub struct DragSession {
     /// The target `last` was solved toward: where a flipping step is
     /// bisected to.
     reached: [f64; 2],
+    /// The sketch's components cut into parts once, at `drag`: the equations
+    /// a session solves do not change, so every frame and bisection reuses
+    /// them.
+    parts: Decompositions,
 }
 
 impl Sketch {
@@ -98,7 +101,14 @@ impl Sketch {
         }
         let source = self.provenance();
         let before = Observations::at(self, &self.coordinates());
-        let (last, observed) = solve_observed(self, &[], options, &before, source, Path::Staged);
+        let parts = Decompositions::of(&System::new(self));
+        let (last, observed) = conclude(
+            self,
+            options,
+            attempt(self, &[], options, &before, Path::Staged, Some(&parts)),
+            source,
+            Some(&parts),
+        );
         let mut sketch = self.clone();
         sketch.place(&last.coordinates);
         let at = |c| last.coordinates.get(&(id, c)).copied().unwrap_or(f64::NAN);
@@ -111,6 +121,7 @@ impl Sketch {
             last,
             observed,
             reached,
+            parts,
         })
     }
 }
@@ -182,6 +193,7 @@ impl DragSession {
                 &self.options,
                 &self.observed,
                 Path::Staged,
+                Some(&self.parts),
             );
             if !tried.flips.is_empty() {
                 // Keep the flips of the nearest halving tried, then halve.
@@ -191,7 +203,13 @@ impl DragSession {
                 }
                 continue;
             }
-            let (solution, observed) = conclude(&self.sketch, &self.options, tried, self.source);
+            let (solution, observed) = conclude(
+                &self.sketch,
+                &self.options,
+                tried,
+                self.source,
+                Some(&self.parts),
+            );
             self.sketch.place(&solution.coordinates);
             self.observed = observed;
             self.reached = here;

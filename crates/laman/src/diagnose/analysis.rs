@@ -117,9 +117,22 @@ enum Verdict {
 
 /// The diagnosis of `sketch` at `outcome`'s coordinates, with re-solves
 /// under `options` (its caps, its algorithm).
+#[cfg(test)]
 pub(crate) fn analyse(sketch: &Sketch, outcome: &Outcome, options: &Options) -> Diagnosis {
+    analyse_kept(sketch, outcome, options, None)
+}
+
+/// [`analyse`] with the decompositions a caller kept for the sketch's
+/// structure (`DragSession`).
+pub(crate) fn analyse_kept(
+    sketch: &Sketch,
+    outcome: &Outcome,
+    options: &Options,
+    kept: Option<&crate::stage::Decompositions>,
+) -> Diagnosis {
     let values = &outcome.coordinates;
-    let system = System::new(sketch);
+    let mut system = System::new(sketch);
+    system.decompositions = kept;
     let mut solves = 0;
     let mut conflicts = Vec::new();
     let mut failed = false;

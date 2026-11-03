@@ -872,3 +872,28 @@ fn a_goal_on_an_earlier_part_is_stationary_and_one_on_the_last_is_pursued() {
         );
     }
 }
+
+#[test]
+fn kept_decompositions_change_no_bit_of_a_solve_or_its_analysis() {
+    let (sk, _, c) = two_stages(false);
+    let kept = crate::stage::Decompositions::of(&System::new(&sk));
+    for algorithm in ALGORITHMS {
+        let bits =
+            |o: &Outcome| -> Vec<u64> { o.coordinates.values().map(|v| v.to_bits()).collect() };
+        let goals = goal_at(c, [0.0, 5.0]);
+        let fresh = solve_toward(&sk, &goals, with(algorithm));
+        let reused = solve_kept(&sk, &goals, with(algorithm), Some(&kept));
+        assert_eq!(bits(&fresh), bits(&reused), "{algorithm:?}");
+        assert_eq!(
+            (fresh.iterations, fresh.evaluations, fresh.rejected),
+            (reused.iterations, reused.evaluations, reused.rejected),
+            "{algorithm:?}"
+        );
+        let options = with(algorithm);
+        assert_eq!(
+            crate::diagnose::analyse(&sk, &fresh, &options),
+            crate::diagnose::analyse_kept(&sk, &reused, &options, Some(&kept)),
+            "{algorithm:?}"
+        );
+    }
+}

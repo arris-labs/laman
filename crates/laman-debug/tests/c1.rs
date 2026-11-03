@@ -562,3 +562,42 @@ fn the_drag_follows_the_closed_form_steps() {
         }
     }
 }
+
+/// What the constraints determine does not move while the plate is dragged:
+/// every parameter of an entity with no freedom at the first step (the head
+/// and the stages of the decomposition, which a session cuts once and keeps)
+/// keeps its bits across all ten steps, under both algorithms, and the
+/// dragged point is among the entities that do move.
+#[test]
+fn the_drag_leaves_the_determined_geometry_its_bits() {
+    let fixture = load("slotted-plate-drag");
+    let drag = fixture.drag.as_ref().unwrap();
+    for algorithm in ALGORITHMS {
+        let steps = drag_run(&fixture, &options(algorithm)).unwrap();
+        let first = &steps[0].solution;
+        let determined: Vec<_> = first
+            .diagnostics
+            .entities
+            .iter()
+            .filter(|e| e.dof == 0)
+            .map(|e| e.entity.id)
+            .collect();
+        assert!(!determined.is_empty(), "{algorithm:?}");
+        assert!(
+            !determined.contains(&drag.dragged),
+            "{algorithm:?}: the dragged point is free"
+        );
+        for (k, step) in steps.iter().enumerate() {
+            for (key, value) in &first.coordinates {
+                if determined.contains(&key.0) {
+                    assert_eq!(
+                        step.solution.coordinates[key].to_bits(),
+                        value.to_bits(),
+                        "{algorithm:?} step {}: {key:?}",
+                        k + 1
+                    );
+                }
+            }
+        }
+    }
+}

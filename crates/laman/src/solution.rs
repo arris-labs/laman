@@ -26,6 +26,7 @@ use crate::model::{
     ConstraintId, ConstraintKind, Coordinate, Coordinates, EntityId, EntityKind, ModelError, Sketch,
 };
 use crate::solve::{self, Options, Outcome, Path};
+use crate::stage::Decompositions;
 use crate::system::Goal;
 
 #[cfg(feature = "serde")]
@@ -281,8 +282,9 @@ pub(crate) fn attempt(
     options: &SolverOptions,
     before: &Observations,
     path: Path,
+    kept: Option<&Decompositions>,
 ) -> Attempt {
-    let outcome = solve::solve_toward(sketch, goals, options.internal_on(path));
+    let outcome = solve::solve_kept(sketch, goals, options.internal_on(path), kept);
     let observed = before.next(sketch, &outcome.coordinates);
     let flips = before.flips(&observed);
     Attempt {
@@ -300,8 +302,14 @@ pub(crate) fn conclude(
     options: &SolverOptions,
     attempt: Attempt,
     source: Provenance,
+    kept: Option<&Decompositions>,
 ) -> (Solution, Observations) {
-    let diagnosis = diagnose::analyse(sketch, &attempt.outcome, &options.internal_on(attempt.path));
+    let diagnosis = diagnose::analyse_kept(
+        sketch,
+        &attempt.outcome,
+        &options.internal_on(attempt.path),
+        kept,
+    );
     let solution = Solution {
         coordinates: attempt.outcome.coordinates,
         status: diagnosis.status,
@@ -323,8 +331,9 @@ pub(crate) fn solve_observed(
     conclude(
         sketch,
         options,
-        attempt(sketch, goals, options, before, path),
+        attempt(sketch, goals, options, before, path, None),
         source,
+        None,
     )
 }
 
@@ -354,7 +363,7 @@ pub(crate) fn diagnose_on(
         flips,
         path,
     };
-    conclude(sketch, options, attempt, sketch.provenance()).0
+    conclude(sketch, options, attempt, sketch.provenance(), None).0
 }
 
 /// The answer to a solve: coordinates for every parameter, a status and the

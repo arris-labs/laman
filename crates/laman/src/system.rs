@@ -55,6 +55,9 @@ pub(crate) struct System<'a> {
     /// Every goal equation, after the required ones, in the caller's order;
     /// a goal on a fixed or unknown parameter is dropped.
     pub goals: Vec<Goal>,
+    /// The components' decompositions when a caller kept them
+    /// (`DragSession`); `None` cuts them as asked.
+    pub decompositions: Option<&'a crate::stage::Decompositions>,
 }
 
 #[derive(Debug)]
@@ -112,6 +115,7 @@ impl<'a> System<'a> {
             components: policy.components,
             equations,
             goals: vec![],
+            decompositions: None,
         }
     }
 

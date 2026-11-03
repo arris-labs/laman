@@ -122,9 +122,14 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   of the sss triangle, belt, plate, plate-redundant and plate-drag, and
   every drag step; conflicting twins, the sss and belt redundant twins
   unchanged.)
-- [ ] Step 5 **[2]** — `DragSession` reuses its decomposition. Fixture 4's
+- [x] Step 5 **[2]** — `DragSession` reuses its decomposition. Fixture 4's
   numbers; every part outside the remainder keeps its bits across all ten
-  steps; `bisect-stuck` unchanged; drag digests re-blessed.
+  steps; `bisect-stuck` unchanged; drag digests re-blessed. (*Settled* at
+  step 5: the kept cut is the one a frame would make, so no digest moves and
+  none is re-blessed; `System` carries an optional `Decompositions`,
+  used only for the component whose parameters and sources it was cut
+  from. "Outside the remainder" is tested as the entities with no freedom
+  at the first step.)
 - [ ] Step 6 **[2]** — Compile and evaluate at scale (the indexing delta).
   Lift the seven `large_case` ignores in `tests/c2.rs` (each under 10 s in
   debug); the 498 slot grid gets a DogLeg verdict.

@@ -98,8 +98,50 @@ pub(crate) fn support(system: &System<'_>, eq: &Equation) -> Vec<Param> {
     keys
 }
 
-/// Cut `component` into parts.
+/// The decompositions of a system's components, kept for a system compiled
+/// again from the same equations (a drag session's frames): the structure
+/// does not depend on coordinates, so it is cut once. An entry is used only
+/// for the component whose parameters and sources it was cut from.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Decompositions {
+    by_first: BTreeMap<Param, usize>,
+    entries: Vec<(Vec<Param>, Vec<Source>, Decomposition)>,
+}
+
+impl Decompositions {
+    /// Every component of `system` cut into parts.
+    pub(crate) fn of(system: &System<'_>) -> Self {
+        let mut out = Self::default();
+        for component in &system.components {
+            if let Some(first) = component.params.first() {
+                out.by_first.insert(*first, out.entries.len());
+                out.entries.push((
+                    component.params.clone(),
+                    component.sources.clone(),
+                    cut(system, component),
+                ));
+            }
+        }
+        out
+    }
+
+    fn get(&self, component: &Component) -> Option<&Decomposition> {
+        let first = component.params.first()?;
+        let (params, sources, decomposition) = self.entries.get(*self.by_first.get(first)?)?;
+        (*params == component.params && *sources == component.sources).then_some(decomposition)
+    }
+}
+
+/// Cut `component` into parts, from the system's kept decompositions when it
+/// has them for this component.
 pub(crate) fn decompose(system: &System<'_>, component: &Component) -> Decomposition {
+    match system.decompositions.and_then(|d| d.get(component)) {
+        Some(kept) => kept.clone(),
+        None => cut(system, component),
+    }
+}
+
+fn cut(system: &System<'_>, component: &Component) -> Decomposition {
     let sources: BTreeSet<Source> = component.sources.iter().copied().collect();
     let rows: Vec<usize> = system
         .equations

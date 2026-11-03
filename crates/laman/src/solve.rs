@@ -219,7 +219,19 @@ pub(crate) fn solve(sketch: &Sketch, options: Options) -> Outcome {
 /// goals; then a component with goals pursues them lexicographically by
 /// [`pursue`]. Without goals this is [`solve`], bit for bit.
 pub(crate) fn solve_toward(sketch: &Sketch, goals: &[Goal], options: Options) -> Outcome {
-    let system = System::with_goals(sketch, goals);
+    solve_kept(sketch, goals, options, None)
+}
+
+/// [`solve_toward`] with the decompositions a caller kept for the sketch's
+/// structure (`DragSession`), which only saves cutting them again.
+pub(crate) fn solve_kept(
+    sketch: &Sketch,
+    goals: &[Goal],
+    options: Options,
+    kept: Option<&crate::stage::Decompositions>,
+) -> Outcome {
+    let mut system = System::with_goals(sketch, goals);
+    system.decompositions = kept;
     let mut out = Outcome {
         coordinates: sketch.coordinates(),
         converged: true,

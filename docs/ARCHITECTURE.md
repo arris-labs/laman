@@ -454,6 +454,12 @@ non-point (`WrongKind`) and a point fixed in both coordinates
 the other. It solves the sketch once, which is the session's first last
 solution, so `finish` before any `to` is the static solution.
 
+At `drag` the session cuts every component into parts once (`stage`) and
+keeps them: the equations a session solves never change and the cut does not
+read coordinates, so each frame and each bisection reuses it, in the solve
+and in the diagnosis, and a stage the dragged point does not reach is
+satisfied and keeps its bits.
+
 Each `to` compiles the target as a `Goal` pair on the dragged point's
 coordinates, solves from the previous step (least change; §Priorities),
 diagnoses, observes the branches after the last frame's (§Branches) and
