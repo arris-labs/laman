@@ -20,8 +20,6 @@
 //! source that land in different parts merge them, and the merged graph is
 //! condensed again. A part reads only its own parameters and those of earlier
 //! parts.
-// Internal until the staged solve lands (plans/m6-stages step 4).
-#![allow(dead_code)]
 
 use crate::model::tolerance::{self, Component, Source};
 use crate::model::{Coordinate, Coordinates};

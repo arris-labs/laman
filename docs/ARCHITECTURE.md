@@ -136,7 +136,16 @@ The pipeline, each stage deterministic:
    `nalgebra` matrices. Hard caps on iterations and on function
    evaluations; convergence when every residual is within the equation's
    tolerance. A component that hits a cap returns its best iterate and is
-   reported `NotConverged`, never an error and never a hang.
+   reported `NotConverged`, never an error and never a hang. A component of
+   more than one part (`stage`) is solved part by part in dependency order,
+   head, stages, remainder, each with the earlier parts' parameters as
+   constants and the component's frozen scale, origin and acceptance;
+   a satisfied part takes no step, so an edit leaves the parts it does not
+   reach bit for bit. Goals are pursued in the last part only. A part that
+   does not converge, or a result the diagnosis would not stage, sends the
+   component back to the whole solve from its start, the budget counters
+   restored: a failed component keeps the whole path's bits and best effort,
+   at most twice its work.
 4. **Diagnose** at the solution: the Jacobian of all equations, rank by
    column-pivoted QR with the scaling and tie order of ADR-0003, DoF, free
    directions, redundant and conflicting sets, degenerate entities and branch
@@ -151,8 +160,8 @@ The pipeline, each stage deterministic:
    A failed or degenerate component, or one whose part before the last is
    column-deficient, is factorized whole. Both give the same DoF and
    direction span; the non-default `reference` feature exposes the whole
-   path (`laman::reference::solve`, hidden, unbound) for the tests to
-   compare.
+   path (`laman::reference::solve`, and `diagnose` at given coordinates;
+   hidden, unbound) for the tests to compare.
 
 **Priorities**: two levels, kept in two lists. Every constraint's
 equations are required, compiled into `System::equations`; a drag target

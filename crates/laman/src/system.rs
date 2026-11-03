@@ -173,8 +173,32 @@ impl<'a> System<'a> {
         coordinates: &Coordinates,
         target: f64,
     ) -> (Evaluation, Vec<usize>) {
+        self.evaluate_within(component, component, coordinates, target)
+    }
+
+    /// [`Self::evaluate_to`] of `part`, a part of `whole` (plans/m6-stages):
+    /// `part`'s equations over `part`'s parameters, every other parameter a
+    /// constant, satisfied by `whole`'s acceptance, so a part meets the
+    /// tolerance its component does.
+    pub fn evaluate_part(
+        &self,
+        part: &Component,
+        whole: &Component,
+        coordinates: &Coordinates,
+        target: f64,
+    ) -> Evaluation {
+        self.evaluate_within(part, whole, coordinates, target).0
+    }
+
+    fn evaluate_within(
+        &self,
+        component: &Component,
+        whole: &Component,
+        coordinates: &Coordinates,
+        target: f64,
+    ) -> (Evaluation, Vec<usize>) {
         let scale = component.scale.max(tolerance::LENGTH_FLOOR);
-        let acceptance = self.acceptance(component, coordinates);
+        let acceptance = self.acceptance(whole, coordinates);
         let mut out = Evaluation {
             values: vec![],
             jacobian: vec![],

@@ -91,10 +91,11 @@ pub enum Algorithm {
     DogLeg,
 }
 
-/// How a component is analysed: part by part over its decomposition
-/// ([`crate::stage`]), or whole. Both give the same DoF and the same span of
-/// free directions; the staged path falls back to the whole one wherever its
-/// part ranks do not add up (plans/m6-stages).
+/// How a component is solved and analysed: part by part over its
+/// decomposition ([`crate::stage`]), or whole. Both give the same DoF and the
+/// same span of free directions; the staged path falls back to the whole one
+/// wherever a part does not converge or its part ranks do not add up
+/// (plans/m6-stages).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Path {
     /// Head, stages and remainder, each factorized on its own columns.
@@ -231,30 +232,160 @@ pub(crate) fn solve_toward(sketch: &Sketch, goals: &[Goal], options: Options) ->
         if component.sources.is_empty() && goals.is_empty() {
             continue;
         }
-        let mut converged = descend(&system, component, &options, &mut out);
-        if converged && !goals.is_empty() {
-            converged = pursue(&system, component, &goals, &options, &mut out);
-        }
+        let staged = match options.path {
+            Path::Staged => solve_staged(&system, component, &goals, &options, &mut out),
+            Path::Whole => None,
+        };
+        let converged = staged.unwrap_or_else(|| {
+            let whole = Scope::whole(component);
+            let mut converged = descend(&system, whole, &options, &mut out);
+            if converged && !goals.is_empty() {
+                converged = pursue(&system, whole, &goals, &options, &mut out);
+            }
+            converged
+        });
         out.converged &= converged;
     }
     out
 }
 
-/// The required descent of one component from `out.coordinates`, under the
-/// shared budgets: true when its required equations meet acceptance. A
-/// satisfied start takes no step and keeps every bit, signed zeros included.
-fn descend(
+/// What a descent moves and reads, and the tolerance it meets: `part`'s
+/// parameters and equations (every other parameter a constant), held to
+/// `whole`'s acceptance. A component solved whole is both.
+#[derive(Clone, Copy)]
+struct Scope<'c> {
+    part: &'c Component,
+    whole: &'c Component,
+}
+
+impl<'c> Scope<'c> {
+    fn whole(component: &'c Component) -> Self {
+        Self {
+            part: component,
+            whole: component,
+        }
+    }
+}
+
+/// The staged solve of one component (plans/m6-stages): its parts
+/// ([`crate::stage`]) descended in dependency order, head, stages,
+/// remainder, each with the earlier parts' parameters as constants, under
+/// the shared budgets; then the goals on the last part's parameters pursued
+/// there. A goal on an earlier part's parameter is stationary: the required
+/// null space lies in the last part's columns. A satisfied part takes no
+/// step, so an edit moves only the parts that read it.
+///
+/// `None` when the component is solved whole instead, with `out` restored
+/// to the component's start, coordinates and budget counters both: a
+/// component of one part, a part that does not converge, or a result the
+/// diagnosis would not stage ([`crate::diagnose::stageable`]: a part before
+/// the last column-deficient, or a row reading a later part). The whole solve
+/// then spends at most the budgets the staged one had, so a component costs
+/// at most twice its whole work, and a failed component keeps the whole
+/// path's bits and best effort.
+fn solve_staged(
     system: &System<'_>,
     component: &Component,
+    goals: &[Goal],
     options: &Options,
     out: &mut Outcome,
-) -> bool {
+) -> Option<bool> {
+    let parts = parts_of(system, component)?;
+    let last = parts.last()?;
+    let start = (
+        out.coordinates.clone(),
+        out.iterations,
+        out.evaluations,
+        out.rejected,
+    );
+    let descended = parts.iter().all(|part| {
+        part.sources.is_empty()
+            || descend(
+                system,
+                Scope {
+                    part,
+                    whole: component,
+                },
+                options,
+                out,
+            )
+    });
+    if !descended || !crate::diagnose::stageable(system, component, &out.coordinates) {
+        (
+            out.coordinates,
+            out.iterations,
+            out.evaluations,
+            out.rejected,
+        ) = start;
+        return None;
+    }
+    let goals: Vec<Goal> = goals
+        .iter()
+        .filter(|g| last.params.contains(&g.param))
+        .copied()
+        .collect();
+    if goals.is_empty() {
+        return Some(true);
+    }
+    let scope = Scope {
+        part: last,
+        whole: component,
+    };
+    Some(pursue(system, scope, &goals, options, out))
+}
+
+/// `component`'s parts as components of their own, in dependency order:
+/// each part's parameters and sources in the component's order, with the
+/// component's frozen scale and origin. `None` for a component of one part,
+/// which is solved whole.
+fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>> {
+    use std::collections::BTreeSet;
+    let decomposition = crate::stage::decompose(system, component);
+    if decomposition.parts.len() < 2 {
+        return None;
+    }
+    let parts = decomposition
+        .parts
+        .iter()
+        .map(|part| {
+            let params: BTreeSet<_> = part.params.iter().copied().collect();
+            let sources: BTreeSet<_> = part
+                .rows
+                .iter()
+                .filter_map(|row| system.equations.get(*row).map(|e| e.source))
+                .collect();
+            Component {
+                params: component
+                    .params
+                    .iter()
+                    .filter(|p| params.contains(p))
+                    .copied()
+                    .collect(),
+                sources: component
+                    .sources
+                    .iter()
+                    .filter(|s| sources.contains(s))
+                    .copied()
+                    .collect(),
+                scale: component.scale,
+                origin: component.origin,
+            }
+        })
+        .collect();
+    Some(parts)
+}
+
+/// The required descent of one scope from `out.coordinates`, under the
+/// shared budgets: true when its required equations meet acceptance. A
+/// satisfied start takes no step and keeps every bit, signed zeros included.
+fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut Outcome) -> bool {
+    let component = scope.part;
     if out.evaluations == options.max_evaluations {
         return false;
     }
     out.evaluations += 1;
-    let mut current = system.evaluate(component, &out.coordinates);
-    current.satisfied &= vector_acceptance(system, component, &out.coordinates, 1.0);
+    let mut current = system.evaluate_part(component, scope.whole, &out.coordinates, 1.0);
+    current.satisfied &= vector_acceptance(system, scope, &out.coordinates, 1.0);
     if current.satisfied {
         return true;
     }
@@ -278,8 +409,8 @@ fn descend(
         // evaluation allowance. Linear factorization failures consume both.
         out.evaluations += 1;
         if let (Some((coordinates, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
-            let mut next = system.evaluate_to(component, &coordinates, SOLVE_TARGET);
-            next.satisfied &= vector_acceptance(system, component, &coordinates, SOLVE_TARGET);
+            let mut next = system.evaluate_part(component, scope.whole, &coordinates, SOLVE_TARGET);
+            next.satisfied &= vector_acceptance(system, scope, &coordinates, SOLVE_TARGET);
             let next_cost = objective(&next);
             if next.valid && next_cost.is_finite() && (next_cost < cost || next.satisfied) {
                 // A non-positive prediction (rounding) is a poor model.
@@ -345,11 +476,12 @@ fn descend(
 /// required residual over acceptance.
 fn pursue(
     system: &System<'_>,
-    component: &Component,
+    scope: Scope<'_>,
     goals: &[Goal],
     options: &Options,
     out: &mut Outcome,
 ) -> bool {
+    let component = scope.part;
     let index: Option<Vec<usize>> = goals
         .iter()
         .map(|g| component.params.iter().position(|p| *p == g.param))
@@ -359,6 +491,7 @@ fn pursue(
     };
     let pursuit = Pursuit {
         system,
+        scope,
         component,
         goals,
         index,
@@ -378,7 +511,7 @@ fn pursue(
         let Some(g) = pursuit.residuals(&out.coordinates) else {
             return false;
         };
-        let acceptance = target * system.acceptance(component, &out.coordinates) / pursuit.scale;
+        let acceptance = target * system.acceptance(scope.whole, &out.coordinates) / pursuit.scale;
         target = SOLVE_TARGET;
         if g.iter().all(|r| r.abs() <= acceptance) {
             return true;
@@ -489,6 +622,8 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 /// What [`pursue`] holds fixed while it iterates.
 struct Pursuit<'s, 'a> {
     system: &'s System<'a>,
+    scope: Scope<'s>,
+    /// `scope.part`: what the goals move in.
     component: &'s Component,
     goals: &'s [Goal],
     /// Each goal's parameter's index in `component.params`.
@@ -626,7 +761,7 @@ impl Pursuit<'_, '_> {
         let mut reached = None;
         if let Some((coordinates, _)) = trial(self.component, start, position, step) {
             out.coordinates = coordinates;
-            if descend(self.system, self.component, self.options, out) {
+            if descend(self.system, self.scope, self.options, out) {
                 reached = Some(out.coordinates.clone());
             }
         }
@@ -649,7 +784,7 @@ impl Pursuit<'_, '_> {
     /// stationary point the true decrease is smaller than that; refusing such
     /// a step would stall the reduced Newton iteration short of stationarity.
     fn decreased(&self, start: &Coordinates, g: &[f64], next: &Coordinates) -> Option<bool> {
-        let acceptance = self.system.acceptance(self.component, next) / self.scale;
+        let acceptance = self.system.acceptance(self.scope.whole, next) / self.scale;
         let change = self
             .goals
             .iter()
@@ -672,7 +807,7 @@ impl Pursuit<'_, '_> {
 /// the analysis reads.
 pub(crate) fn satisfied(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
     system.evaluate(component, values).satisfied
-        && vector_acceptance(system, component, values, 1.0)
+        && vector_acceptance(system, Scope::whole(component), values, 1.0)
 }
 
 // A vector condition has one geometric length tolerance. In symmetry, the
@@ -680,13 +815,13 @@ pub(crate) fn satisfied(system: &System<'_>, component: &Component, values: &Coo
 // This complements scalar equation acceptance without importing the checker.
 fn vector_acceptance(
     system: &System<'_>,
-    component: &Component,
+    scope: Scope<'_>,
     values: &Coordinates,
     target: f64,
 ) -> bool {
     let sketch = system.sketch;
-    let acceptance = system.acceptance(component, values);
-    component.sources.iter().all(|source| {
+    let acceptance = system.acceptance(scope.whole, values);
+    scope.part.sources.iter().all(|source| {
         let Source::Constraint(id) = source else {
             return true;
         };

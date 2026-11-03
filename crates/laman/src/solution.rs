@@ -328,6 +328,35 @@ pub(crate) fn solve_observed(
     )
 }
 
+/// The diagnosis by `path` of `sketch` at `coordinates`, as a solve that
+/// ended there would give it: what `laman::reference` compares a staged
+/// solve's diagnostics with at the staged coordinates.
+#[cfg(feature = "reference")]
+pub(crate) fn diagnose_on(
+    sketch: &Sketch,
+    coordinates: &Coordinates,
+    options: &SolverOptions,
+    path: Path,
+) -> Solution {
+    let before = Observations::at(sketch, &sketch.coordinates());
+    let outcome = Outcome {
+        coordinates: coordinates.clone(),
+        converged: true,
+        iterations: 0,
+        evaluations: 0,
+        rejected: 0,
+    };
+    let observed = before.next(sketch, &outcome.coordinates);
+    let flips = before.flips(&observed);
+    let attempt = Attempt {
+        outcome,
+        observed,
+        flips,
+        path,
+    };
+    conclude(sketch, options, attempt, sketch.provenance()).0
+}
+
 /// The answer to a solve: coordinates for every parameter, a status and the
 /// diagnostics. It always exists; an unsatisfiable or under-constrained
 /// sketch gets best-effort coordinates and a status saying so.

@@ -228,6 +228,14 @@ fn staged(
     staged_checked(system, component, values, basis, false)
 }
 
+/// Whether `component` is analysed by parts at `values`: satisfied there,
+/// of more than one part, every part before the last of full column rank and
+/// no row reading a later part's column. The staged solve keeps its result
+/// only then, so a solve and its diagnosis take the same path.
+pub(crate) fn stageable(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
+    staged(system, component, &merged(system.sketch, values), false).is_some()
+}
+
 /// [`staged`], and with `independent` also `None` when a part outside the
 /// head has a row dependent on the others at `values` (a rank below its
 /// row count): a redundancy the structure does not show, as a point on a

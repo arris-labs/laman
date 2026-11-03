@@ -107,12 +107,21 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   it coincides with, hides its redundancy from the structure, so that
   component takes the full test. Each test still compares the whole DoF;
   the skip saves the factorizations.)
-- [ ] Step 4 **[3]** — Staged solve: parts in order under the shared
+- [x] Step 4 **[3]** — Staged solve: parts in order under the shared
   budgets, the failure fallback with restored counters, goals in the
   remainder. Lift `upstream-edit-drift` (LM, DogLeg). C1 coordinates as
   listed; conflict sets equal reference; conflicting twins' digests
   unchanged; others re-blessed (`fixtures:` and why); `tools/py-test.sh`
-  and `tools/digest-wasm.sh` green.
+  and `tools/digest-wasm.sh` green. (*Settled* at
+  step 4: a staged result is kept only where the diagnosis stages it
+  (`diagnose::stageable`), so a solve and its analysis take one path;
+  goals go to the last part, a stage when there is no remainder. Staged
+  and whole coordinates differ within acceptance, so the comparisons
+  diagnose the staged coordinates whole (`laman::reference::diagnose`)
+  and hold conflict sets to the whole solve's. Moved: the solved digests
+  of the sss triangle, belt, plate, plate-redundant and plate-drag, and
+  every drag step; conflicting twins, the sss and belt redundant twins
+  unchanged.)
 - [ ] Step 5 **[2]** — `DragSession` reuses its decomposition. Fixture 4's
   numbers; every part outside the remainder keeps its bits across all ten
   steps; `bisect-stuck` unchanged; drag digests re-blessed.
@@ -163,9 +172,9 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   does not (seed 226646 in `solved.proptest-regressions`, DoF 2 against
   3; `diagnose::tests::a_row_dependent_on_earlier_parts_adds_no_rank`).
   ADR-0009 records it.
-- ⚠ OPEN: fallback grain, whole component or merge the failed part with
-  its upstream closure? Agent, by step 4. Pick: whole component; it keeps
-  every failure's bits, and failures are outside the frame budget.
+- *Settled* at step 4: the fallback grain is the whole component, from
+  its start with the counters restored; it keeps every failure's bits, and
+  failures are outside the frame budget.
 - ⚠ OPEN: if a 500-entity drag misses 4 ms, which M8 option (A, S2, or a
   driver split of the remainder)? Agent writes it up as an idea after
   step 9; the human decides there.

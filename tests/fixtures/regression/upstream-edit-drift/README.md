@@ -25,11 +25,12 @@ expectation or edit id: only the second distance changes and the first
 still fixes x to 20. The text and SVG of the two-rectangle case and this
 shrink were inspected under target/inspect during diagnosis.
 
-Reproduce both algorithms:
+Run both algorithms:
 
 ```sh
-cargo test -p laman-debug --test solve_regression upstream_edit_drift -- --ignored
+cargo test -p laman-debug --test solve_regression upstream_edit_drift
 ```
 
-No solver or C1 behavior changes here. The fixture waits for C2's local
-solve to retain the upstream coordinates.
+Fixed by the staged solve (plans/m6-stages step 4): the first distance is
+a stage of its own, satisfied after the edit, so it takes no step and
+point 1 keeps its bits; only the edited distance's stage moves.

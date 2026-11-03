@@ -216,13 +216,11 @@ fn assert_upstream_edit_keeps_bits(algorithm: Algorithm) {
 }
 
 #[test]
-#[ignore = "C2 M6: whole-component edit changes upstream coordinate bits"]
 fn upstream_edit_drift_lm() {
     assert_upstream_edit_keeps_bits(Algorithm::LevenbergMarquardt);
 }
 
 #[test]
-#[ignore = "C2 M6: whole-component edit changes upstream coordinate bits"]
 fn upstream_edit_drift_dogleg() {
     assert_upstream_edit_keeps_bits(Algorithm::DogLeg);
 }

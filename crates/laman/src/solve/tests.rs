@@ -787,3 +787,88 @@ proptest::proptest! {
         }
     }
 }
+
+/// `a` fixed, `b` three below it on a vertical, `c` one from `b`: stages
+/// `b.x` (the vertical), `b.y` (the distance), then `c`, the remainder or,
+/// with `far`, a stage whose distance from `a` is ten, which no `c` one from
+/// `b` can meet.
+fn two_stages(far: bool) -> (Sketch, crate::model::Point, crate::model::Point) {
+    let mut sk = Sketch::new();
+    let a = sk.point_fixed(0.0, 0.0).unwrap();
+    let b = sk.point(0.3, -2.5).unwrap();
+    let c = sk.point(1.2, -3.4).unwrap();
+    let l = sk.line(a, b).unwrap();
+    sk.vertical(l).unwrap();
+    sk.distance(a, b, 3.0).unwrap();
+    sk.distance(b, c, 1.0).unwrap();
+    if far {
+        sk.distance(a, c, 10.0).unwrap();
+    }
+    (sk, b, c)
+}
+
+#[test]
+fn a_failed_part_sends_its_component_to_the_whole_solve_from_its_start() {
+    let (sk, _, _) = two_stages(true);
+    let system = System::new(&sk);
+    assert!(parts_of(&system, &system.components[0]).is_some_and(|p| p.len() == 3));
+    for algorithm in ALGORITHMS {
+        let staged = solve(&sk, with(algorithm));
+        let whole = solve(
+            &sk,
+            Options {
+                path: Path::Whole,
+                ..with(algorithm)
+            },
+        );
+        assert!(!staged.converged, "{algorithm:?}");
+        // Coordinates and counters as the whole solve's: the staged attempt
+        // is forgotten, its budget restored.
+        let bits =
+            |o: &Outcome| -> Vec<u64> { o.coordinates.values().map(|v| v.to_bits()).collect() };
+        assert_eq!(bits(&staged), bits(&whole), "{algorithm:?}");
+        assert_eq!(
+            (staged.iterations, staged.evaluations, staged.rejected),
+            (whole.iterations, whole.evaluations, whole.rejected),
+            "{algorithm:?}"
+        );
+    }
+}
+
+#[test]
+fn a_goal_on_an_earlier_part_is_stationary_and_one_on_the_last_is_pursued() {
+    let (sk, b, c) = two_stages(false);
+    let system = System::new(&sk);
+    let parts = parts_of(&system, &system.components[0]).unwrap();
+    assert_eq!(parts.len(), 3);
+    assert!(parts[2].params.contains(&(c.id(), Coordinate::X)));
+    for algorithm in ALGORITHMS {
+        let plain = solve(&sk, with(algorithm));
+        assert!(plain.converged, "{algorithm:?}");
+        // `b` is determined: a goal on it moves nothing.
+        let held = solve_toward(&sk, &goal_at(b, [5.0, 5.0]), with(algorithm));
+        assert!(held.converged, "{algorithm:?}");
+        let bits =
+            |o: &Outcome| -> Vec<u64> { o.coordinates.values().map(|v| v.to_bits()).collect() };
+        assert_eq!(bits(&held), bits(&plain), "{algorithm:?}");
+        // `c` swings on its circle about `b = (0, -3)` toward the target,
+        // and `b` keeps its bits.
+        let swung = solve_toward(&sk, &goal_at(c, [0.0, 5.0]), with(algorithm));
+        assert!(swung.converged, "{algorithm:?}");
+        for k in [Coordinate::X, Coordinate::Y] {
+            let key = (b.id(), k);
+            assert_eq!(
+                swung.coordinates[&key].to_bits(),
+                plain.coordinates[&key].to_bits()
+            );
+        }
+        let (x, y) = (
+            swung.coordinates[&(c.id(), Coordinate::X)],
+            swung.coordinates[&(c.id(), Coordinate::Y)],
+        );
+        assert!(
+            x.abs() <= COORDINATE_ERROR && (y + 2.0).abs() <= COORDINATE_ERROR,
+            "{algorithm:?}: {x} {y}"
+        );
+    }
+}
