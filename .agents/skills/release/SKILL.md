@@ -18,9 +18,12 @@ never tags, pushes, approves a publish, or publishes by hand.
 
 1. **Check the ground.** On `main`, with a clean tree and `main` equal to
    its upstream (`git status`, `git rev-list --count @{u}..main`; no
-   remote is said as such and stops here). The last `release.yml` dry run
-   on `main` is green (`gh run list --workflow release.yml --branch main
-   --limit 3`); if none, the human dispatches one first. Check that the `crates-io` and
+   remote is said as such and stops here). A `release.yml` dry run on
+   `main`'s tip is green (`gh run list --workflow release.yml --branch main
+   --limit 3`); if none, dispatch it yourself (`gh workflow run
+   release.yml --ref main`: `dry_run` is the default, it uploads nothing),
+   watch it with `run_in_background`, and go on; it must be green before
+   step 4. Check that the `crates-io` and
    `pypi` environments have a required reviewer (`gh api
    repos/{owner}/{repo}/environments`) and that the commit to tag is on
    `main`; without either, stop and say so. Start
