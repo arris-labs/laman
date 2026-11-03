@@ -37,6 +37,10 @@ fn kid(id: ConstraintId) -> String {
     format!("k{}", id.0)
 }
 
+#[allow(
+    clippy::disallowed_methods,
+    reason = "the oracle is not the solver: no determinism claim"
+)]
 fn angle_of(guess: &Coordinates, c: EntityId, p: EntityId) -> Option<(f64, f64)> {
     let at = |id: EntityId, k: Coordinate| guess.get(&(id, k)).copied();
     let dx = at(p, Coordinate::X)? - at(c, Coordinate::X)?;

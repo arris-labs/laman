@@ -1,0 +1,15 @@
+{
+  "solver": "ezpz",
+  "version": "0.2.29",
+  "fixture": "slotted-plate-redundant",
+  "outcome": "solved",
+  "status": "FullyConstrained",
+  "solver_status": "satisfied",
+  "dof": null,
+  "redundant": null,
+  "conflicts": null,
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [],
+  "detail": null
+}

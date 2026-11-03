@@ -123,3 +123,16 @@ variables it calls underconstrained, nothing more.
   the check is status `converged`, the reported initial and final error, and
   that no coordinate moved), and each violated constraint put back alone must
   make the solve `failed`. `conflicting` is one flat list, reported as one set.
+- `src/ezpz.rs` (step 5): every C1 kind translates; a point fixed in both is two
+  `Fixed`, an arc is `DatumCircularArc` plus `Arc`, and an arc used as a circle
+  (tangent, equal radius, point on it) is a built circle (one new radius
+  unknown, one `DistanceVar`: same DoF). `ezpz` has no iteration-0 option and no
+  residual query, so the proof starts it at the expected coordinates with its
+  convergence tolerance set to the oracle's: every request must come back
+  satisfied and no variable may move; `translation_residual` is that largest
+  movement. Each violated constraint put back alone must be unsatisfied.
+  The report keeps `ezpz`'s words: DoF, redundant and conflicts are `null`;
+  satisfied with no underconstrained variable is `FullyConstrained`, with one
+  `UnderConstrained`; unsatisfied is `status: null` (a conflict and a failure
+  to converge look the same) and `solver_status` lists the unsatisfied
+  constraints by laman tag.

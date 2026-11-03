@@ -1,0 +1,17 @@
+{
+  "solver": "ezpz",
+  "version": "0.2.29",
+  "fixture": "belt-conflicting",
+  "outcome": "solved",
+  "status": null,
+  "solver_status": "unsatisfied: top-on-c1, top-on-c2, top-tangent-c1, top-tangent-c2",
+  "dof": null,
+  "redundant": null,
+  "conflicts": null,
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "top-length"
+  ],
+  "detail": null
+}

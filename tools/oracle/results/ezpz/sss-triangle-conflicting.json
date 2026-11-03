@@ -1,0 +1,17 @@
+{
+  "solver": "ezpz",
+  "version": "0.2.29",
+  "fixture": "sss-triangle-conflicting",
+  "outcome": "solved",
+  "status": null,
+  "solver_status": "unsatisfied: base, left, right, apex",
+  "dof": null,
+  "redundant": null,
+  "conflicts": null,
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "apex"
+  ],
+  "detail": null
+}

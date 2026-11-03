@@ -12,6 +12,7 @@
 //! under a timeout, so a panic or a hang in a foreign solver is a report.
 
 mod acs;
+mod ezpz;
 mod fixture;
 mod hello;
 mod report;
@@ -29,7 +30,7 @@ fn run(solver: &str, fx: &fixture::Fixture) -> Report {
         "stub" => Report::without_numbers(solver, &fx.name, Outcome::Unsupported, "stub"),
         "sketch-solver" => sketch_solver::run(fx),
         "acs-solver" => acs::run(fx),
-        "ezpz" => Report::without_numbers(solver, &fx.name, Outcome::Error, "no adapter yet"),
+        "ezpz" => ezpz::run(fx),
         _ => Report::without_numbers(solver, &fx.name, Outcome::Error, "unknown solver"),
     }
 }

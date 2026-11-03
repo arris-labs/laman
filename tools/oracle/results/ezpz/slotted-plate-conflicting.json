@@ -1,0 +1,17 @@
+{
+  "solver": "ezpz",
+  "version": "0.2.29",
+  "fixture": "slotted-plate-conflicting",
+  "outcome": "solved",
+  "status": null,
+  "solver_status": "unsatisfied: arc:#14, arc:#18, fixed point (request 2), width, #6, #8, #10, same-ends, slot-r, centred, slot-length, slot-r2",
+  "dof": null,
+  "redundant": null,
+  "conflicts": null,
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "slot-r2"
+  ],
+  "detail": null
+}
