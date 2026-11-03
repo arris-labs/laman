@@ -5,7 +5,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0-dev"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
@@ -20,8 +20,8 @@ readme = "README.md"
 nalgebra = { version = "=0.33.2", default-features = false, features = ["std", "libm-force"] }
 # Internal crates: path plus an exact version pin, so a version bump that
 # misses one fails `cargo check` (.agents/rules/git.md §The version).
-laman = { path = "crates/laman", version = "=0.1.0" }
-laman-check = { path = "crates/laman-check", version = "=0.1.0" }
+laman = { path = "crates/laman", version = "=0.2.0-dev" }
+laman-check = { path = "crates/laman-check", version = "=0.2.0-dev" }
 
 # External crates, pinned here and used with `workspace = true` (SEED.md §7).
 thiserror = "2.0"
