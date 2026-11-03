@@ -42,7 +42,9 @@ C1 fixtures with twins; every constraint's residual and gradient; `solve` and
 the 50 digests reproduced in CI on five OS/arch runners; wheels and sdist per
 platform; `release.yml` from a pushed `v*` tag behind the `crates-io` and
 `pypi` reviewers, rehearsed by a dry run; `/release`).
-**Next:** `/plan` m4-oracle (the out-of-process comparison, closing M4).
+**M4 landed** with the oracle run (`tools/oracle/`, three Rust solvers on
+the ten C1 sketches, `docs/COMPARISON.md`).
+**Next:** `/close-cycle` C1.
 
 ## Rules that are not derivable from the code
 

@@ -143,8 +143,10 @@ under half a turn per frame, and bisected frames are not budgeted.*
   gate and the Python tests green in CI on Linux x86_64 and aarch64, macOS
   arm64 and x86_64 and Windows x86_64, all 50 digests reproduced on each;
   abi3 wheels and an sdist built and installed clean per platform;
-  `release.yml` rehearsed by a dry run, nothing uploaded); the oracle runs
-  to come.
+  `release.yml` rehearsed by a dry run, nothing uploaded); the oracle ran
+  (`sketch-solver`, `acs-solver` and `ezpz` on the ten C1 sketches,
+  thirty reports under `tools/oracle/results/`, the table in COMPARISON.md).
+  **M4 landed.**
 - Accept: the C1 acceptance below, in full, from `cargo test` and pytest;
   the comparison (COMPARISON.md) re-read against the code;
   `sketch-solver`, `acs-solver` and `ezpz` run out of process

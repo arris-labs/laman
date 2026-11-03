@@ -19,7 +19,11 @@ Entity parametrisations and constraint equations are in
 `laman-debug` is a dev-dependency, except under `laman-py`, without its
 `proptest` feature (ADR-0007; `tools/check-layers.sh` refuses `proptest` in
 `cargo tree -p laman-py`). `fuzz/` sits outside the
-workspace and builds on nightly under `cargo fuzz`.
+workspace and builds on nightly under `cargo fuzz`. So does `tools/oracle/`
+(`publish = false`, its own `Cargo.lock`): it runs other Rust solvers out of
+process on the C1 fixtures for COMPARISON.md and depends on `laman`'s model
+and `laman-check` only, never on the solver (`tools/check-layers.sh` greps
+`tools/oracle/src`); it is run by hand, not by the gate.
 
 **The layer rule**: `laman-check` names only items under `laman::model`
 (the sketch, its ids, entities, constraint descriptions, `Coordinates`) and
