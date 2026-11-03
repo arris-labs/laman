@@ -67,7 +67,7 @@ the only test is a CI run on `plan/ci-job-count`.
 
 - [x] Step 1 **[1]** — ADR-0008 as in *Design deltas*, plus its row in
   `docs/adr/README.md`.
-- [ ] Step 2 **[1, CI]** — `wheels.yml`: the new triggers, and the 3.13
+- [x] Step 2 **[1, CI]** — `wheels.yml`: the new triggers, and the 3.13
   install on `linux-x86_64`. Test: a `workflow_dispatch` on the branch,
   12 jobs, green, and the 3.13 step's pytest summary in the log.
 - [ ] Step 3 **[1, CI]** — `ci.yml`: the tag trigger and a single
