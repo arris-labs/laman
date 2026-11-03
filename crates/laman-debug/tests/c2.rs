@@ -3,7 +3,7 @@
 
 use laman::solution::{Algorithm, SolverOptions};
 use laman_check::check;
-use laman_debug::corpus::{Case, rect_chain, slot_grid};
+use laman_debug::corpus::{Case, rect_chain, slot_grid, triangle_strip};
 use laman_debug::dump;
 
 fn static_case(name: &str, case: &Case) {
@@ -71,5 +71,75 @@ fn slot_grid_two_by_two() {
     static_case("slot-grid-2-2", &case);
     for step in &case.drag.as_ref().unwrap().drag.after {
         assert!(check(&case.drag.as_ref().unwrap().sketch, &step.coordinates).is_clean());
+    }
+}
+
+#[test]
+fn triangle_strip_six_and_its_rigid_tail_edit() {
+    let case = triangle_strip(6).unwrap();
+    assert_eq!(case.sketch.entities().count(), 21);
+    static_case("triangle-strip-6", &case);
+    assert!(case.drag.is_none());
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut edited = triangle_strip(6).unwrap();
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let initial = edited.sketch.solve(&options);
+        assert!(check(&edited.sketch, &initial.coordinates).is_clean());
+        edited.sketch.apply(&initial).unwrap();
+        let (id, constraint) = edited
+            .sketch
+            .constraints()
+            .find(|(id, _)| edited.sketch.constraint_tag_of(*id) == Some(edited.edit.tag.as_str()))
+            .map(|(id, constraint)| (id, *constraint))
+            .unwrap();
+        assert!(matches!(
+            constraint,
+            laman::model::Constraint::Distance { .. }
+        ));
+        if let laman::model::Constraint::Distance { p, q, .. } = constraint {
+            edited.sketch.remove_constraint(id).unwrap();
+            edited
+                .sketch
+                .add_constraint_with_id(
+                    id,
+                    laman::model::Constraint::Distance {
+                        p,
+                        q,
+                        value: edited.edit.value,
+                    },
+                )
+                .unwrap();
+            edited.sketch.tag_constraint(id, &edited.edit.tag).unwrap();
+        }
+        let solution = edited.sketch.solve(&options);
+        let report = check(&edited.sketch, &solution.coordinates);
+        assert!(report.is_clean());
+        assert_eq!(solution.status.to_string(), edited.edit.expected.status);
+        assert!(solution.diagnostics.redundant.is_empty());
+        assert!(solution.diagnostics.conflicts.is_empty());
+        assert!(solution.diagnostics.flips.is_empty());
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/inspect")
+            .join(format!("triangle-strip-6-edit-{algorithm:?}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("solved.txt"),
+            dump::solution_text(&edited.sketch, &solution),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("solved.svg"),
+            dump::svg(&edited.sketch, &solution.coordinates, &report),
+        )
+        .unwrap();
+        assert_eq!(solution.diagnostics.dof, 0);
+        for (key, want) in &edited.edit.expected.coordinates {
+            assert!(
+                (solution.coordinates[key] - want).abs() <= edited.expected.tolerance,
+                "{algorithm:?} edited {key:?}: {} vs {want}",
+                solution.coordinates[key]
+            );
+        }
     }
 }

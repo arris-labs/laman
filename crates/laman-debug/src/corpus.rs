@@ -517,3 +517,145 @@ pub fn slot_grid_with(
         }),
     })
 }
+
+// Unit equilateral strip: points alternate between the two sides of each
+// preceding edge. Editing skip edge j rotates the rigid tail about j-1;
+// circle intersection fixes the new j while the j-1--j distance stays 1.
+fn triangle_positions(n: usize, side: f64, edited: bool) -> Result<Vec<[f64; 2]>, CorpusError> {
+    let count = n.checked_add(2).ok_or(CorpusError::Count("triangles"))?;
+    let altitude = libm::sqrt(3.0) / 2.0;
+    let mut xy: Vec<_> = (0..count)
+        .map(|i| {
+            [
+                (i / 2) as f64 / 2.0 + (i % 2) as f64,
+                (i / 2) as f64 * altitude,
+            ]
+        })
+        .collect();
+    if edited {
+        let j = n / 2 + 2;
+        let a = xy[j - 2];
+        let b = xy[j - 1];
+        let old = xy[j];
+        let u = [b[0] - a[0], b[1] - a[1]];
+        let radius = 1.0 + EDIT_FRACTION;
+        let along = radius * radius / 2.0;
+        let perpendicular = libm::sqrt(radius * radius - along * along);
+        let cross = u[0] * (old[1] - a[1]) - u[1] * (old[0] - a[0]);
+        let sense = if cross > 0.0 { 1.0 } else { -1.0 };
+        let new = [
+            a[0] + along * u[0] - sense * perpendicular * u[1],
+            a[1] + along * u[1] + sense * perpendicular * u[0],
+        ];
+        let before = [old[0] - b[0], old[1] - b[1]];
+        let after = [new[0] - b[0], new[1] - b[1]];
+        let cosine = before[0] * after[0] + before[1] * after[1];
+        let sine = before[0] * after[1] - before[1] * after[0];
+        for p in &mut xy[j..] {
+            let d = [p[0] - b[0], p[1] - b[1]];
+            *p = [
+                b[0] + cosine * d[0] - sine * d[1],
+                b[1] + sine * d[0] + cosine * d[1],
+            ];
+        }
+    }
+    for p in &mut xy {
+        p[0] *= side;
+        p[1] *= side;
+    }
+    Ok(xy)
+}
+
+fn triangles(
+    n: usize,
+    side: f64,
+    edited: bool,
+    displaced: bool,
+) -> Result<(Sketch, Coordinates, Vec<EntityId>), CorpusError> {
+    let positions = triangle_positions(n, side, edited)?;
+    let mut sketch = Sketch::new();
+    let mut coordinates = Coordinates::new();
+    let p0 = point(
+        &mut sketch,
+        &mut coordinates,
+        positions[0],
+        side,
+        displaced,
+        true,
+    )?;
+    let p1 = point(
+        &mut sketch,
+        &mut coordinates,
+        positions[1],
+        side,
+        displaced,
+        false,
+    )?;
+    let base = sketch.line(p0, p1)?;
+    sketch.horizontal(base)?;
+    sketch.distance(p0, p1, side)?;
+    let mut pair = [p0, p1];
+    let mut unmoved = Vec::new();
+    for (i, xy) in positions.iter().enumerate().skip(2) {
+        if i == n / 2 + 2 {
+            unmoved = sketch.entities().map(|(id, _)| id).collect();
+        }
+        let next = point(&mut sketch, &mut coordinates, *xy, side, displaced, false)?;
+        sketch.line(pair[1], next)?;
+        sketch.line(pair[0], next)?;
+        sketch.distance(pair[1], next, side)?;
+        let value = if edited && i == n / 2 + 2 {
+            side * (1.0 + EDIT_FRACTION)
+        } else {
+            side
+        };
+        let id = sketch.distance(pair[0], next, value)?;
+        sketch.tag_constraint(id, &format!("edge-{i}-skip"))?;
+        pair = [pair[1], next];
+    }
+    Ok((sketch, coordinates, unmoved))
+}
+
+/// Builds `n` equilateral triangles in a zigzag strip (3n + 3 entities).
+/// The first edge is horizontal, with its first point grounded. A middle
+/// skip edge is edited; the subsequent tail rotates rigidly. No drag.
+/// Refuses zero triangles or unrepresentable geometry.
+///
+/// ```
+/// let case = laman_debug::corpus::triangle_strip(6)?;
+/// assert_eq!(case.sketch.entities().count(), 21);
+/// assert!(case.drag.is_none());
+/// # Ok::<(), laman_debug::corpus::CorpusError>(())
+/// ```
+pub fn triangle_strip(n: usize) -> Result<Case, CorpusError> {
+    triangle_strip_with(n, 20.0)
+}
+
+/// Builds the equilateral strip with a positive finite side length.
+/// Every distance is `side`, except the edited skip edge, which grows by
+/// one tenth. Expectations use circle intersection and one rigid rotation.
+///
+/// ```
+/// let case = laman_debug::corpus::triangle_strip_with(6, 30.0)?;
+/// assert_eq!(case.edit.value, 33.0);
+/// # Ok::<(), laman_debug::corpus::CorpusError>(())
+/// ```
+pub fn triangle_strip_with(n: usize, side: f64) -> Result<Case, CorpusError> {
+    if n == 0 {
+        return Err(CorpusError::Count("triangles"));
+    }
+    dimension("side", side)?;
+    let (sketch, coordinates, unmoved) = triangles(n, side, false, true)?;
+    let (_, moved, _) = triangles(n, side, true, false)?;
+    Ok(Case {
+        sketch,
+        expected: expected(coordinates, 0),
+        edit: Edit {
+            tag: format!("edge-{}-skip", n / 2 + 2),
+            value: side * (1.0 + EDIT_FRACTION),
+            expected: expected(moved, 0),
+            unmoved,
+        },
+        drag: None,
+    })
+}

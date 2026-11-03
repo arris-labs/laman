@@ -66,8 +66,10 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
     Drag: one slot's horizontal placement dropped (DoF 1), its centre pulled.
   - `triangle_strip(n)`: the nested family, a deep dependency chain:
     points `p₀` (ground), `p₁` on a horizontal from it, each next point by
-    two `distance`s to its two predecessors, lines along every edge. Edit:
-    one edge length; the tail moves rigidly, computed by construction. No
+    two `distance`s to its two predecessors, lines along every edge (3n + 3 entities for n triangles).
+    `triangle_strip_with(n, side)` varies the equilateral side length. Edit:
+    one middle skip-edge length; the tail rotates rigidly about its preceding
+    point, computed from circle intersection and one rotation by construction. No
     drag (a dropped distance makes a mechanism whose closed form the plan
     does not need).
 - A term needs no glossary entry: *fixture*, *by construction*, *edit*
@@ -86,7 +88,7 @@ unproven — an algorithm whose robustness or bound is established here.
   Dumped to SVG and looked at (`inspect`).
 - [x] Step 2 **[2]** — `slot_grid` the same way, tested at 2 × 2: each
   arc's sweep π, no flip, the C1 slot's coordinates per cell.
-- [ ] Step 3 **[2]** — `triangle_strip` the same way, tested at `n = 6`,
+- [x] Step 3 **[2]** — `triangle_strip` the same way, tested at `n = 6`,
   including the edit's rigid tail by construction.
 - [ ] Step 4 **[2]** — `tests/c2.rs` runs each family's case, edit and drag
   through one helper: expected coordinates, status, DoF, empty redundant
