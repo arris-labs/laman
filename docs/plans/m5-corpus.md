@@ -118,7 +118,7 @@ unproven — an algorithm whose robustness or bound is established here.
   re-solve and a drag step; prints over/under the 4 ms budget and the
   machine; exits zero (the budget is M6's to meet). A case slower than a
   set limit on its first run is printed `over` without repeats.
-- [ ] Step 8 **[1]** — run `bench_c2` in release on the reference machine;
+- [x] Step 8 **[1]** — run `bench_c2` in release on the reference machine;
   the table into ARCHITECTURE.md §Frame budget as C2's baseline.
 
 ## Acceptance

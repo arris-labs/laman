@@ -550,6 +550,51 @@ of the drag's ten steps takes 0.98–0.99 ms under both. The conflicting twins
 run the conflict analysis and are timed, not budgeted: 1.1–1.6 ms
 (triangle), 8–11 ms (belt), 39–52 ms (plate).
 
+C2 baseline (2026-11-04), measured with
+`cargo run --release -p laman-debug --example bench_c2` on AMD Ryzen 9
+7950X 16-Core Processor, Linux x86_64 (32 logical CPUs), rustc 1.99.0.
+The solver still solves whole components. The budget is 4 ms per operation,
+including diagnostics. Static solves start from displaced guesses; edits
+start from the initial solved coordinates after replacing one dimension;
+drags measure the first target in a newly opened session. Construction,
+initial edit solve and session opening are outside the timed operation.
+The flushed worker timing marker is inside it.
+
+Each applicable position runs in a separate process with a 5 s wall limit,
+including setup. A completed first sample above 100 ms is not repeated;
+otherwise up to five samples are taken. This bounds the 48 workers to
+240 s plus process overhead, including operations that do not return.
+The benchmark exits zero on budget misses and timeouts.
+
+Cells give **median / worst in ms (sample count)**. A single observation
+has equal median and worst; it is not a repeated-run estimate. **T ≥ x**
+is an interrupted timed operation with a conservative lower bound in ms,
+no completed median or worst. **S** means setup exhausted the 5 s wall
+limit before timing began: no operation timing verdict. **N/A** means the
+triangle family has no constructed drag. All completed samples and timed
+lower bounds are **over** 4 ms; setup timeouts remain unmeasured.
+
+| Family | Actual entities | Algorithm | Static | Edit | First drag step |
+|---|---:|---|---:|---:|---:|
+| rectangles | 98 | LM | 22.324 / 22.515 (5) | 21.712 / 22.112 (5) | 20.855 / 20.893 (5) |
+| rectangles | 98 | DogLeg | 19.939 / 20.150 (5) | 19.415 / 19.791 (5) | 20.757 / 21.033 (5) |
+| rectangles | 248 | LM | 497.297 / 497.297 (1) | 496.296 / 496.296 (1) | 508.140 / 508.140 (1) |
+| rectangles | 248 | DogLeg | 498.801 / 498.801 (1) | 492.604 / 492.604 (1) | 507.539 / 507.539 (1) |
+| rectangles | 498 | LM | T ≥ 4998.579 | S | S |
+| rectangles | 498 | DogLeg | T ≥ 4998.585 | S | S |
+| slots | 98 | LM | 111.531 / 111.531 (1) | 111.910 / 111.910 (1) | 118.767 / 118.767 (1) |
+| slots | 98 | DogLeg | 118.863 / 118.863 (1) | 111.508 / 111.508 (1) | 118.227 / 118.227 (1) |
+| slots | 248 | LM | 4271.589 / 4271.589 (1) | T ≥ 753.735 | T ≥ 789.130 |
+| slots | 248 | DogLeg | 4336.484 / 4336.484 (1) | T ≥ 719.925 | T ≥ 786.688 |
+| slots | 498 | LM | T ≥ 4997.838 | S | S |
+| slots | 498 | DogLeg | T ≥ 4997.885 | S | S |
+| triangles | 99 | LM | 18.649 / 19.163 (5) | 18.943 / 19.793 (5) | N/A |
+| triangles | 99 | DogLeg | 19.499 / 20.618 (5) | 19.552 / 19.726 (5) | N/A |
+| triangles | 249 | LM | 525.653 / 525.653 (1) | 527.927 / 527.927 (1) | N/A |
+| triangles | 249 | DogLeg | 526.255 / 526.255 (1) | 532.407 / 532.407 (1) | N/A |
+| triangles | 501 | LM | T ≥ 4998.992 | S | N/A |
+| triangles | 501 | DogLeg | T ≥ 4999.145 | S | N/A |
+
 ## wasm32
 
 `laman` and `laman-check` build for `wasm32-unknown-unknown` with no
