@@ -65,6 +65,25 @@ claim about today.
    and free directions mapped to entities, and minimal conflict sets
    (DATA-MODEL.md §Diagnostics). The difference is degree, not kind.
 
+## The comparison run
+
+### Where the solvers differ from laman
+
+Of the thirty reports, one fixture differs from laman's expectation:
+`sss-triangle-conflicting`. `sketch-solver` and `acs-solver` both name the
+conflict set {`apex`, `base`, `left`, `right`}; laman names {`apex`, `base`,
+`right`}. The difference is theirs, and laman's set is the right one,
+checked by hand against the construction: `base` puts the second corner `b`
+50 from the origin `o`, `apex` makes the angle between `base` and `left` 60°,
+so the apex `a` lies on the 60° line through `o`, and `b` is 50·sin 60° =
+43.3 from that line while `right` allows `|ab|` = 40. These three are
+contradictory whatever `left` says, and none of them depends on the
+rotation `horizontal` removes, so the set is inclusion-minimal and `left` is
+not in it. Their set is a conflicting superset, not a wrong
+one: each reports every constraint on the path of the contradiction, laman
+a minimal subset. `ezpz` agrees on satisfaction and exposes no sets. No
+disagreement is laman's fault, so no regression fixture is made.
+
 ## What is not claimed
 
 - No benchmark: nothing in this file was run yet. C1's M4 runs

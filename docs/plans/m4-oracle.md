@@ -110,7 +110,7 @@ within a given design; **[3]** unproven.
 - [x] Step 5 **[2]** — `ezpz` adapter, the same.
 - [x] Step 6 **[1]** — `compare.py` and the committed reports under
   `tools/oracle/results/`; its output is the table.
-- [ ] Step 7 **[2]** — Every disagreement analysed by hand against the
+- [x] Step 7 **[2]** — Every disagreement analysed by hand against the
   fixture's construction (ROADMAP.md §C1 acceptance gives the reasoning):
   a solver's or a translation's fault is written in COMPARISON.md; one that
   is laman's becomes `tests/fixtures/regression/<slug>/` with the desired
