@@ -134,6 +134,13 @@ unproven — an algorithm whose robustness or bound is established here.
 
 ## Open questions
 
+- ⚠ OPEN: step 4 is blocked by upstream bit drift in all three small
+  families. The minimal `regression/upstream-edit-drift` has three points
+  and two distances: edit the second from 20 to 22; LM changes upstream x
+  by 248 ULP, DogLeg by 1 ULP, with both checker clean. M5 excludes solver
+  changes; deferring this assertion to M6 would change acceptance and
+  needs the human's decision. Step 4 remains unchecked.
+
 - ⚠ OPEN: the debug-build limit for ignoring a large case (10 s here) and
   the bench's first-run limit — the agent, at steps 5 and 7, recording the
   measured times.

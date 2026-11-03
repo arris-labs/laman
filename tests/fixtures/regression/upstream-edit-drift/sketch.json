@@ -1,0 +1,51 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0,
+      "fixed": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "point",
+      "x": 20.2,
+      "y": 0.0,
+      "fixed": [
+        "y"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 39.8,
+      "y": 0.0,
+      "fixed": [
+        "y"
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "id": 0,
+      "kind": "distance",
+      "a": 0,
+      "b": 1,
+      "value": 20.0
+    },
+    {
+      "id": 1,
+      "kind": "distance",
+      "a": 1,
+      "b": 2,
+      "value": 20.0,
+      "tag": "edited"
+    }
+  ]
+}

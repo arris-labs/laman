@@ -160,3 +160,69 @@ fn negative_radius_solve() {
         assert!(result.is_ok(), "{algorithm:?}: {result:?}");
     }
 }
+
+/// Editing the second distance moves only point 2 by construction. Point 1's
+/// coordinates must keep their solved bits, even when those bits approximate 20.
+fn assert_upstream_edit_keeps_bits(algorithm: Algorithm) {
+    use laman::model::{Constraint, Coordinate, EntityId};
+
+    let fixture = load("upstream-edit-drift");
+    let mut options = SolverOptions::default();
+    options.algorithm = algorithm;
+    let before = fixture.sketch.solve(&options);
+    let mut edited = fixture.sketch.clone();
+    edited.apply(&before).unwrap();
+    let (id, constraint) = edited
+        .constraints()
+        .find(|(id, _)| edited.constraint_tag_of(*id) == Some("edited"))
+        .map(|(id, constraint)| (id, *constraint))
+        .unwrap();
+    let Constraint::Distance { p, q, .. } = constraint else {
+        unreachable!("fixture edit is a distance")
+    };
+    edited.remove_constraint(id).unwrap();
+    edited
+        .add_constraint_with_id(id, Constraint::Distance { p, q, value: 22.0 })
+        .unwrap();
+    edited.tag_constraint(id, "edited").unwrap();
+    let after = edited.solve(&options);
+    for (sketch, solution, moved) in [(&fixture.sketch, &before, false), (&edited, &after, true)] {
+        assert!(check(sketch, &solution.coordinates).is_clean());
+        assert_eq!(solution.status.to_string(), fixture.expected.status);
+        assert_eq!(solution.diagnostics.dof as u32, fixture.expected.dof);
+        assert!(solution.diagnostics.redundant.is_empty());
+        assert!(solution.diagnostics.conflicts.is_empty());
+        assert!(solution.diagnostics.flips.is_empty());
+        for (key, expected) in &fixture.expected.coordinates {
+            // Grounded collinear distances give x = 20, then x = 40 or 42.
+            let expected = if moved && *key == (EntityId(2), Coordinate::X) {
+                42.0
+            } else {
+                *expected
+            };
+            assert!((solution.coordinates[key] - expected).abs() <= fixture.expected.tolerance);
+        }
+    }
+    for (key, value) in &before.coordinates {
+        if key.0 != EntityId(2) {
+            assert_eq!(
+                after.coordinates[key].to_bits(),
+                value.to_bits(),
+                "{algorithm:?}: upstream {key:?}: {} vs {value}",
+                after.coordinates[key]
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "C2 M6: whole-component edit changes upstream coordinate bits"]
+fn upstream_edit_drift_lm() {
+    assert_upstream_edit_keeps_bits(Algorithm::LevenbergMarquardt);
+}
+
+#[test]
+#[ignore = "C2 M6: whole-component edit changes upstream coordinate bits"]
+fn upstream_edit_drift_dogleg() {
+    assert_upstream_edit_keeps_bits(Algorithm::DogLeg);
+}

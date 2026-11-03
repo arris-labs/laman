@@ -86,6 +86,14 @@ A defect a run measured, one block each:
 - Measured: DogLeg ends at -2.55e-19, Levenberg-Marquardt at +3.7e-14
 - State: regression/drag-negative-radius
 
+### upstream-edit-drift
+- What: an edit to a downstream distance changes the previously solved coordinate bits of its upstream point
+- Where: `laman::solve`, whole-component edit re-solve under both algorithms
+- Seen: M5 step 4 shared C2 runner, baseline `87cc742`, 2026-11-04
+- Reproduce: `cargo test -p laman-debug --test solve_regression upstream_edit_drift -- --ignored`
+- Measured: three points, two distances, second edited 20 → 22; upstream x moves by 248 ULP (LM) or 1 ULP (DogLeg); FullyConstrained, DoF 0 and checker clean before/after
+- State: regression/upstream-edit-drift
+
 ## Rejected
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)

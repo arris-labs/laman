@@ -1,0 +1,16 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {"id": 0, "coordinate": "x", "value": 0.0},
+    {"id": 0, "coordinate": "y", "value": 0.0},
+    {"id": 1, "coordinate": "x", "value": 20.0},
+    {"id": 1, "coordinate": "y", "value": 0.0},
+    {"id": 2, "coordinate": "x", "value": 40.0},
+    {"id": 2, "coordinate": "y", "value": 0.0}
+  ],
+  "tolerance": 1e-9,
+  "redundant": [],
+  "conflicts": [],
+  "flips": []
+}
