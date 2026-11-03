@@ -43,6 +43,7 @@ jobs:
     needs: [release-check, crate-dry-run, wheels]
     environment: crates-io
     permissions:
+      actions: read
       contents: read
       id-token: write
     runs-on: ubuntu-latest
