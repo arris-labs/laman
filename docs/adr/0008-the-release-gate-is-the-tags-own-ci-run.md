@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-11-03
-- Closes: nothing from the kickoff; the CI-cost backlog item (docs/BACKLOG.md)
+- Closes: nothing from the kickoff; the CI cost seen after 0.1.0 (the 60-job release)
 
 ## Context
 

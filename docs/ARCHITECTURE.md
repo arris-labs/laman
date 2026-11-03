@@ -590,20 +590,27 @@ nothing.
   strings. Tooling, outside the stability promise (ADR-0007).
 - The corpus (`tests/fixtures/c1/`, with `digests.txt`) is run by pytest
   under both algorithms; `hypothesis` builds Henneberg frameworks and solves
-  them back. CI's `python` matrix runs `tools/py-test.sh` (pytest,
-  `mypy.stubtest` and strict mypy) on the same five runners as `test`,
-  with Python 3.10 and 3.13 on each. The script resolves venv executables
-  through `uv run`, including Windows' `Scripts/` layout.
-- `wheels.yml` builds abi3-py310 wheels on every push to `main`, and is
-  reusable by the release workflow. Linux x86_64 and aarch64 build
+  them back. CI's `python` job runs `tools/py-test.sh` (pytest,
+  `mypy.stubtest` and strict mypy) once, on Ubuntu with Python 3.10: the
+  source build. The five platforms are covered by the wheels below. The
+  script resolves venv executables through `uv run`, including Windows'
+  `Scripts/` layout.
+- `wheels.yml` builds abi3-py310 wheels on every pull request whose paths
+  can change the package or its tests (`crates/**`, `tests/fixtures/**`,
+  `tools/py-*`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, the workflow itself), on dispatch, and as
+  the release workflow's build; a push to `main` does not run it. Linux x86_64 and aarch64 build
   natively inside manylinux2014 containers (glibc ≥ 2.17), macOS arm64
   and x86_64 use their native runners, and Windows uses x86_64. Separate
   clean runners install each artefact on Python 3.10 and run the same
-  corpus, all 50 digests, stubtest and strict mypy; `auditwheel show`
+  corpus, all 50 digests, stubtest and strict mypy, and the Linux x86_64
+  runner repeats it on Python 3.13, the newest interpreter; `auditwheel show`
   checks both Linux wheels against `manylinux_2_17`. The sdist is built
   and installed in isolation on a separate Linux runner, with the same
   tests. `tools/py-package-test.sh` asserts imports come from the fresh
   venv, so the checkout cannot hide a missing file in a distribution.
+- The release gate is the tag's own `ci.yml` run: `ci.yml` also triggers on
+  `v*` tags, and `release.yml` does not call it. `publish-crate` refuses
+  unless that run succeeded on the tagged commit (ADR-0008).
 
 ## Errors
 
