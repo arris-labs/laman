@@ -634,3 +634,7 @@ value.
 - Closed by ADR-0005: a conflict set is inclusion-minimal, found by a
   bounded deletion filter with local certificates, never a minimum. Cycle 2
   measures the 256-re-solve bound again on its sizes.
+
+The Rust-only `laman_debug::corpus` harness builds C2 sketches with
+closed-form coordinates, displaced guesses, dimension edits and drags;
+these generated cases do not replace the committed C1 fixtures.

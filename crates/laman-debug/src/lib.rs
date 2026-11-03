@@ -3,6 +3,7 @@
 //! (`docs/ARCHITECTURE.md` §Crates).
 //!
 //! - [`json`]: load and write a sketch's serde form as JSON text.
+//! - [`corpus`]: C2 families built from closed-form geometry, edits and drags.
 //! - [`fixture`]: load a fixture directory (its sketch, expectations, drag).
 //! - [`runner`]: check a fixture at its expected coordinates and digest it.
 //! - [`dump`]: a sketch as text or SVG, to read and to look at.
@@ -12,6 +13,7 @@
 //!   one constraint at a time (`strategy::configuration`).
 #![forbid(unsafe_code)]
 
+pub mod corpus;
 pub mod digest;
 pub mod dump;
 pub mod fd;

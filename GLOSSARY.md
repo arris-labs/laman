@@ -155,10 +155,22 @@ The free parameters connected through shared equations, solved as one
 problem (ARCHITECTURE.md §Solve).
 _Avoid_: subsystem (until it means a rigid cluster), island
 
+**Stage**:
+A square, structurally determined set of a component's required
+equations with the free parameters they fix, from the Dulmage–Mendelsohn
+decomposition of the compiled system. Stages solve in dependency order,
+so an edit never moves a stage before it (ideas/c2-decomposition).
+_Avoid_: block, cluster
+
+**Remainder**:
+A component's under-determined part, solved after its stages with least
+change: where every freedom, and every drag, lives.
+
 **Rigid cluster**:
-A part of a sketch that is rigid by itself, found by the combinatorial
-pre-pass (`laman::rigidity`'s pebble game) and solved on its own, so a
-local edit re-solves only the clusters it reaches (ROADMAP.md §C2).
+A part of a sketch that is rigid by itself, as a pebble game
+(`laman::rigidity`) would find it, solved as one rigid body. Not built:
+C2 decomposes into stages, and rigid clusters join only if a remainder
+misses the frame budget (ideas/c2-decomposition, M8).
 _Avoid_: block, group
 
 **Generic rigidity**:
