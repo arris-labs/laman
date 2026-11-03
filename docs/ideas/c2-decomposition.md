@@ -1,6 +1,6 @@
 # Idea: c2-decomposition
 
-- Status: Accepted (C, S1); M5 done, M6–M8 to follow
+- Status: Accepted (C, S1); M5 done; M6 absorbed by plans/m6-stages; M7, M8 to follow
 - Raised: 2026-11-04
 - Prompt (verbatim from the human): "c2 (or you can directly plan first thing from it?)"
 
@@ -129,8 +129,8 @@ Milestones (continuing C1's numbering):
   and triangle strips, construction properties and the bounded 4 ms
   benchmark. The measured baseline and corpus contract live in
   ARCHITECTURE.md; upstream edit bit drift is an M6 regression in BACKLOG.md.
-- **M6 — stages**: the decomposition, staged solve and staged diagnostics
-  with the deficient-stage fallback; ADR-0009; C1 digests re-blessed.
+- **M6 — stages**: absorbed by `plans/m6-stages` (its design lives there
+  until retired, then in ARCHITECTURE.md and ADR-0009).
 - **M7 — drag robustness**: sweep-jump bisection, the bisected-frame mark,
   the observed subject in the drag property, radius ≥ 0 (lifts
   `negative-radius-solve`, `drag-negative-radius`); conflict sets against

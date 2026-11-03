@@ -1,0 +1,446 @@
+//! The decomposition of a component into parts: an over-determined head,
+//! square stages in dependency order, an under-determined remainder
+//! (plans/m6-stages).
+//!
+//! The structure is the bipartite graph of a component's required
+//! equations and free parameters, an edge where an equation's gradient has
+//! a term. It is read from the term keys, never their values, so it does not
+//! change as the coordinates move; a contact's regularized terms are its four
+//! points (ADR-0002). A maximum matching of equations to parameters
+//! (augmenting paths, in compiled order, the smallest parameter first) gives
+//! the coarse Dulmage–Mendelsohn split of Dulmage and Mendelsohn, "Coverings
+//! of bipartite graphs", Canadian Journal of Mathematics 10 (1958): the rows
+//! an unmatched row can reach by alternating paths are the head, the columns
+//! an unmatched column can reach are the remainder, and the rest is square
+//! and perfectly matched. Tarjan's strongly connected components of that
+//! middle ("Depth-first search and linear graph algorithms", SIAM Journal on
+//! Computing 1 (1972)) are the stages, emitted in dependency order.
+//!
+//! A constraint's equations never split across parts, so equations of one
+//! source that land in different parts merge them, and the merged graph is
+//! condensed again. A part reads only its own parameters and those of earlier
+//! parts.
+// Internal until the staged solve lands (plans/m6-stages step 4).
+#![allow(dead_code)]
+
+use crate::model::tolerance::{self, Component, Source};
+use crate::model::{Coordinate, Coordinates};
+use crate::residual::{self, Param};
+use crate::system::{Equation, System};
+use std::collections::{BTreeMap, BTreeSet};
+
+/// What a part is, by its place in the decomposition.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Kind {
+    /// More equations than parameters it fixes: every redundancy and
+    /// conflict lives here. Reads nothing outside itself.
+    Head,
+    /// Square and structurally determined.
+    Stage,
+    /// Fewer equations than parameters: every freedom lives here.
+    Remainder,
+}
+
+/// One part of a component.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Part {
+    pub kind: Kind,
+    /// Indices into [`System::equations`], ascending.
+    pub rows: Vec<usize>,
+    /// The parameters the part owns, in the component's order.
+    pub params: Vec<Param>,
+    /// How many of its rows the matching covers.
+    pub matched: usize,
+}
+
+/// A component's parts in dependency order: head, stages, remainder
+/// (a group merged across kinds is a head before a remainder before a stage).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Decomposition {
+    pub parts: Vec<Part>,
+    /// The structural rank: the size of the maximum matching.
+    pub rank: usize,
+}
+
+/// The parameters of `component` that equation `eq` reads, in order.
+pub(crate) fn support(system: &System<'_>, eq: &Equation) -> Vec<Param> {
+    let sk = system.sketch;
+    if let Some(contact) = &eq.contact {
+        let mut out = Vec::new();
+        for point in [contact.a, contact.b, contact.point, contact.centre] {
+            out.push((point.id(), Coordinate::X));
+            out.push((point.id(), Coordinate::Y));
+        }
+        out.sort();
+        out.dedup();
+        return out;
+    }
+    let keys_at = |values: &Coordinates| -> Option<Vec<Param>> {
+        let equation = match eq.source {
+            Source::Arc(id) => residual::intrinsic(sk, values, id),
+            Source::Constraint(id) => residual::equations(sk, values, id)
+                .and_then(|e| e.as_slice().get(eq.index).copied()),
+        }?;
+        (!equation.is_degenerate()).then(|| equation.terms().iter().map(|t| t.0).collect())
+    };
+    // A degenerate equation (coincident ends) has no gradient where it
+    // stands: read its structure at a fixed generic position instead, and
+    // failing that, all it could read.
+    let mut keys = keys_at(&sk.coordinates())
+        .or_else(|| {
+            let mut generic = sk.coordinates();
+            for (i, value) in generic.values_mut().enumerate() {
+                *value = 1.0 + (i * 37 % 101) as f64 * 0.37;
+            }
+            keys_at(&generic)
+        })
+        .unwrap_or_else(|| tolerance::dependencies(sk, eq.source));
+    keys.sort();
+    keys.dedup();
+    keys
+}
+
+/// Cut `component` into parts.
+pub(crate) fn decompose(system: &System<'_>, component: &Component) -> Decomposition {
+    let sources: BTreeSet<Source> = component.sources.iter().copied().collect();
+    let rows: Vec<usize> = system
+        .equations
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| sources.contains(&e.source))
+        .map(|(i, _)| i)
+        .collect();
+    let mut cols: Vec<Param> = component.params.clone();
+    cols.sort();
+    cols.dedup();
+    let col_of: BTreeMap<Param, usize> = cols.iter().enumerate().map(|(i, p)| (*p, i)).collect();
+    let (nr, nc) = (rows.len(), cols.len());
+    let adj: Vec<Vec<usize>> = rows
+        .iter()
+        .map(|&r| {
+            let mut a: Vec<usize> = system
+                .equations
+                .get(r)
+                .map(|e| support(system, e))
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|p| col_of.get(p).copied())
+                .collect();
+            a.sort_unstable();
+            a.dedup();
+            a
+        })
+        .collect();
+    let mut radj: Vec<Vec<usize>> = vec![vec![]; nc];
+    for (r, a) in adj.iter().enumerate() {
+        for &c in a {
+            radj[c].push(r);
+        }
+    }
+
+    // Maximum matching.
+    let mut match_row: Vec<Option<usize>> = vec![None; nr];
+    let mut match_col: Vec<Option<usize>> = vec![None; nc];
+    let mut seen = vec![0_usize; nc];
+    for r in 0..nr {
+        augment(r, &adj, &mut match_row, &mut match_col, &mut seen, r + 1);
+    }
+    let rank = match_row.iter().flatten().count();
+
+    // Head: rows reachable from an unmatched row by alternating paths.
+    let mut head_row: Vec<bool> = match_row.iter().map(Option::is_none).collect();
+    let mut head_col = vec![false; nc];
+    let mut queue: Vec<usize> = (0..nr).filter(|&r| head_row[r]).collect();
+    while let Some(r) = queue.pop() {
+        for &c in &adj[r] {
+            if !head_col[c] {
+                head_col[c] = true;
+                if let Some(r2) = match_col[c] {
+                    if !head_row[r2] {
+                        head_row[r2] = true;
+                        queue.push(r2);
+                    }
+                }
+            }
+        }
+    }
+    // Remainder: columns reachable from an unmatched column.
+    let mut rem_col: Vec<bool> = match_col.iter().map(Option::is_none).collect();
+    let mut rem_row = vec![false; nr];
+    let mut queue: Vec<usize> = (0..nc).filter(|&c| rem_col[c]).collect();
+    while let Some(c) = queue.pop() {
+        for &r in &radj[c] {
+            if !rem_row[r] {
+                rem_row[r] = true;
+                if let Some(c2) = match_row[r] {
+                    if !rem_col[c2] {
+                        rem_col[c2] = true;
+                        queue.push(c2);
+                    }
+                }
+            }
+        }
+    }
+
+    // Groups: elements 0..nr are rows, nr the head, nr + 1 the remainder.
+    let (head, rem) = (nr, nr + 1);
+    let mut uf = UnionFind::new(nr + 2);
+    let mut first_of: BTreeMap<Source, usize> = BTreeMap::new();
+    for (r, &i) in rows.iter().enumerate() {
+        if let Some(e) = system.equations.get(i) {
+            let first = *first_of.entry(e.source).or_insert(r);
+            uf.union(first, r);
+        }
+        if head_row[r] {
+            uf.union(head, r);
+        } else if rem_row[r] {
+            uf.union(rem, r);
+        }
+    }
+    let has_head = head_row.iter().any(|&h| h);
+    let has_rem = rem_col.iter().any(|&h| h);
+    let owner = |c: usize| match_col[c].unwrap_or(rem);
+    let mut node_of_root: BTreeMap<usize, usize> = BTreeMap::new();
+    fn node_of(uf: &mut UnionFind, map: &mut BTreeMap<usize, usize>, e: usize) -> usize {
+        let root = uf.find(e);
+        let next = map.len();
+        *map.entry(root).or_insert(next)
+    }
+    let mut elems: Vec<usize> = (0..nr).collect();
+    if has_head {
+        elems.push(head);
+    }
+    if has_rem {
+        elems.push(rem);
+    }
+    let mut nodes: Vec<usize> = Vec::new(); // element -> node, by position in `elems`
+    for &e in &elems {
+        nodes.push(node_of(&mut uf, &mut node_of_root, e));
+    }
+    let n = node_of_root.len();
+    let mut holds_head = vec![false; n];
+    let mut holds_rem = vec![false; n];
+    let mut first_row = vec![usize::MAX; n];
+    for (&e, &node) in elems.iter().zip(&nodes) {
+        if e == head {
+            holds_head[node] = true;
+        } else if e == rem {
+            holds_rem[node] = true;
+        } else {
+            first_row[node] = first_row[node].min(e);
+        }
+    }
+    // u depends on v when a row of u reads a column v owns.
+    let mut deps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); n];
+    for r in 0..nr {
+        let u = nodes[r];
+        for &c in &adj[r] {
+            let v = node_of(&mut uf, &mut node_of_root, owner(c));
+            if u != v {
+                deps[u].insert(v);
+            }
+        }
+    }
+    let deps: Vec<Vec<usize>> = deps.into_iter().map(|d| d.into_iter().collect()).collect();
+    let comp = tarjan(&deps);
+    let k = comp.iter().copied().max().map_or(0, |m| m + 1);
+    let mut cfirst = vec![usize::MAX; k];
+    let mut chead = vec![false; k];
+    let mut crem = vec![false; k];
+    for (node, &c) in comp.iter().enumerate() {
+        cfirst[c] = cfirst[c].min(first_row[node]);
+        chead[c] |= holds_head[node];
+        crem[c] |= holds_rem[node];
+    }
+    // A merged group takes the earliest kind: head, else remainder, else stage.
+    let ckind: Vec<Kind> = (0..k)
+        .map(|c| match (chead[c], crem[c]) {
+            (true, _) => Kind::Head,
+            (false, true) => Kind::Remainder,
+            (false, false) => Kind::Stage,
+        })
+        .collect();
+    let mut cdeps: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); k];
+    for (u, ds) in deps.iter().enumerate() {
+        for &v in ds {
+            if comp[u] != comp[v] {
+                cdeps[comp[u]].insert(comp[v]);
+            }
+        }
+    }
+    let mut waiting: Vec<usize> = cdeps.iter().map(BTreeSet::len).collect();
+    let mut users: Vec<Vec<usize>> = vec![vec![]; k];
+    for (u, ds) in cdeps.iter().enumerate() {
+        for &v in ds {
+            users[v].push(u);
+        }
+    }
+    let mut ready: BTreeSet<(Kind, usize, usize)> = (0..k)
+        .filter(|&c| waiting[c] == 0)
+        .map(|c| (ckind[c], cfirst[c], c))
+        .collect();
+    let mut order = Vec::with_capacity(k);
+    while let Some(next) = ready.pop_first() {
+        let c = next.2;
+        order.push(c);
+        for &u in &users[c] {
+            waiting[u] -= 1;
+            if waiting[u] == 0 {
+                ready.insert((ckind[u], cfirst[u], u));
+            }
+        }
+    }
+    let position: BTreeMap<usize, usize> = order.iter().enumerate().map(|(p, c)| (*c, p)).collect();
+    let mut parts: Vec<Part> = order
+        .iter()
+        .map(|&c| Part {
+            kind: ckind[c],
+            rows: vec![],
+            params: vec![],
+            matched: 0,
+        })
+        .collect();
+    for r in 0..nr {
+        if let Some(p) = position
+            .get(&comp[nodes[r]])
+            .and_then(|&p| parts.get_mut(p))
+        {
+            p.rows.push(rows[r]);
+            p.matched += usize::from(match_row[r].is_some());
+        }
+    }
+    for (c, param) in cols.iter().enumerate() {
+        let node = node_of(&mut uf, &mut node_of_root, owner(c));
+        if let Some(p) = position.get(&comp[node]).and_then(|&p| parts.get_mut(p)) {
+            p.params.push(*param);
+        }
+    }
+    parts.retain(|p| !p.rows.is_empty() || !p.params.is_empty());
+    Decomposition { parts, rank }
+}
+
+/// Extend the matching by an augmenting path from `root`, iteratively (a
+/// long chain of equations must not overflow the stack). `stamp` marks the
+/// columns visited in this attempt.
+fn augment(
+    root: usize,
+    adj: &[Vec<usize>],
+    match_row: &mut [Option<usize>],
+    match_col: &mut [Option<usize>],
+    seen: &mut [usize],
+    stamp: usize,
+) -> bool {
+    let mut stack: Vec<(usize, usize)> = vec![(root, 0)];
+    let mut via: Vec<usize> = Vec::new();
+    while let Some(&(r, i)) = stack.last() {
+        let Some(&c) = adj[r].get(i) else {
+            stack.pop();
+            via.pop();
+            continue;
+        };
+        if let Some(top) = stack.last_mut() {
+            top.1 += 1;
+        }
+        if seen[c] == stamp {
+            continue;
+        }
+        seen[c] = stamp;
+        via.push(c);
+        match match_col[c] {
+            None => {
+                for (&(row, _), &col) in stack.iter().zip(&via) {
+                    match_row[row] = Some(col);
+                    match_col[col] = Some(row);
+                }
+                return true;
+            }
+            Some(next) => stack.push((next, 0)),
+        }
+    }
+    false
+}
+
+/// Strongly connected components, numbered so that every node's
+/// dependencies (its out-neighbours) get a smaller or equal number.
+fn tarjan(adj: &[Vec<usize>]) -> Vec<usize> {
+    let n = adj.len();
+    let mut index = vec![usize::MAX; n];
+    let mut low = vec![0_usize; n];
+    let mut on = vec![false; n];
+    let mut comp = vec![usize::MAX; n];
+    let (mut counter, mut count) = (0, 0);
+    let mut path: Vec<usize> = Vec::new();
+    for start in 0..n {
+        if index[start] != usize::MAX {
+            continue;
+        }
+        let mut call: Vec<(usize, usize)> = vec![(start, 0)];
+        index[start] = counter;
+        low[start] = counter;
+        counter += 1;
+        path.push(start);
+        on[start] = true;
+        while let Some(&(v, i)) = call.last() {
+            if let Some(&w) = adj[v].get(i) {
+                if let Some(top) = call.last_mut() {
+                    top.1 += 1;
+                }
+                if index[w] == usize::MAX {
+                    index[w] = counter;
+                    low[w] = counter;
+                    counter += 1;
+                    path.push(w);
+                    on[w] = true;
+                    call.push((w, 0));
+                } else if on[w] {
+                    low[v] = low[v].min(index[w]);
+                }
+            } else {
+                call.pop();
+                if low[v] == index[v] {
+                    while let Some(w) = path.pop() {
+                        on[w] = false;
+                        comp[w] = count;
+                        if w == v {
+                            break;
+                        }
+                    }
+                    count += 1;
+                }
+                if let Some(&(parent, _)) = call.last() {
+                    low[parent] = low[parent].min(low[v]);
+                }
+            }
+        }
+    }
+    comp
+}
+
+struct UnionFind {
+    parent: Vec<usize>,
+}
+
+impl UnionFind {
+    fn new(n: usize) -> Self {
+        Self {
+            parent: (0..n).collect(),
+        }
+    }
+
+    fn find(&mut self, mut x: usize) -> usize {
+        while self.parent[x] != x {
+            self.parent[x] = self.parent[self.parent[x]];
+            x = self.parent[x];
+        }
+        x
+    }
+
+    /// Joins by the smaller root, so a group's root is its smallest element.
+    fn union(&mut self, a: usize, b: usize) {
+        let (a, b) = (self.find(a), self.find(b));
+        self.parent[a.max(b)] = a.min(b);
+    }
+}
+
+#[cfg(test)]
+mod tests;

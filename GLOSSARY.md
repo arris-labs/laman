@@ -156,11 +156,16 @@ problem (ARCHITECTURE.md §Solve).
 _Avoid_: subsystem (until it means a rigid cluster), island
 
 **Stage**:
-A square, structurally determined set of a component's required
+One of a component's square parts: a strongly connected set of required
 equations with the free parameters they fix, from the Dulmage–Mendelsohn
 decomposition of the compiled system. Stages solve in dependency order,
 so an edit never moves a stage before it (ideas/c2-decomposition).
 _Avoid_: block, cluster
+
+**Head**:
+A component's over-determined part, solved first: more equations than the
+parameters they fix, so every redundancy and conflict lives here. It
+reads nothing outside itself.
 
 **Remainder**:
 A component's under-determined part, solved after its stages with least
