@@ -92,7 +92,7 @@ A defect a run measured, one block each:
 - Seen: M5 step 4 shared C2 runner, baseline `87cc742`, 2026-11-04
 - Reproduce: `cargo test -p laman-debug --test solve_regression upstream_edit_drift -- --ignored`
 - Measured: three points, two distances, second edited 20 → 22; upstream x moves by 248 ULP (LM) or 1 ULP (DogLeg); FullyConstrained, DoF 0 and checker clean before/after
-- State: regression/upstream-edit-drift
+- State: regression/upstream-edit-drift; M6 regression, strict bits deferred from M5 acceptance with human authorization (2026-11-04)
 
 ## Rejected
 

@@ -48,7 +48,7 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
   sits on the construction's branch. No randomness.
 - **`Edit`**: the constraint's tag, its new value, the expected coordinates
   after, and `unmoved`: the entities upstream of the edit in the
-  construction, which must keep their **bits** across the re-solve (the
+  construction, whose exact **bits** are the M6 regression guarantee across the re-solve (the
   roadmap's "geometry outside the edited clusters"). The re-solve starts
   from the solved coordinates (the sketcher's case).
 - **The three families** (ROADMAP.md §C2's "chains of profiles, patterns of
@@ -90,9 +90,9 @@ unproven — an algorithm whose robustness or bound is established here.
   arc's sweep π, no flip, the C1 slot's coordinates per cell.
 - [x] Step 3 **[2]** — `triangle_strip` the same way, tested at `n = 6`,
   including the edit's rigid tail by construction.
-- [ ] Step 4 **[2]** — `tests/c2.rs` runs each family's case, edit and drag
+- [x] Step 4 **[2]** — `tests/c2.rs` runs each family's case, edit and drag
   through one helper: expected coordinates, status, DoF, empty redundant
-  and conflicts, no flip, checker green, `unmoved` bit-equal, every drag
+  and conflicts, no flip, checker green, `unmoved` geometrically unchanged, every drag
   step's coordinates; small sizes in the gate.
 - [ ] Step 5 **[2]** — the same tests at 100, 250 and 500 entities per family;
   each size whose debug-build run exceeds 10 s (measured here) is
@@ -101,7 +101,7 @@ unproven — an algorithm whose robustness or bound is established here.
   commit body (pass or the first failing number).
 - [ ] Step 6 **[2]** — property: each family at random small sizes and
   random dimensions within its construction's ranges (`proptest`) solves
-  back to its construction, checker green, the edit's `unmoved` bit-equal.
+  back to its construction, checker green, the edit's `unmoved` geometrically unchanged.
 - [ ] Step 7 **[1]** — example `bench_c2`: per family and size (100, 250,
   500), per algorithm, the median and worst of the static solve, the edit
   re-solve and a drag step; prints over/under the 4 ms budget and the
@@ -114,7 +114,7 @@ unproven — an algorithm whose robustness or bound is established here.
 
 - `cargo test -p laman-debug --test c2`: every non-ignored case green under
   both algorithms, checker clean, DoF exact (0 static and edited, 1 dragged),
-  redundant and conflicts empty, no flip, `unmoved` bit-equal; every
+  redundant and conflicts empty, no flip, `unmoved` within the unchanged coordinate tolerance; every
   ignored case named with its measured time, and run once in release with
   the outcome in step 5's commit.
 - The corpus property at its default case count, green.
@@ -134,12 +134,14 @@ unproven — an algorithm whose robustness or bound is established here.
 
 ## Open questions
 
-- ⚠ OPEN: step 4 is blocked by upstream bit drift in all three small
-  families. The minimal `regression/upstream-edit-drift` has three points
-  and two distances: edit the second from 20 to 22; LM changes upstream x
-  by 248 ULP, DogLeg by 1 ULP, with both checker clean. M5 excludes solver
-  changes; deferring this assertion to M6 would change acceptance and
-  needs the human's decision. Step 4 remains unchecked.
+- **Settled (human, 2026-11-04):** strict upstream bit preservation is
+  deferred to M6, recorded in `BACKLOG.md` and the unchanged ignored
+  `regression/upstream-edit-drift` tests for both algorithms. The human
+  authorized "yes, mark in backlog and continue". M5 retains its original
+  coordinate tolerance, checker, status, DoF, diagnostics and drag assertions;
+  its ordinary tests and property check upstream geometry within that
+  tolerance. This explicitly changes M5 acceptance, without accepting the
+  drift as correct behavior.
 
 - ⚠ OPEN: the debug-build limit for ignoring a large case (10 s here) and
   the bench's first-run limit — the agent, at steps 5 and 7, recording the
