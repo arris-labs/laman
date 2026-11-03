@@ -47,8 +47,10 @@ Rust is now what a solver is expected to have, not a reason for laman.
 
 ## Where laman would differ
 
-Each item is a plan, held by a roadmap acceptance (ROADMAP.md), not a
-claim about today.
+Items 1 to 3 exist today (the wheels, `laman-check`, the drag session and
+the digests); item 4 is the degree of difference described below. Each is
+held by a roadmap acceptance (ROADMAP.md), and none is a claim about the
+other solvers' future.
 
 1. **Python, permissive, from the same core.** No permissively licensed
    solver is on PyPI. Laman ships abi3 wheels from the Rust crate, with
@@ -74,8 +76,17 @@ Run 2026-11-03: `sketch-solver` 0.1.0, `acs-solver` 0.1.19 and `ezpz` 0.2.29
 (each pinned exactly) were run out of process, each on the ten C1 sketches
 (the four fixtures and their six twins under `tests/fixtures/c1/`), started
 from the fixture's guesses. Each translation was proven before its numbers
-count: the solver's own residuals are zero at the fixture's expected
-coordinates, apart from the one extra constraint of a conflicting twin. The
+count: each solver's own equations are satisfied, within a tolerance, at the
+fixture's expected coordinates, apart from the one extra constraint of a conflicting twin.
+The proof has limits. Residual zero at one point is necessary, not
+sufficient: a wrong equation can vanish there. Laman's `sense` on tangent and
+`point_line_distance` constraints and the arc angles are inferred by the other
+solvers from the starting guesses, so the guess side matters. `ezpz` exposes
+no residual or DoF: its `translation_residual` is the largest variable
+movement. `acs-solver`'s 0.0 is a placeholder, because it skips components
+under its `TOLF` = 1e-10. The tolerance is an absolute 1e-9 stand-in, as no
+`expected.json` carries one. The reports use std `hypot`/`atan2`, so byte
+identity is observed on the reference machine, not guaranteed across targets. The
 comparison is on status, DoF and conflict sets, never coordinates
 (SEED.md §7). All thirty runs solved. To rerun: `tools/oracle/run.sh`, then
 `python3 tools/oracle/compare.py` prints this table from the committed
@@ -139,18 +150,23 @@ meets it (the C1 acceptance tests).
 
 Of the thirty reports, one fixture differs from laman's expectation:
 `sss-triangle-conflicting`. `sketch-solver` and `acs-solver` both name the
-conflict set {`apex`, `base`, `left`, `right`}; laman names {`apex`, `base`,
-`right`}. The difference is theirs, and laman's set is the right one,
-checked by hand against the construction: `base` puts the second corner `b`
-50 from the origin `o`, `apex` makes the angle between `base` and `left` 60°,
-so the apex `a` lies on the 60° line through `o`, and `b` is 50·sin 60° =
-43.3 from that line while `right` allows `|ab|` = 40. These three are
-contradictory whatever `left` says, and none of them depends on the
-rotation `horizontal` removes, so the set is inclusion-minimal and `left` is
-not in it. Their set is a conflicting superset, not a wrong
-one: each reports every constraint on the path of the contradiction, laman
-a minimal subset. `ezpz` agrees on satisfaction and exposes no sets. No
-disagreement is laman's fault, so no regression fixture is made.
+set {`apex`, `base`, `left`, `right`}; laman names {`apex`, `base`, `right`}.
+Laman's set is the conflict set, checked by hand against the construction
+(the fixture has `a` = (50, 0), `b` = (18, 24)): `base` fixes `a` 50 from the
+origin `o`, `apex` puts `b` on the 60° line through `o`, and `a` is
+50·sin 60° = 43.3 from that line while `right` allows `|ab|` = 40
+(ROADMAP.md §C1 acceptance 1). These three are contradictory whatever `left`
+says, and none of them depends on the rotation `horizontal` removes. For
+inclusion-minimality every pair must also be satisfiable: `base` + `right`
++ `left` is the triangle, `base` + `apex` + `left` puts `b` 30 along the 60°
+line, and `right` + `apex` leaves `|oa|` free. The solvers' set is what
+remains at the least-squares point, where the four rotation-invariant
+constraints share the residual (the reasoning is in the `c1_conflicting_twins`
+test in `crates/laman/src/diagnose/analysis/tests.rs`). It is an
+unsatisfiable superset of laman's set, not a minimal one, and so not a
+conflict set in this project's sense (GLOSSARY.md). `ezpz` agrees on
+satisfaction and exposes no sets. No disagreement is laman's fault, so no
+regression fixture is made.
 
 ## What is not claimed
 

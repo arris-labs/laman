@@ -415,8 +415,17 @@ pub fn run(fx: &Fixture) -> Report {
                     .iter()
                     .map(|i| name(fx, &one, *i))
                     .collect(),
-                // A refusal is not a pass.
-                Err(_) => BTreeSet::from([fx.constraint_name(*v)]),
+                // A refusal is not a pass: it proves nothing about the
+                // constraint, so the translation is an error.
+                Err(e) => {
+                    return Ok(fail(
+                        Outcome::Error,
+                        format!(
+                            "translation not proven: solver refused {} alone: {e:?}",
+                            fx.constraint_name(*v)
+                        ),
+                    ));
+                }
             };
             if unmet.is_empty() {
                 return Ok(fail(
