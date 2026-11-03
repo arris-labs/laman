@@ -438,7 +438,7 @@ fn slots(
 }
 
 /// Builds a grounded plate with `rows * cols` slots (10 entities each, plus 8).
-/// Slots have radius 5 and centres 20 apart, matching C1's slot geometry.
+/// Slots have radius 5 and centres 40 apart, matching C1's slot geometry.
 /// Refuses zero rows/columns or unrepresentable geometry.
 ///
 /// ```
@@ -447,7 +447,7 @@ fn slots(
 /// # Ok::<(), laman_debug::corpus::CorpusError>(())
 /// ```
 pub fn slot_grid(rows: usize, cols: usize) -> Result<Case, CorpusError> {
-    slot_grid_with(rows, cols, 20.0, 5.0)
+    slot_grid_with(rows, cols, 40.0, 5.0)
 }
 
 /// Builds a slot grid with positive finite centre separation and radius.

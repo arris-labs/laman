@@ -68,6 +68,35 @@ fn rect_chain_three() {
 fn slot_grid_two_by_two() {
     let case = slot_grid(2, 2).unwrap();
     assert_eq!(case.sketch.entities().count(), 48);
+    // C1's local slot coordinates are (40,30), (40,35), (40,25),
+    // (80,30), (80,25), (80,35), translated into each grid cell.
+    for i in 0..4 {
+        let mut centres = Vec::new();
+        for side in ["left", "right"] {
+            let tag = format!("slot-{i}-{side}");
+            let (_, entity) = case
+                .sketch
+                .entities()
+                .find(|(id, _)| case.sketch.tag_of(*id) == Some(tag.as_str()))
+                .unwrap();
+            assert!(matches!(entity, laman::model::Entity::Arc { .. }));
+            if let laman::model::Entity::Arc { c, s, e } = entity {
+                let xy = |p: laman::model::Point| {
+                    [
+                        case.expected.coordinates[&(p.id(), laman::model::Coordinate::X)],
+                        case.expected.coordinates[&(p.id(), laman::model::Coordinate::Y)],
+                    ]
+                };
+                let centre = xy(*c);
+                let (start, end) = (xy(*s), xy(*e));
+                let sign = if side == "left" { 1.0 } else { -1.0 };
+                assert_eq!(start, [centre[0], centre[1] + sign * 5.0]);
+                assert_eq!(end, [centre[0], centre[1] - sign * 5.0]);
+                centres.push(centre);
+            }
+        }
+        assert_eq!(centres[1], [centres[0][0] + 40.0, centres[0][1]]);
+    }
     static_case("slot-grid-2-2", &case);
     for step in &case.drag.as_ref().unwrap().drag.after {
         assert!(check(&case.drag.as_ref().unwrap().sketch, &step.coordinates).is_clean());
