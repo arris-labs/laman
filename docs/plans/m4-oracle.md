@@ -108,7 +108,7 @@ within a given design; **[3]** unproven.
   translation-residual check on the four bases, diagnose, ten reports.
 - [x] Step 4 **[2]** — `acs-solver` adapter, the same.
 - [x] Step 5 **[2]** — `ezpz` adapter, the same.
-- [ ] Step 6 **[1]** — `compare.py` and the committed reports under
+- [x] Step 6 **[1]** — `compare.py` and the committed reports under
   `tools/oracle/results/`; its output is the table.
 - [ ] Step 7 **[2]** — Every disagreement analysed by hand against the
   fixture's construction (ROADMAP.md §C1 acceptance gives the reasoning):

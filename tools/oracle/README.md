@@ -13,6 +13,9 @@ tools/oracle/target/debug/laman-oracle hello <sketch-solver|acs-solver|ezpz>
 tools/oracle/run.sh [solver ...]   # every fixture, one process each, under ORACLE_TIMEOUT (60 s)
 ```
 
+`python3 tools/oracle/compare.py` (stdlib only) reads the committed reports and the
+fixtures' `expected.json` and prints the comparison table; it runs no solver.
+
 `run.sh` writes `results/<solver>/<fixture>.json` (the report of `src/report.rs`);
 a panic, signal or hang in a solver becomes a `crashed` or `timeout` report.
 `cargo test --manifest-path tools/oracle/Cargo.toml` holds the report type.
