@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Refuse a release unless its tag, workspace version and changelog agree.
-# Usage: tools/release-check.sh vX.Y.Z (also used by release.yml).
+# Usage: tools/release-check.sh vX.Y.Z [NOTES] (also used by release.yml).
+# With NOTES, the version's CHANGELOG.md section is written there as the
+# GitHub Release's notes, and an empty section is refused.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -9,7 +11,7 @@ fail() {
   exit 1
 }
 
-[ "$#" -eq 1 ] || fail "usage: tools/release-check.sh vX.Y.Z"
+[ "$#" -eq 1 ] || [ "$#" -eq 2 ] || fail "usage: tools/release-check.sh vX.Y.Z [NOTES]"
 tag=$1
 version=$(awk '
   /^\[workspace.package\]$/ { package = 1; next }
@@ -25,4 +27,11 @@ awk -v heading="## $version" '
   $0 == heading || index($0, heading " — ") == 1 { found = 1 }
   END { exit !found }
 ' CHANGELOG.md || fail "CHANGELOG.md needs a '## $version' release heading"
+if [ "$#" -eq 2 ]; then
+  awk -v heading="## $version" '
+    /^## / { inside = ($0 == heading || index($0, heading " — ") == 1); next }
+    inside
+  ' CHANGELOG.md > "$2"
+  grep -q '[^[:space:]]' "$2" || fail "CHANGELOG.md's '## $version' section is empty"
+fi
 echo "release-check: $tag green"

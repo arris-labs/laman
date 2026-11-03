@@ -41,8 +41,10 @@ jobs:
           else
             test "$REF_TYPE" = tag || { echo 'A real release requires a v* tag'; exit 1; }
             tag=$REF_NAME
+            # A real release also needs non-empty notes before anything uploads.
+            notes="$RUNNER_TEMP/notes.md"
           fi
-          tools/release-check.sh "$tag"
+          tools/release-check.sh "$tag" ${notes:+"$notes"}
       - uses: actions/upload-artifact@v4
         if: steps.mode.outputs.dry-run == 'true'
         with:
@@ -121,3 +123,18 @@ jobs:
           name: sdist
           path: dist
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # The GitHub Release, its notes the version's CHANGELOG.md section, once
+  # both registries hold the version.
+  github-release:
+    needs: [release-check, publish-crate, publish-pypi]
+    if: needs.release-check.outputs.dry-run == 'false'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: tools/release-check.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/notes.md"
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+        env:
+          GH_TOKEN: ${{ github.token }}

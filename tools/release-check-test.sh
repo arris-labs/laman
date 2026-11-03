@@ -35,7 +35,7 @@ expect 0 'undated release heading' v0.1.0
 expect 1 'mismatched tag' v0.2.0
 expect 1 'missing tag prefix' 0.1.0
 expect 1 'missing argument'
-expect 1 'extra argument' v0.1.0 extra
+expect 1 'extra argument' v0.1.0 notes extra
 manifest 0.1.0-dev
 expect 1 'development version' v0.1.0-dev
 manifest 0.1.0
@@ -43,4 +43,10 @@ printf '## Unreleased\n' > "$fixture/CHANGELOG.md"
 expect 1 'missing heading' v0.1.0
 printf '## 0.1.00\nA mention of ## 0.1.0\n### 0.1.0\n' > "$fixture/CHANGELOG.md"
 expect 1 'version mention is not a release heading' v0.1.0
+printf '## Unreleased\n\n## 0.1.0 — 2026-11-02\n\n- a bullet\n\n## 0.0.1\n\n- older\n' > "$fixture/CHANGELOG.md"
+expect 0 'notes written' v0.1.0 "$fixture/notes"
+grep -qx -- '- a bullet' "$fixture/notes" || { echo 'release-check-test: notes lack the section' >&2; exit 1; }
+! grep -q older "$fixture/notes" || { echo 'release-check-test: notes run into the next section' >&2; exit 1; }
+printf '## 0.1.0\n\n## 0.0.1\n\n- older\n' > "$fixture/CHANGELOG.md"
+expect 1 'empty section refused for notes' v0.1.0 "$fixture/notes"
 echo 'release-check-test: green'

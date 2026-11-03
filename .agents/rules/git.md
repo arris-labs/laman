@@ -55,13 +55,14 @@ Name any public type or signature it changes.
   with `dry_run` (the default) rehearses with temporary stable metadata
   and uploads nothing.
 - `release.yml` refuses a tag that is not `v` plus `[workspace.package].version`
-  with no `-dev`, or whose `CHANGELOG.md` lacks its `## X.Y.Z` heading
-  (`tools/release-check.sh`). It then runs `ci.yml` and `wheels.yml`, and
-  publishes: `publish-crate` (`cargo publish -p laman`, crates.io trusted
-  publishing, GitHub environment `crates-io`) and `publish-pypi` (the
-  wheels and sdist, PyPI trusted publishing, GitHub environment `pypi`).
-  Each environment has a required reviewer: every upload waits for the
-  human's approval.
+  with no `-dev`, or whose `CHANGELOG.md` lacks a non-empty `## X.Y.Z`
+  section (`tools/release-check.sh`). It then runs `ci.yml` and
+  `wheels.yml`, and publishes: `publish-crate` (`cargo publish -p laman`,
+  crates.io trusted publishing, GitHub environment `crates-io`) and
+  `publish-pypi` (the wheels and sdist, PyPI trusted publishing, GitHub
+  environment `pypi`). Each environment has a required reviewer: every
+  upload waits for the human's approval. `github-release` then opens the
+  GitHub Release, its notes that changelog section.
 - The trusted publishers and the environments' reviewers are configured
   in the crates.io, PyPI and GitHub web UIs by the human, before the first
   real release. An agent never publishes by hand, unless `release.yml` is
