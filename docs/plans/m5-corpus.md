@@ -113,7 +113,7 @@ unproven — an algorithm whose robustness or bound is established here.
 - [x] Step 6 **[2]** — property: each family at random small sizes and
   random dimensions within its construction's ranges (`proptest`) solves
   back to its construction, checker green, the edit's `unmoved` geometrically unchanged.
-- [ ] Step 7 **[1]** — example `bench_c2`: per family and size (100, 250,
+- [x] Step 7 **[1]** — example `bench_c2`: per family and size (100, 250,
   500), per algorithm, the median and worst of the static solve, the edit
   re-solve and a drag step; prints over/under the 4 ms budget and the
   machine; exits zero (the budget is M6's to meet). A case slower than a
@@ -166,6 +166,13 @@ unproven — an algorithm whose robustness or bound is established here.
   per case. The 498-entity slots reached that bound after LM passed every
   operation; DogLeg returned no static answer, so the full run has no
   verdict. Step 7 settles the bench's first-run limit.
+- **Settled (step 7):** benchmark workers have a 5 s hard wall limit,
+  including setup; 48 applicable rows bound the run to 240 s plus process
+  overhead. A first timed sample above 100 ms is not repeated; otherwise
+  five samples give median/worst. Setup timeouts have no timing verdict;
+  timed timeouts report a conservative lower bound, never a completed
+  median. The six triangle drag positions are N/A. This records today's
+  baseline without asking M5 to solve M6's speed problem.
 - ⚠ OPEN: whether "nested constraints" means more than a deep dependency
   chain (dimensions referencing dimensions, profiles inside profiles) — the
   agent reads the triangle strip as the deep chain, the slot grid as
