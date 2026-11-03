@@ -11,6 +11,7 @@
 //! `run.sh` calls it once per solver and fixture, each in its own process
 //! under a timeout, so a panic or a hang in a foreign solver is a report.
 
+mod acs;
 mod fixture;
 mod hello;
 mod report;
@@ -27,9 +28,8 @@ fn run(solver: &str, fx: &fixture::Fixture) -> Report {
     match solver {
         "stub" => Report::without_numbers(solver, &fx.name, Outcome::Unsupported, "stub"),
         "sketch-solver" => sketch_solver::run(fx),
-        "acs-solver" | "ezpz" => {
-            Report::without_numbers(solver, &fx.name, Outcome::Error, "no adapter yet")
-        }
+        "acs-solver" => acs::run(fx),
+        "ezpz" => Report::without_numbers(solver, &fx.name, Outcome::Error, "no adapter yet"),
         _ => Report::without_numbers(solver, &fx.name, Outcome::Error, "unknown solver"),
     }
 }

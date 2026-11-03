@@ -1,0 +1,23 @@
+{
+  "solver": "acs-solver",
+  "version": "0.1.19",
+  "fixture": "slotted-plate-conflicting",
+  "outcome": "solved",
+  "status": "Unsatisfiable",
+  "solver_status": "failed",
+  "dof": 0,
+  "redundant": [],
+  "conflicts": [
+    [
+      "same-ends",
+      "slot-r",
+      "slot-r2"
+    ]
+  ],
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "slot-r2"
+  ],
+  "detail": null
+}

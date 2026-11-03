@@ -113,3 +113,13 @@ variables it calls underconstrained, nothing more.
 - `sketch-solver` names a conflict by the later constraint plus the earlier
   ones it depends on (`with`); the report's set is both together. An arc's own
   equation is named `arc:<tag or #id>`.
+- `src/acs.rs` (step 4): every C1 kind translates to a JSON request
+  (`e<id>` entities, `k<id>` constraints; a `fix` would be two). Lines are
+  infinite where laman's are (`extension: true` for `point_on_line`,
+  `point_line_distance` and line-circle `tangent`), `angle` is the
+  one-root form between rays. An arc's radius and two angles are computed from
+  the guesses. The proof is as `sketch-solver`'s with `maxIterations: 0`
+  (acs-solver still takes one step in a component not already within 1e-10, so
+  the check is status `converged`, the reported initial and final error, and
+  that no coordinate moved), and each violated constraint put back alone must
+  make the solve `failed`. `conflicting` is one flat list, reported as one set.

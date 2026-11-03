@@ -1,0 +1,28 @@
+{
+  "solver": "acs-solver",
+  "version": "0.1.19",
+  "fixture": "belt-conflicting",
+  "outcome": "solved",
+  "status": "Unsatisfiable",
+  "solver_status": "failed",
+  "dof": 0,
+  "redundant": [],
+  "conflicts": [
+    [
+      "r1",
+      "r2",
+      "span",
+      "top-on-c1",
+      "top-on-c2",
+      "top-tangent-c1",
+      "top-tangent-c2",
+      "top-length"
+    ]
+  ],
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "top-length"
+  ],
+  "detail": null
+}

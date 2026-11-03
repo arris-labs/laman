@@ -106,7 +106,7 @@ within a given design; **[3]** unproven.
   `tools/oracle/src`; a test that a stub solver's report round-trips.
 - [x] Step 3 **[2]** — `sketch-solver` adapter: translate, the
   translation-residual check on the four bases, diagnose, ten reports.
-- [ ] Step 4 **[2]** — `acs-solver` adapter, the same.
+- [x] Step 4 **[2]** — `acs-solver` adapter, the same.
 - [ ] Step 5 **[2]** — `ezpz` adapter, the same.
 - [ ] Step 6 **[1]** — `compare.py` and the committed reports under
   `tools/oracle/results/`; its output is the table.

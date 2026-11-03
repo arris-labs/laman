@@ -1,0 +1,17 @@
+{
+  "solver": "acs-solver",
+  "version": "0.1.19",
+  "fixture": "belt-redundant",
+  "outcome": "solved",
+  "status": "FullyConstrained",
+  "solver_status": "converged",
+  "dof": 0,
+  "redundant": [
+    "same-belt"
+  ],
+  "conflicts": [],
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [],
+  "detail": null
+}
