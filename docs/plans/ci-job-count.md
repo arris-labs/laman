@@ -72,7 +72,7 @@ the only test is a CI run on `plan/ci-job-count`.
   12 jobs, green, and the 3.13 step's pytest summary in the log.
 - [x] Step 3 **[1, CI]** — `ci.yml`: the tag trigger and a single
   `python` job. Test: the branch push runs 7 jobs, green.
-- [ ] Step 4 **[2, CI]** — `release.yml`: drop the `ci` call, make
+- [x] Step 4 **[2, CI]** — `release.yml`: drop the `ci` call, make
   `wheels` and `crate-dry-run` independent of `release-check`, and add the
   green-CI check to `publish-crate`. Test: `gh workflow run release.yml
   --ref plan/ci-job-count` builds 14 jobs green, its `release-check`
@@ -107,9 +107,10 @@ the only test is a CI run on `plan/ci-job-count`.
 - `CHANGELOG.md`: nothing (no consumer sees CI).
 
 ## Open questions
-- ⚠ OPEN: the `wheels.yml` pull-request paths. The agent decides by
-  step 2: anything that can change the shipped package or its tests runs
-  it, and prose cannot.
-- ⚠ OPEN: whether `publish-pypi` repeats the green-CI check or relies on
-  `publish-crate`, which it already needs. The agent decides by step 4;
-  default: it relies on `publish-crate`.
+- Settled (step 2): the `wheels.yml` pull-request paths are the ones in
+  *Design deltas*: anything that can change the shipped package or its
+  tests runs it, and prose cannot.
+- Settled (step 4): `publish-pypi` relies on `publish-crate`, which it
+  needs, rather than repeating the green-CI check. `release-check` lost its
+  dry-run branch in this step (a dispatch must now fail it), so the
+  `dry_run` input stays declared but unused until step 5.
