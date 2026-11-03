@@ -222,8 +222,10 @@ finite-difference step (`laman_debug::fd`).
 _Avoid_: characteristic length, step size
 
 **Oracle**:
-Another solver (SolveSpace, PlaneGCS) run out of process when analytic
-expectations run out; compared on DoF and conflict sets, not coordinates.
+Another solver run out of process under `tools/oracle/`: SolveSpace or
+PlaneGCS when analytic expectations run out, and the comparison run of the
+Rust field (`sketch-solver`, `acs-solver`, `ezpz`) on the C1 fixtures;
+compared on status, DoF and conflict sets, not coordinates.
 _Avoid_: reference solver, ground truth
 
 **Gate**:

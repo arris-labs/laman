@@ -11,6 +11,11 @@ Laman is written from scratch under MIT OR Apache-2.0.
 - Either may be **run** as a test oracle, out of process under
   `tools/oracle/`, only when analytic expectations run out (SEED.md §7). It
   is never a build, runtime or dev dependency of any crate here.
+- **`sketch-solver`** (MIT OR Apache-2.0), **`acs-solver`** (MIT) and
+  **`ezpz`** (MIT) are **run**, out of process under `tools/oracle/`, as
+  the comparison of `docs/COMPARISON.md`: pinned crates built there, their
+  code not read for ideas and not copied, their results compared on status,
+  DoF and conflict sets only.
 - **arrix**'s sketcher contributed experience only (SEED.md §8); its code
   is not read for copying.
 - Published algorithms are implemented from the papers and cited where

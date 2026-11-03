@@ -3,8 +3,11 @@
 A survey for someone choosing a 2D constraint solver for Rust or Python,
 and the check on laman's own reason to exist (SEED.md §3, §4). Surveyed
 2026-11-01 from each project's own pages and registry metadata, cited
-inline; nothing here was run or benchmarked. Laman's column is its plan,
-not its state: today it solves, drags and checks sketches from Rust and Python (`CHANGELOG.md`), with cross-OS wheel builds in CI; the oracle runs are still to come.
+inline; no benchmark was run. Three of the Rust solvers were also run on
+laman's C1 fixtures (§The comparison run). Laman's column is what it does
+today: it solves, drags and checks sketches from Rust and Python
+(`CHANGELOG.md`), with cross-OS wheel builds in CI and its digests held
+equal on five OS/arch runners and wasm32.
 `/close-cycle` re-reads this file against the code and the sources; a row
 that stops being true is fixed in the commit that makes it untrue.
 
@@ -67,6 +70,71 @@ claim about today.
 
 ## The comparison run
 
+Run 2026-11-03: `sketch-solver` 0.1.0, `acs-solver` 0.1.19 and `ezpz` 0.2.29
+(each pinned exactly) were run out of process, each on the ten C1 sketches
+(the four fixtures and their six twins under `tests/fixtures/c1/`), started
+from the fixture's guesses. Each translation was proven before its numbers
+count: the solver's own residuals are zero at the fixture's expected
+coordinates, apart from the one extra constraint of a conflicting twin. The
+comparison is on status, DoF and conflict sets, never coordinates
+(SEED.md §7). All thirty runs solved. To rerun: `tools/oracle/run.sh`, then
+`python3 tools/oracle/compare.py` prints this table from the committed
+reports (`tools/oracle/results/`; the matrix of what each API can express is
+in `tools/oracle/README.md`).
+
+Versions: sketch-solver 0.1.0, acs-solver 0.1.19, ezpz 0.2.29.
+
+| Fixture | Solver | Status | DoF | Redundant | Conflicts | Verdict |
+|---|---|---|---|---|---|---|
+| `belt` | laman (expected) | FullyConstrained | 0 | none | none | |
+| | sketch-solver | FullyConstrained | 0 | none | none | agrees |
+| | acs-solver | FullyConstrained | 0 | none | none | agrees |
+| | ezpz | FullyConstrained | not reported | not reported | not reported | agrees |
+| `belt-conflicting` | laman (expected) | Unsatisfiable | 0 | none | {r1, r2, span, top-length, top-on-c1, top-on-c2, top-tangent-c1, top-tangent-c2} | |
+| | sketch-solver | Unsatisfiable | 0 | none | {r1, r2, span, top-length, top-on-c1, top-on-c2, top-tangent-c1, top-tangent-c2} | agrees |
+| | acs-solver | Unsatisfiable | 0 | none | {r1, r2, span, top-length, top-on-c1, top-on-c2, top-tangent-c1, top-tangent-c2} | agrees |
+| | ezpz | unsatisfied | not reported | not reported | not reported | agrees |
+| `belt-redundant` | laman (expected) | FullyConstrained | 0 | {same-belt} | none | |
+| | sketch-solver | FullyConstrained | 0 | {same-belt} | none | agrees |
+| | acs-solver | FullyConstrained | 0 | {same-belt} | none | agrees |
+| | ezpz | FullyConstrained | not reported | not reported | not reported | agrees |
+| `slotted-plate` | laman (expected) | FullyConstrained | 0 | none | none | |
+| | sketch-solver | FullyConstrained | 0 | none | none | agrees |
+| | acs-solver | FullyConstrained | 0 | none | none | agrees |
+| | ezpz | FullyConstrained | not reported | not reported | not reported | agrees |
+| `slotted-plate-conflicting` | laman (expected) | Unsatisfiable | 0 | none | {same-ends, slot-r, slot-r2} | |
+| | sketch-solver | Unsatisfiable | 0 | none | {same-ends, slot-r, slot-r2} | agrees |
+| | acs-solver | Unsatisfiable | 0 | none | {same-ends, slot-r, slot-r2} | agrees |
+| | ezpz | unsatisfied | not reported | not reported | not reported | agrees |
+| `slotted-plate-drag` | laman (expected) | UnderConstrained | 3 | none | none | |
+| | sketch-solver | UnderConstrained | 3 | none | none | agrees |
+| | acs-solver | UnderConstrained | 3 | none | none | agrees |
+| | ezpz | UnderConstrained | not reported | not reported | not reported | agrees |
+| `slotted-plate-redundant` | laman (expected) | FullyConstrained | 0 | {level} | none | |
+| | sketch-solver | FullyConstrained | 0 | {level} | none | agrees |
+| | acs-solver | FullyConstrained | 0 | {level} | none | agrees |
+| | ezpz | FullyConstrained | not reported | not reported | not reported | agrees |
+| `sss-triangle` | laman (expected) | FullyConstrained | 0 | none | none | |
+| | sketch-solver | FullyConstrained | 0 | none | none | agrees |
+| | acs-solver | FullyConstrained | 0 | none | none | agrees |
+| | ezpz | FullyConstrained | not reported | not reported | not reported | agrees |
+| `sss-triangle-conflicting` | laman (expected) | Unsatisfiable | 0 | none | {apex, base, right} | |
+| | sketch-solver | Unsatisfiable | 0 | none | {apex, base, left, right} (superset: +left) | differs: conflicts (superset) |
+| | acs-solver | Unsatisfiable | 0 | none | {apex, base, left, right} (superset: +left) | differs: conflicts (superset) |
+| | ezpz | unsatisfied | not reported | not reported | not reported | agrees |
+| `sss-triangle-redundant` | laman (expected) | FullyConstrained | 0 | {right-angle} | none | |
+| | sketch-solver | FullyConstrained | 0 | {right-angle} | none | agrees |
+| | acs-solver | FullyConstrained | 0 | {right-angle} | none | agrees |
+| | ezpz | FullyConstrained | not reported | not reported | not reported | agrees |
+
+2 rows differ from laman's expectation.
+
+`ezpz` exposes no DoF and no sets (its reports say "not reported"): it
+compares on satisfaction only, and its "unsatisfied" does not tell a
+conflict from a failure to converge. Laman's own row is each fixture's
+`expected.json`, derived by construction, not laman's output; laman's solve
+meets it (the C1 acceptance tests).
+
 ### Where the solvers differ from laman
 
 Of the thirty reports, one fixture differs from laman's expectation:
@@ -86,11 +154,13 @@ disagreement is laman's fault, so no regression fixture is made.
 
 ## What is not claimed
 
-- No benchmark: nothing in this file was run yet. C1's M4 runs
-  `sketch-solver`, `acs-solver` and `ezpz` out of process on laman's
-  fixture corpus (`tools/oracle/`, SEED.md §7; ROADMAP.md §M4) and records
-  their status, DoF and conflict sets here, not coordinates.
-- No capability laman does not yet have: the solver, the drag and the Python binding exist; cross-OS determinism is checked in CI; the out-of-process comparison below is still to come.
+- No benchmark: the run above compares status, DoF and conflict sets on
+  ten small sketches, not coordinates, speed or robustness on larger ones.
+  `SolveSpace` and `PlaneGCS` were not run (the Python column is from their
+  documentation).
+- No capability laman does not have: the solver, the drag, the Python
+  binding and the checker exist; cross-OS determinism is checked in CI.
+  Agreeing with three solvers on ten sketches is evidence for those sketches.
 - The rows for other solvers come from their own documentation and
   registry metadata on the survey date; a project's documentation can
   understate or overstate it.

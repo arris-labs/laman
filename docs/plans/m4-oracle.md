@@ -115,7 +115,7 @@ within a given design; **[3]** unproven.
   a solver's or a translation's fault is written in COMPARISON.md; one that
   is laman's becomes `tests/fixtures/regression/<slug>/` with the desired
   assertion, `#[ignore]`, and a `docs/BACKLOG.md` finding.
-- [ ] Step 8 **[2]** — COMPARISON.md: §The comparison run with the table,
+- [x] Step 8 **[2]** — COMPARISON.md: §The comparison run with the table,
   versions and date; the whole file re-read against the code and the
   changelog (the roadmap's accept item), each row that stopped being true
   fixed; PROVENANCE.md and GLOSSARY.md as in the deltas.
