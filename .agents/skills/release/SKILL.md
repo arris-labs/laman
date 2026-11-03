@@ -1,6 +1,6 @@
 ---
 name: release
-description: Walk a release: drop -dev and cut the changelog heading, the human tags and pushes, watch release.yml and its two reviewed publishes, then reopen main at the next -dev.
+description: Walk a release: drop -dev and cut the changelog heading, reopen main at the next -dev, the human tags and pushes once, then watch release.yml and its two reviewed publishes.
 disable-model-invocation: true
 argument-hint: <version, e.g. 0.1.0 — the workspace version without -dev>
 ---
@@ -23,7 +23,7 @@ never tags, pushes, approves a publish, or publishes by hand.
    --limit 3`); if none, dispatch it yourself (`gh workflow run
    release.yml --ref main`: `dry_run` is the default, it uploads nothing),
    watch it with `run_in_background`, and go on; it must be green before
-   step 4. Check that the `crates-io` and
+   step 5. Check that the `crates-io` and
    `pypi` environments have a required reviewer (`gh api
    repos/{owner}/{repo}/environments`) and that the commit to tag is on
    `main`; without either, stop and say so. Start
@@ -47,25 +47,28 @@ never tags, pushes, approves a publish, or publishes by hand.
    - Commit `chore(laman,py): release X.Y.Z`, the body saying the release
      is the one `release.yml` publishes from the tag. Stage by name, never
      `git add -A`.
-4. **The human tags and pushes.** Stop and say exactly:
+4. **Reopen `main`** before the tag goes out, so one push carries both
+   commits. The next
+   `-dev` follows `.agents/rules/git.md` §The version: the next minor
+   (`X.(Y+1).0-dev`) when this release closed a cycle, else the patch
+   (`X.Y.(Z+1)-dev`), which a later `### Breaking` bullet moves to a minor
+   in the commit that adds the bullet. Update `Cargo.toml` and both pins as
+   in step 3, then `cargo check --workspace`. Commit
+   `chore(laman,py): reopen main at <version>-dev`. Tagging it by mistake
+   is safe: `release-check.sh` refuses a `-dev` version.
+5. **The human tags and pushes.** Stop and say exactly, the tag on the
+   release commit, not on `main`:
    `git tag vX.Y.Z <release-commit> && git push origin main vX.Y.Z`.
    Wait for the human's word that it is pushed. Never push or tag.
-5. **Watch the run.** Find it (`gh run list --workflow release.yml --limit
+6. **Watch the run.** Find it (`gh run list --workflow release.yml --limit
    3`) and start `gh run watch <id>` with `run_in_background`; the
    completion notification is the wait. When a publish job reports it is
    waiting for review, tell the human which environment (`crates-io` or
    `pypi`) to approve, then watch again. A failed job stops here: report
    it with its log link; a publish is never rerun without the human's word.
    If `gh` fails (an invalid token, for one), stop and say so.
-6. **Reopen `main`.** Only after both publish jobs are green. The next
-   `-dev` follows `.agents/rules/git.md` §The version: the next minor
-   (`X.(Y+1).0-dev`) when this release closed a cycle, else the patch
-   (`X.Y.(Z+1)-dev`), which a later `### Breaking` bullet moves to a minor
-   in the commit that adds the bullet. Update `Cargo.toml` and both pins as
-   in step 3, then `cargo check --workspace`. Commit
-   `chore(laman,py): reopen main at <version>-dev`. Do not push; the human does.
-7. **Reply.** The release commit, the tag the human pushed, each job's
-   result, the reopening commit, and anything surprising. Name the
+7. **Reply.** The release commit, the reopening commit, the tag the
+   human pushed, each job's result, and anything surprising. Name the
    reviewers the human still owes if any.
 
 `$ARGUMENTS`
