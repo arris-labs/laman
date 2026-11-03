@@ -9,6 +9,7 @@ on:
         default: ""
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 env:
@@ -57,19 +58,10 @@ jobs:
       - uses: bytecodealliance/actions/wasmtime/setup@v1
       - run: tools/digest-wasm.sh
 
-  # The Python binding: maturin, pytest, mypy.stubtest (tools/py-test.sh).
+  # The Python binding from source: maturin, pytest, mypy.stubtest
+  # (tools/py-test.sh). One job; the five-platform wheel check is wheels.yml.
   python:
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-24.04-arm
-          - macos-15
-          - macos-15-intel
-          - windows-latest
-        python-version: ["3.10", "3.13"]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
@@ -83,5 +75,5 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
       - run: tools/py-test.sh
