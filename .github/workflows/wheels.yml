@@ -10,7 +10,9 @@ on:
       - "crates/**"
       - "tests/fixtures/**"
       - "tools/py-*"
+      - "Cargo.toml"
       - "Cargo.lock"
+      - "rust-toolchain.toml"
       - ".github/workflows/wheels.yml"
 
 permissions:

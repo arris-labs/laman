@@ -43,7 +43,8 @@ a release is a local packaging proof, not a 32-job dispatch.
   download steps go.
 - **`wheels.yml`**: on `workflow_call`, `workflow_dispatch`, and
   `pull_request` with paths `crates/**`, `tests/fixtures/**`,
-  `tools/py-*`, `Cargo.lock` and `.github/workflows/wheels.yml`. No longer
+  `tools/py-*`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml` and
+  `.github/workflows/wheels.yml`. No longer
   on `push`. The `linux-x86_64` install job also runs
   `tools/py-package-test.sh` under Python 3.13 (option B: the shipped abi3
   wheel on the newest interpreter). The `metadata-artifact` input goes.

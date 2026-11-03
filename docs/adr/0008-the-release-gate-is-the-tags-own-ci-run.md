@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-11-03
-- Closes: nothing from the kickoff; the `ci-job-count` plan (docs/plans/ci-job-count.md)
+- Closes: nothing from the kickoff; the CI-cost backlog item (docs/BACKLOG.md)
 
 ## Context
 
@@ -33,7 +33,8 @@ overlay.
   which builds from source and runs `tools/py-test.sh` with stubtest.
 - **Python on five platforms runs in `wheels.yml` only**, on every pull
   request that touches the binding's inputs (`crates/**`,
-  `tests/fixtures/**`, `tools/py-*`, `Cargo.lock`, the workflow itself) and
+  `tests/fixtures/**`, `tools/py-*`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, the
+  workflow itself) and
   on every release. It no longer runs on `push`.
 - **`release.yml`** does not gate its build jobs on `release-check`. A
   `workflow_dispatch` on a branch therefore builds and checks everything,

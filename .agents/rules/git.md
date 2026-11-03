@@ -53,7 +53,8 @@ Name any public type or signature it changes.
 - Publishing is `.github/workflows/release.yml`, run from a `vX.Y.Z` tag
   that the human pushes (`/release` walks it). A `workflow_dispatch` on a
   branch builds the wheels and runs the crate's dry run, then refuses to
-  publish; the rehearsal before a tag is the local packaging proof in
+  publish; a dispatch on a `v*` tag passes `release-check` and publishes,
+  behind the CI check and the reviewers. The rehearsal before a tag is the local packaging proof in
   `/release` step 1, not a dispatch.
 - `release.yml` refuses a tag that is not `v` plus `[workspace.package].version`
   with no `-dev`, or whose `CHANGELOG.md` lacks a non-empty `## X.Y.Z`
