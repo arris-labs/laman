@@ -98,3 +98,18 @@ variables it calls underconstrained, nothing more.
   difference to record, not as wrong (plan, *Comparison*).
 - `acs-solver` accepts angles in radians, `sketch-solver` in degrees; laman's
   `angle` is radians.
+
+## Adapters
+
+- `src/sketch_solver.rs` (step 3): every C1 kind translates directly; a point
+  fixed in both coordinates becomes `Fix`. `translation_residual` is the
+  solver's own largest residual with every point and circle guessed at the
+  fixture's expected coordinates and no iteration allowed, and the solver may
+  move no coordinate off them. `laman-check` says which constraints are
+  violated there (none, but a conflicting twin's extra one); those are left out
+  of the proof, listed in `translation_unchecked`, and the solver's unmet set
+  must equal exactly them. A fixture the checker finds violated that is not
+  expected `Unsatisfiable` is an `error`, not numbers.
+- `sketch-solver` names a conflict by the later constraint plus the earlier
+  ones it depends on (`with`); the report's set is both together. An arc's own
+  equation is named `arc:<tag or #id>`.

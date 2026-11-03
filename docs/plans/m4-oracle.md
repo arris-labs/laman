@@ -104,7 +104,7 @@ within a given design; **[3]** unproven.
 - [x] Step 2 **[1]** — The report type, the CLI, `run.sh` with per-process
   timeout and crash capture, `check-layers.sh` extended to
   `tools/oracle/src`; a test that a stub solver's report round-trips.
-- [ ] Step 3 **[2]** — `sketch-solver` adapter: translate, the
+- [x] Step 3 **[2]** — `sketch-solver` adapter: translate, the
   translation-residual check on the four bases, diagnose, ten reports.
 - [ ] Step 4 **[2]** — `acs-solver` adapter, the same.
 - [ ] Step 5 **[2]** — `ezpz` adapter, the same.

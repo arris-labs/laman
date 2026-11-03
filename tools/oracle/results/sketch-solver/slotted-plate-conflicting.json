@@ -1,0 +1,23 @@
+{
+  "solver": "sketch-solver",
+  "version": "0.1.0",
+  "fixture": "slotted-plate-conflicting",
+  "outcome": "solved",
+  "status": "Unsatisfiable",
+  "solver_status": "NotConverged",
+  "dof": 0,
+  "redundant": [],
+  "conflicts": [
+    [
+      "same-ends",
+      "slot-r",
+      "slot-r2"
+    ]
+  ],
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "slot-r2"
+  ],
+  "detail": null
+}

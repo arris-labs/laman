@@ -1,0 +1,24 @@
+{
+  "solver": "sketch-solver",
+  "version": "0.1.0",
+  "fixture": "sss-triangle-conflicting",
+  "outcome": "solved",
+  "status": "Unsatisfiable",
+  "solver_status": "NotConverged",
+  "dof": 0,
+  "redundant": [],
+  "conflicts": [
+    [
+      "base",
+      "left",
+      "right",
+      "apex"
+    ]
+  ],
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [
+    "apex"
+  ],
+  "detail": null
+}

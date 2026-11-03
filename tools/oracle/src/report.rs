@@ -71,6 +71,12 @@ pub struct Report {
     /// expected coordinates: the proof that the translation says what the
     /// fixture says. `None` until checked.
     pub translation_residual: Option<f64>,
+    /// Constraints left out of the translation check because laman's
+    /// checker finds them violated at the expected coordinates (the
+    /// conflicting constraint of a twin); the solver's own residuals must
+    /// agree that exactly these are violated.
+    #[serde(default)]
+    pub translation_unchecked: Vec<String>,
     /// Why, for `crashed`, `timeout` and `error`.
     pub detail: Option<String>,
 }
@@ -107,6 +113,7 @@ impl Report {
             conflicts: None,
             unsupported: Vec::new(),
             translation_residual: None,
+            translation_unchecked: Vec::new(),
             detail: Some(detail.into()),
         }
     }
@@ -141,6 +148,7 @@ mod tests {
                 approximation: None,
             }],
             translation_residual: Some(1.5e-13),
+            translation_unchecked: vec!["top-length".into()],
             detail: None,
         }
     }

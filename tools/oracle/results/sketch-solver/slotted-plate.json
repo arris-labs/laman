@@ -1,0 +1,15 @@
+{
+  "solver": "sketch-solver",
+  "version": "0.1.0",
+  "fixture": "slotted-plate",
+  "outcome": "solved",
+  "status": "FullyConstrained",
+  "solver_status": "Solved",
+  "dof": 0,
+  "redundant": [],
+  "conflicts": [],
+  "unsupported": [],
+  "translation_residual": 0.0,
+  "translation_unchecked": [],
+  "detail": null
+}

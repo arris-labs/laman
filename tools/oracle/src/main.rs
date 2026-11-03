@@ -14,6 +14,7 @@
 mod fixture;
 mod hello;
 mod report;
+mod sketch_solver;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -25,7 +26,8 @@ use report::{Outcome, Report};
 fn run(solver: &str, fx: &fixture::Fixture) -> Report {
     match solver {
         "stub" => Report::without_numbers(solver, &fx.name, Outcome::Unsupported, "stub"),
-        "sketch-solver" | "acs-solver" | "ezpz" => {
+        "sketch-solver" => sketch_solver::run(fx),
+        "acs-solver" | "ezpz" => {
             Report::without_numbers(solver, &fx.name, Outcome::Error, "no adapter yet")
         }
         _ => Report::without_numbers(solver, &fx.name, Outcome::Error, "unknown solver"),
