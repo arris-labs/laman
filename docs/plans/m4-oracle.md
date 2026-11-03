@@ -101,7 +101,7 @@ within a given design; **[3]** unproven.
   DoF, redundant and conflict sets it exposes. Commit the skeleton and the
   matrix as `tools/oracle/README.md`. A solver that can express none of
   the fixtures stays a row with that finding.
-- [ ] Step 2 **[1]** — The report type, the CLI, `run.sh` with per-process
+- [x] Step 2 **[1]** — The report type, the CLI, `run.sh` with per-process
   timeout and crash capture, `check-layers.sh` extended to
   `tools/oracle/src`; a test that a stub solver's report round-trips.
 - [ ] Step 3 **[2]** — `sketch-solver` adapter: translate, the

@@ -2,12 +2,13 @@
 # The layer rule (docs/ARCHITECTURE.md §Crates): laman-check names only items
 # under `laman::model`, never the solver or the residuals it checks. Run by
 # the gate; red when any other `laman::` path appears in the checker's
-# sources, comments and doctests included.
+# sources, comments and doctests included. The oracle (tools/oracle) holds to
+# the same rule: model types and the serde form only, never the solver.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-bad=$(grep -rnoE 'laman::[A-Za-z_{]*' crates/laman-check/src | grep -vE 'laman::model$')
+bad=$(grep -rnoE 'laman::[A-Za-z_{]*' crates/laman-check/src tools/oracle/src | grep -vE 'laman::model$')
 if [ -n "$bad" ]; then
-  echo "check-layers: laman-check may name only laman::model:" >&2
+  echo "check-layers: laman-check and tools/oracle may name only laman::model:" >&2
   echo "$bad" >&2
   exit 1
 fi

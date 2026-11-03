@@ -420,6 +420,7 @@ dependencies = [
  "ezpz",
  "laman",
  "laman-check",
+ "serde",
  "serde_json",
  "sketch-solver",
 ]

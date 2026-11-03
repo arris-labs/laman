@@ -10,7 +10,12 @@ model and on `laman-check`, never on laman's solver (`tools/check-layers.sh`).
 ```sh
 cargo build --manifest-path tools/oracle/Cargo.toml
 tools/oracle/target/debug/laman-oracle hello <sketch-solver|acs-solver|ezpz>
+tools/oracle/run.sh [solver ...]   # every fixture, one process each, under ORACLE_TIMEOUT (60 s)
 ```
+
+`run.sh` writes `results/<solver>/<fixture>.json` (the report of `src/report.rs`);
+a panic, signal or hang in a solver becomes a `crashed` or `timeout` report.
+`cargo test --manifest-path tools/oracle/Cargo.toml` holds the report type.
 
 ## The solvers, pinned
 

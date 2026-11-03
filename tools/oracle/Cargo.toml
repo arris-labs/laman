@@ -15,6 +15,7 @@ ezpz = "=0.2.29"
 # (tools/check-layers.sh).
 laman = { path = "../../crates/laman" }
 laman-check = { path = "../../crates/laman-check" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Its own workspace root, so the parent workspace does not claim it.
