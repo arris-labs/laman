@@ -6,6 +6,8 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+## 0.1.0 — 2026-11-03
+
 - Python: abi3 wheels for Linux x86_64 and aarch64 (glibc ≥ 2.17),
   macOS arm64 and x86_64, and Windows x86_64; Python 3.10 and newer.
   A source distribution is available for other build environments.
