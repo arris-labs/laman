@@ -51,18 +51,22 @@ Name any public type or signature it changes.
 ## Tags and publishing
 
 - Publishing is `.github/workflows/release.yml`, run from a `vX.Y.Z` tag
-  that the human pushes (`/release` walks it). A `workflow_dispatch` run
-  with `dry_run` (the default) rehearses with temporary stable metadata
-  and uploads nothing.
+  that the human pushes (`/release` walks it). A `workflow_dispatch` on a
+  branch builds the wheels and runs the crate's dry run, then refuses to
+  publish; the rehearsal before a tag is the local packaging proof in
+  `/release` step 1, not a dispatch.
 - `release.yml` refuses a tag that is not `v` plus `[workspace.package].version`
   with no `-dev`, or whose `CHANGELOG.md` lacks a non-empty `## X.Y.Z`
-  section (`tools/release-check.sh`). It then runs `ci.yml` and
-  `wheels.yml`, and publishes: `publish-crate` (`cargo publish -p laman`,
+  section (`tools/release-check.sh`). The tag also triggers `ci.yml`, and
+  `publish-crate` refuses unless that run is green on the tag's commit
+  (ADR-0008). Its build jobs are `wheels.yml` (the wheels and sdist) and
+  `crate-dry-run`. It publishes: `publish-crate` (`cargo publish -p laman`,
   crates.io trusted publishing, GitHub environment `crates-io`) and
   `publish-pypi` (the wheels and sdist, PyPI trusted publishing, GitHub
   environment `pypi`). Each environment has a required reviewer: every
-  upload waits for the human's approval. `github-release` then opens the
-  GitHub Release, its notes that changelog section.
+  upload waits for the human's approval, and an early approval fails safe
+  (re-run `publish-crate` once CI is green). `github-release` then opens
+  the GitHub Release, its notes that changelog section.
 - The trusted publishers and the environments' reviewers are configured
   in the crates.io, PyPI and GitHub web UIs by the human, before the first
   real release. An agent never publishes by hand, unless `release.yml` is

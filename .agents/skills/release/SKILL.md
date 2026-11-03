@@ -18,16 +18,21 @@ never tags, pushes, approves a publish, or publishes by hand.
 
 1. **Check the ground.** On `main`, with a clean tree and `main` equal to
    its upstream (`git status`, `git rev-list --count @{u}..main`; no
-   remote is said as such and stops here). A `release.yml` dry run on
-   `main`'s tip is green (`gh run list --workflow release.yml --branch main
-   --limit 3`); if none, dispatch it yourself (`gh workflow run
-   release.yml --ref main`: `dry_run` is the default, it uploads nothing),
-   watch it with `run_in_background`, and go on; it must be green before
-   step 5. Check that the `crates-io` and
-   `pypi` environments have a required reviewer (`gh api
-   repos/{owner}/{repo}/environments`) and that the commit to tag is on
-   `main`; without either, stop and say so. Start
-   `tools/gate.sh` with `run_in_background` and go on with step 2.
+   remote is said as such and stops here). A release that changed a
+   workflow also dispatches `release.yml` on `main` (`gh workflow run
+   release.yml --ref main`, watched with `run_in_background`): it builds
+   and checks everything and publishes nothing, since `release-check`
+   refuses without a `v*` tag, and it must be green before step 5. Check
+   that the `crates-io` and `pypi` environments have a required reviewer
+   (`gh api repos/{owner}/{repo}/environments`) and that the commit to tag
+   is on `main`; without either, stop and say so. Start `tools/gate.sh`
+   with `run_in_background` and go on with step 2.
+   **Packaging proof, before step 5** (a local rehearsal; the tag's own CI
+   run is the gate, ADR-0008). On the release commit from step 3, in a
+   scratch copy outside the tree, nothing uploaded: `cargo package -p laman
+   --locked`; in `crates/laman-py`, `maturin build --release` and `maturin
+   sdist`; then `uv tool run twine check --strict` on each file they wrote.
+   All must pass; a failure stops the release before the tag.
 2. **Pick the version.** The argument, else `[workspace.package].version`
    minus `-dev`. It must match the bump `.agents/rules/git.md` §The version
    gives: a closed cycle bumps the minor; a release between cycles bumps

@@ -81,7 +81,7 @@ the only test is a CI run on `plan/ci-job-count`.
   `metadata-artifact` plumbing from all three workflows, and delete
   `tools/release-dry-run.py` and `-test.py`. Test: step 4's dispatch again,
   plus `grep -r metadata-artifact .github tools` is empty.
-- [ ] Step 6 **[1]** — `/release` step 1 gets the local packaging proof.
+- [x] Step 6 **[1]** — `/release` step 1 gets the local packaging proof.
   `.agents/rules/git.md` §Tags is rewritten, and the `docs/BACKLOG.md`
   `release.yml` line is trimmed to its surviving items. Test: the proof's
   commands run green on the branch with the version overridden to stable
