@@ -64,9 +64,10 @@ never tags, pushes, approves a publish, or publishes by hand.
    Wait for the human's word that it is pushed. Never push or tag.
 6. **Watch the run.** Find it (`gh run list --workflow release.yml --limit
    3`) and start `gh run watch <id>` with `run_in_background`; the
-   completion notification is the wait. When a publish job reports it is
-   waiting for review, tell the human which environment (`crates-io` or
-   `pypi`) to approve, then watch again. A failed job stops here: report
+   completion notification is the wait, and it comes only when the run
+   ends, never at a review. So say up front that `crates-io`, then `pypi`,
+   will each ask for the human's approval once CI and the wheels are green,
+   and that the run waits there. A failed job stops here: report
    it with its log link; a publish is never rerun without the human's word.
    If `gh` fails (an invalid token, for one), stop and say so.
 7. **Reply.** The release commit, the reopening commit, the tag the
