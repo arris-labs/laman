@@ -1,8 +1,8 @@
 //! Staged against whole: the freedom a solve reports by stages
 //! (`Sketch::solve`) against the whole-component reference
 //! (`laman::reference::solve`, plans/m6-stages). DoF and per-entity DoF
-//! equal exactly; the free directions span the same space, measured by their
-//! orthogonal projectors.
+//! equal exactly, and so do the redundant and conflict sets; the free
+//! directions span the same space, measured by their orthogonal projectors.
 #![allow(clippy::unwrap_used, dead_code)]
 
 use laman::model::{Coordinate, Coordinates, EntityId, Sketch};
@@ -59,6 +59,14 @@ pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions)
         per_entity(&staged),
         per_entity(&whole),
         "{name}: per-entity DoF"
+    );
+    assert_eq!(
+        staged.diagnostics.redundant, whole.diagnostics.redundant,
+        "{name}: redundant"
+    );
+    assert_eq!(
+        staged.diagnostics.conflicts, whole.diagnostics.conflicts,
+        "{name}: conflicts"
     );
     assert_eq!(
         staged.diagnostics.free_directions.len(),

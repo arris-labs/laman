@@ -195,7 +195,7 @@ proptest! {
         for algorithm in ALGORITHMS {
             let mut sk = built.sketch.clone();
             sk.distance(built.points[i], built.points[j], d).unwrap();
-            let solution = sk.solve(&options(algorithm));
+            let solution = staged::assert_same_freedom("extra distance", &sk, &options(algorithm));
             prop_assert!(check(&sk, &solution.coordinates).is_clean());
             prop_assert_eq!(solution.status, Status::FullyConstrained);
             prop_assert!(
@@ -207,7 +207,7 @@ proptest! {
             let stretched = sk
                 .distance(built.points[i], built.points[j], d * false_by)
                 .unwrap();
-            let solution = sk.solve(&options(algorithm));
+            let solution = staged::assert_same_freedom("false distance", &sk, &options(algorithm));
             // The conflict analysis may be inconclusive (regressions
             // `dogleg-conflict-inconclusive`, `framework-conflict-inconclusive`):
             // NotConverged, no conflict named. It must never call the

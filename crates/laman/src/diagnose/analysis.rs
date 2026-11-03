@@ -12,9 +12,11 @@
 //! only on a converged re-solve without it, its removal witness, so the set is
 //! inclusion-minimal: no member can be removed. The set's own unsatisfiability
 //! rests on the certificate, which is first-order and local (ADR-0005).
+//! On the staged path only a constraint with an equation in the head of its
+//! component is tested; the other parts hold no redundancy (ADR-0009).
 //! Intrinsic equations and ground are part of their entities: never removed,
 //! never named.
-use super::{Freedom, dof_only, freedom_on};
+use super::{Freedom, dof_only, freedom_on, head_constraints};
 use crate::model::tolerance::{Component, STATIONARY, Source, Tolerances};
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
 use crate::solve::{Options, Outcome, Path, satisfied, solve};
@@ -312,7 +314,14 @@ fn redundant(
     let mut working = sketch.clone();
     working.place(values);
     let mut out = Vec::new();
+    // Only a head constraint can be redundant (ADR-0009): the others are
+    // skipped without a factorization. Naming one recompiles `working`, so
+    // the list is read again.
+    let mut tested = head_constraints(&System::new(&working), values, path);
     for id in held.iter().rev() {
+        if !tested.contains(id) {
+            continue;
+        }
         let mut less = working.clone();
         if less.remove_constraint(*id).is_err() {
             continue;
@@ -320,6 +329,7 @@ fn redundant(
         if dof_only(&less, values, path) == dof {
             out.push(*id);
             working = less;
+            tested = head_constraints(&System::new(&working), values, path);
         }
     }
     out.sort();

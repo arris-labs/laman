@@ -98,9 +98,15 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   within 4e-14, where staging unsatisfied best efforts gave gaps to 8e-3.
   Moved: the drag plate's solved and drag-step digests, its free
   directions only.)
-- [ ] Step 3 **[2]** — Staged redundancy: head-only deletion on the
+- [x] Step 3 **[2]** — Staged redundancy: head-only deletion on the
   head's columns. Equal to reference: `right-angle`, `same-belt`, `level`,
-  and the redundant/conflict extra-distance property.
+  and the redundant/conflict extra-distance property. (*Settled* at
+  step 3: a constraint with no head equation skips the deletion test, in a
+  component whose parts after the head are row-independent at the
+  coordinates; a dependent row there, as a point on a line through a point
+  it coincides with, hides its redundancy from the structure, so that
+  component takes the full test. Each test still compares the whole DoF;
+  the skip saves the factorizations.)
 - [ ] Step 4 **[3]** — Staged solve: parts in order under the shared
   budgets, the failure fallback with restored counters, goals in the
   remainder. Lift `upstream-edit-drift` (LM, DogLeg). C1 coordinates as

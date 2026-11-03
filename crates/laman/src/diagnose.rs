@@ -75,6 +75,51 @@ pub(crate) fn dof_only(sketch: &Sketch, values: &Coordinates, path: Path) -> usi
         .sum()
 }
 
+/// The constraints whose removal can lower the DoF at `values`, by `path`:
+/// every constraint on the whole path, and on the staged one those of a
+/// component that is not staged (failed, degenerate, one part, or
+/// column-deficient before its last part, or with a dependent row outside the
+/// head) together with those holding a head
+/// equation of a staged one. The head is where every redundancy lives and a
+/// square stage or the remainder never has one (ADR-0009), so the other
+/// constraints are not tested.
+pub(crate) fn head_constraints(
+    system: &System<'_>,
+    values: &Coordinates,
+    path: Path,
+) -> std::collections::BTreeSet<crate::model::ConstraintId> {
+    use crate::model::tolerance::Source;
+    let coordinates = merged(system.sketch, values);
+    let mut out = std::collections::BTreeSet::new();
+    for component in &system.components {
+        let heads: Option<std::collections::BTreeSet<usize>> = match path {
+            Path::Staged => {
+                staged_checked(system, component, &coordinates, false, true).map(|_| {
+                    crate::stage::decompose(system, component)
+                        .parts
+                        .into_iter()
+                        .filter(|part| part.kind == crate::stage::Kind::Head)
+                        .flat_map(|part| part.rows)
+                        .collect()
+                })
+            }
+            Path::Whole => None,
+        };
+        for (row, eq) in system.equations.iter().enumerate() {
+            let Source::Constraint(id) = eq.source else {
+                continue;
+            };
+            if !component.sources.contains(&eq.source) {
+                continue;
+            }
+            if heads.as_ref().is_none_or(|h| h.contains(&row)) {
+                out.insert(id);
+            }
+        }
+    }
+    out
+}
+
 /// The sketch's coordinates with `values` laid over them.
 fn merged(sketch: &Sketch, values: &Coordinates) -> Coordinates {
     let mut coordinates = sketch.coordinates();
@@ -180,6 +225,20 @@ fn staged(
     values: &Coordinates,
     basis: bool,
 ) -> Option<(usize, Vec<Vec<f64>>)> {
+    staged_checked(system, component, values, basis, false)
+}
+
+/// [`staged`], and with `independent` also `None` when a part outside the
+/// head has a row dependent on the others at `values` (a rank below its
+/// row count): a redundancy the structure does not show, as a point on a
+/// line through a point it coincides with.
+fn staged_checked(
+    system: &System<'_>,
+    component: &Component,
+    values: &Coordinates,
+    basis: bool,
+    independent: bool,
+) -> Option<(usize, Vec<Vec<f64>>)> {
     if component.params.is_empty() || component.sources.is_empty() {
         return None;
     }
@@ -244,6 +303,12 @@ fn staged(
         let columns: Vec<usize> = (0..n).filter(|&j| column_part[j] == p).collect();
         let qr = Qr::new(rows, columns.len());
         if p < last && qr.rank < columns.len() {
+            return None;
+        }
+        if independent
+            && decomposition.parts[p].kind != crate::stage::Kind::Head
+            && qr.rank < decomposition.parts[p].rows.len()
+        {
             return None;
         }
         rank += qr.rank;
