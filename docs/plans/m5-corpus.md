@@ -60,7 +60,9 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
     Drag: width `j` dropped (DoF 1), the top-right of `j` pulled right.
   - `slot_grid(rows, cols)`: a grounded plate holding `rows × cols` copies
     of C1's slot, each placed by two `point_line_distance` from the plate's
-    bottom and left edges. 10 entities per slot. Edit: one slot's height.
+    bottom and left edges. 10 entities per slot plus the plate (8 entities).
+    `slot_grid_with(rows, cols, length, radius)` varies centre separation and
+    radius; pitches are `2 length + 4 radius` and `6 radius`. Edit: one slot's height.
     Drag: one slot's horizontal placement dropped (DoF 1), its centre pulled.
   - `triangle_strip(n)`: the nested family, a deep dependency chain:
     points `p₀` (ground), `p₁` on a horizontal from it, each next point by
@@ -82,7 +84,7 @@ unproven — an algorithm whose robustness or bound is established here.
   its guesses, edit and drag; a test at `n = 3` solves from the guesses
   under both algorithms, checker green, coordinates and DoF as built.
   Dumped to SVG and looked at (`inspect`).
-- [ ] Step 2 **[2]** — `slot_grid` the same way, tested at 2 × 2: each
+- [x] Step 2 **[2]** — `slot_grid` the same way, tested at 2 × 2: each
   arc's sweep π, no flip, the C1 slot's coordinates per cell.
 - [ ] Step 3 **[2]** — `triangle_strip` the same way, tested at `n = 6`,
   including the edit's rigid tail by construction.

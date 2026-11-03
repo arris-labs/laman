@@ -272,3 +272,248 @@ pub fn rect_chain_with(n: usize, width: f64, height: f64) -> Result<Case, Corpus
         }),
     })
 }
+
+struct SlotBuild {
+    sketch: Sketch,
+    coordinates: Coordinates,
+    horizontal: ConstraintId,
+    dragged: EntityId,
+    unmoved: Vec<EntityId>,
+    placement: [f64; 2],
+}
+
+fn slots(
+    rows: usize,
+    cols: usize,
+    length: f64,
+    radius: f64,
+    shift: [f64; 2],
+    displaced: bool,
+) -> Result<SlotBuild, CorpusError> {
+    let count = rows
+        .checked_mul(cols)
+        .ok_or(CorpusError::Count("slot count"))?;
+    let selected = count / 2;
+    // Leave a diameter between rows and enough room for a tenth-placement edit.
+    let pitch = [2.0 * length + 4.0 * radius, 6.0 * radius];
+    let margin = 4.0 * radius;
+    let plate_width = cols as f64 * pitch[0] + margin;
+    let plate_height = rows as f64 * pitch[1] + margin;
+    let mut sketch = Sketch::new();
+    let mut coordinates = Coordinates::new();
+    let smallest = length.min(radius);
+    let p0 = point(
+        &mut sketch,
+        &mut coordinates,
+        [0.0, 0.0],
+        smallest,
+        displaced,
+        true,
+    )?;
+    let p1 = point(
+        &mut sketch,
+        &mut coordinates,
+        [plate_width, 0.0],
+        smallest,
+        displaced,
+        false,
+    )?;
+    let p2 = point(
+        &mut sketch,
+        &mut coordinates,
+        [plate_width, plate_height],
+        smallest,
+        displaced,
+        false,
+    )?;
+    let p3 = point(
+        &mut sketch,
+        &mut coordinates,
+        [0.0, plate_height],
+        smallest,
+        displaced,
+        false,
+    )?;
+    let bottom = sketch.line(p0, p1)?;
+    let right = sketch.line(p1, p2)?;
+    let top = sketch.line(p2, p3)?;
+    let left = sketch.line(p3, p0)?;
+    sketch.horizontal(bottom)?;
+    sketch.vertical(right)?;
+    sketch.horizontal(top)?;
+    sketch.vertical(left)?;
+    sketch.distance(p0, p1, plate_width)?;
+    sketch.distance(p0, p3, plate_height)?;
+    let mut unmoved: Vec<_> = sketch.entities().map(|(id, _)| id).collect();
+    let mut selection = None;
+    for i in 0..count {
+        let start = sketch.entities().count();
+        let placement = [
+            margin + (i % cols) as f64 * pitch[0],
+            margin + (i / cols) as f64 * pitch[1],
+        ];
+        let x = placement[0] + if i == selected { shift[0] } else { 0.0 };
+        let y = placement[1] + if i == selected { shift[1] } else { 0.0 };
+        let c1 = point(
+            &mut sketch,
+            &mut coordinates,
+            [x, y],
+            smallest,
+            displaced,
+            false,
+        )?;
+        let s1 = point(
+            &mut sketch,
+            &mut coordinates,
+            [x, y + radius],
+            smallest,
+            displaced,
+            false,
+        )?;
+        let e1 = point(
+            &mut sketch,
+            &mut coordinates,
+            [x, y - radius],
+            smallest,
+            displaced,
+            false,
+        )?;
+        let c2 = point(
+            &mut sketch,
+            &mut coordinates,
+            [x + length, y],
+            smallest,
+            displaced,
+            false,
+        )?;
+        let s2 = point(
+            &mut sketch,
+            &mut coordinates,
+            [x + length, y - radius],
+            smallest,
+            displaced,
+            false,
+        )?;
+        let e2 = point(
+            &mut sketch,
+            &mut coordinates,
+            [x + length, y + radius],
+            smallest,
+            displaced,
+            false,
+        )?;
+        let a1 = sketch.arc(c1, s1, e1)?;
+        let a2 = sketch.arc(c2, s2, e2)?;
+        sketch.tag(a1.id(), &format!("slot-{i}-left"))?;
+        sketch.tag(a2.id(), &format!("slot-{i}-right"))?;
+        let upper = sketch.line(e2, s1)?;
+        let lower = sketch.line(e1, s2)?;
+        sketch.tangent_line_circle(upper, a1)?;
+        sketch.tangent_line_circle(upper, a2)?;
+        sketch.tangent_line_circle(lower, a1)?;
+        sketch.tangent_line_circle(lower, a2)?;
+        sketch.equal_radius(a1, a2)?;
+        sketch.radius(a1, radius)?;
+        sketch.horizontal((c1, c2))?;
+        sketch.distance(c1, c2, length)?;
+        let horizontal = sketch.point_line_distance(c1, left, x)?;
+        let vertical = sketch.point_line_distance(c1, bottom, y)?;
+        sketch.tag_constraint(horizontal, &format!("slot-{i}-x"))?;
+        sketch.tag_constraint(vertical, &format!("slot-{i}-height"))?;
+        if i == selected {
+            selection = Some((horizontal, c1.id(), placement));
+        } else {
+            unmoved.extend(sketch.entities().skip(start).map(|(id, _)| id));
+        }
+    }
+    let (horizontal, dragged, placement) = selection.ok_or(CorpusError::Count("slots"))?;
+    Ok(SlotBuild {
+        sketch,
+        coordinates,
+        horizontal,
+        dragged,
+        unmoved,
+        placement,
+    })
+}
+
+/// Builds a grounded plate with `rows * cols` slots (10 entities each, plus 8).
+/// Slots have radius 5 and centres 20 apart, matching C1's slot geometry.
+/// Refuses zero rows/columns or unrepresentable geometry.
+///
+/// ```
+/// let case = laman_debug::corpus::slot_grid(2, 2)?;
+/// assert_eq!(case.sketch.entities().count(), 48);
+/// # Ok::<(), laman_debug::corpus::CorpusError>(())
+/// ```
+pub fn slot_grid(rows: usize, cols: usize) -> Result<Case, CorpusError> {
+    slot_grid_with(rows, cols, 20.0, 5.0)
+}
+
+/// Builds a slot grid with positive finite centre separation and radius.
+/// The middle slot's vertical placement increases by one tenth on edit;
+/// the drag removes its horizontal placement and pulls its left centre.
+///
+/// ```
+/// let case = laman_debug::corpus::slot_grid_with(2, 2, 40.0, 8.0)?;
+/// assert_eq!(case.edit.tag, "slot-2-height");
+/// # Ok::<(), laman_debug::corpus::CorpusError>(())
+/// ```
+pub fn slot_grid_with(
+    rows: usize,
+    cols: usize,
+    length: f64,
+    radius: f64,
+) -> Result<Case, CorpusError> {
+    if rows == 0 {
+        return Err(CorpusError::Count("rows"));
+    }
+    if cols == 0 {
+        return Err(CorpusError::Count("columns"));
+    }
+    dimension("length", length)?;
+    dimension("radius", radius)?;
+    let built = slots(rows, cols, length, radius, [0.0, 0.0], true)?;
+    let edited = slots(
+        rows,
+        cols,
+        length,
+        radius,
+        [0.0, built.placement[1] * EDIT_FRACTION],
+        false,
+    )?;
+    let mut free = slots(rows, cols, length, radius, [0.0, 0.0], false)?;
+    free.sketch.remove_constraint(free.horizontal)?;
+    let mut targets = Vec::new();
+    let mut after = Vec::new();
+    for step in 1..=DRAG_STEPS {
+        let dx = length * EDIT_FRACTION * step as f64 / DRAG_STEPS as f64;
+        let moved = slots(rows, cols, length, radius, [dx, 0.0], false)?;
+        targets.push([built.placement[0] + dx, built.placement[1]]);
+        after.push(DragStep {
+            step,
+            coordinates: moved.coordinates,
+            flips: Vec::new(),
+        });
+    }
+    let selected = rows * cols / 2;
+    Ok(Case {
+        sketch: built.sketch,
+        expected: expected(built.coordinates, 0),
+        edit: Edit {
+            tag: format!("slot-{selected}-height"),
+            value: edited.placement[1] * (1.0 + EDIT_FRACTION),
+            expected: expected(edited.coordinates, 0),
+            unmoved: built.unmoved,
+        },
+        drag: Some(DragCase {
+            sketch: free.sketch,
+            expected: expected(free.coordinates, 1),
+            drag: Drag {
+                dragged: built.dragged,
+                targets,
+                after,
+            },
+        }),
+    })
+}
