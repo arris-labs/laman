@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+# This seed caught the accidental absolute comparison; it meets the roadmap size-relative contract.
+cc 8597cbb5ba4e236a593e8959ecc53ab80e12147d38e578d7684c2ed04d61283e # shrinks to n = 8, side = 24.59321642462541

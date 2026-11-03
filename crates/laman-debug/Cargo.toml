@@ -52,3 +52,7 @@ required-features = ["proptest"]
 [[test]]
 name = "drag_props"
 required-features = ["proptest"]
+
+[[test]]
+name = "c2_props"
+required-features = ["proptest"]

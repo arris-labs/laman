@@ -79,6 +79,10 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
   rectangles `n=19/49/99` (98/248/498); slots `3×3/4×6/7×7`
   (98/248/498); triangles `n=32/82/166` (99/249/501). Tests assert the
   actual count and the bench reports it.
+- The default-count property draws rectangle counts 1–6, widths 10–40,
+  heights 5–20; slot rows/columns 1–2, lengths 20–60, radii 3–8;
+  triangle counts 1–8 and sides 10–30. It reuses the static/edit runner,
+  preserving the default case count and `PROPTEST_CASES` override.
 - A term needs no glossary entry: *fixture*, *by construction*, *edit*
   already mean this.
 
@@ -106,7 +110,7 @@ unproven — an algorithm whose robustness or bound is established here.
   `#[ignore = "C2 M6: whole-component solve; …"]` with its time in the
   reason, lifted by M6. Release runs of the ignored ones recorded in the
   commit body (pass or the first failing number).
-- [ ] Step 6 **[2]** — property: each family at random small sizes and
+- [x] Step 6 **[2]** — property: each family at random small sizes and
   random dimensions within its construction's ranges (`proptest`) solves
   back to its construction, checker green, the edit's `unmoved` geometrically unchanged.
 - [ ] Step 7 **[1]** — example `bench_c2`: per family and size (100, 250,
