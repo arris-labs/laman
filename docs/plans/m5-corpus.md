@@ -75,6 +75,10 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
     point, computed from circle intersection and one rotation by construction. No
     drag (a dropped distance makes a mechanism whose closed form the plan
     does not need).
+- Nominal sizes 100/250/500 use the nearest constructible entity counts:
+  rectangles `n=19/49/99` (98/248/498); slots `3×3/4×6/7×7`
+  (98/248/498); triangles `n=32/82/166` (99/249/501). Tests assert the
+  actual count and the bench reports it.
 - A term needs no glossary entry: *fixture*, *by construction*, *edit*
   already mean this.
 
@@ -97,9 +101,9 @@ unproven — an algorithm whose robustness or bound is established here.
   through one helper: expected coordinates, status, DoF, empty redundant
   and conflicts, no flip, checker green, `unmoved` geometrically unchanged, every drag
   step's coordinates; small sizes in the gate.
-- [ ] Step 5 **[2]** — the same tests at 100, 250 and 500 entities per family;
+- [x] Step 5 **[2]** — the same tests at 100, 250 and 500 entities per family;
   each size whose debug-build run exceeds 10 s (measured here) is
-  `#[ignore = "C2 M6: whole-component solve"]` with its time in the
+  `#[ignore = "C2 M6: whole-component solve; …"]` with its time in the
   reason, lifted by M6. Release runs of the ignored ones recorded in the
   commit body (pass or the first failing number).
 - [ ] Step 6 **[2]** — property: each family at random small sizes and
@@ -153,9 +157,11 @@ unproven — an algorithm whose robustness or bound is established here.
   tolerance. This explicitly changes M5 acceptance, without accepting the
   drift as correct behavior.
 
-- ⚠ OPEN: the debug-build limit for ignoring a large case (10 s here) and
-  the bench's first-run limit — the agent, at steps 5 and 7, recording the
-  measured times.
+- **Settled (step 5):** retain the 10 s debug-build limit, measuring
+  lower bounds with an 11 s timeout. Release runs have a 600 s hard bound
+  per case. The 498-entity slots reached that bound after LM passed every
+  operation; DogLeg returned no static answer, so the full run has no
+  verdict. Step 7 settles the bench's first-run limit.
 - ⚠ OPEN: whether "nested constraints" means more than a deep dependency
   chain (dimensions referencing dimensions, profiles inside profiles) — the
   agent reads the triangle strip as the deep chain, the slot grid as
