@@ -42,6 +42,8 @@ never tags, pushes, approves a publish, or publishes by hand.
    - `CHANGELOG.md`: `## Unreleased` keeps its bullets under a new
      `## X.Y.Z — <YYYY-MM-DD>` heading, with an empty `## Unreleased` above
      it.
+   - `AGENTS.md` "Current state": the release it says is due becomes
+     the release made (`**X.Y.Z published** (<date>)`).
    - `tools/release-check.sh vX.Y.Z` and `tools/release-check-test.sh`
      pass.
    - Commit `chore(laman,py): release X.Y.Z`, the body saying the release

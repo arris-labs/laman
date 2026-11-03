@@ -28,17 +28,13 @@ rustup target add wasm32-unknown-unknown   # rust-toolchain.toml asks for it; th
 
 ## Current state
 
-**0.0.1 published** (2026-11-01) on crates.io and PyPI as `laman`: the
-generic rigidity count of bar frameworks (`laman::rigidity`). The docs
-system, tooling and design docs are written (SEED.md §10.1–5); the arc
-parametrisation is closed (ADR-0001). C1 goes ahead as planned; the claim
-rests on the Python gap, the checker and deterministic branch-keeping drag
+**C1 closed and 0.1.0 published** (2026-11-03) on crates.io and PyPI as
+`laman`: the solver, its diagnostics, `DragSession`, the checker and
+`laman-py` over the whole API, the C1 corpus green from Rust and Python
+with its 50 digests equal on five OS/arch runners and wasm32-wasip1, the
+oracle run in `docs/COMPARISON.md` (ADRs 0001–0007). The claim rests on
+the Python gap, the checker and deterministic branch-keeping drag
 (`docs/COMPARISON.md`, SEED.md §3 note).
-**C1 closed** (2026-11-03): the solver, its diagnostics, `DragSession`,
-the checker and `laman-py` over the whole API, the C1 corpus green from
-Rust and Python with its 50 digests equal on five OS/arch runners and
-wasm32-wasip1, the oracle run in `docs/COMPARISON.md` (ADRs 0001–0007).
-The 0.1.0 release is due (`/release`).
 **Next:** C2, the sketcher gate (`docs/ROADMAP.md`): `/plan` its first
 milestone, the rigid-cluster decomposition.
 
