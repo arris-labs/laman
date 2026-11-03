@@ -45,7 +45,10 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
   (`.agents/rules/solver.md` §Testing). Guesses are the constructed
   coordinates displaced by a deterministic offset (a closed formula in the
   entity's index, under a tenth of the smallest dimension), so every guess
-  sits on the construction's branch. No randomness.
+  sits on the construction's branch. No randomness. Coordinate acceptance
+  is `1e-9 × max(x span, y span)` from the constructed coordinates,
+  following ROADMAP.md §Fixtures; dimensionless sweep acceptance stays
+  `1e-9`, independently of length units.
 - **`Edit`**: the constraint's tag, its new value, the expected coordinates
   after, and `unmoved`: the entities upstream of the edit in the
   construction, whose exact **bits** are the M6 regression guarantee across the re-solve (the
@@ -114,7 +117,7 @@ unproven — an algorithm whose robustness or bound is established here.
 
 - `cargo test -p laman-debug --test c2`: every non-ignored case green under
   both algorithms, checker clean, DoF exact (0 static and edited, 1 dragged),
-  redundant and conflicts empty, no flip, `unmoved` within the unchanged coordinate tolerance; every
+  redundant and conflicts empty, no flip, `unmoved` within the construction-scaled coordinate tolerance; every
   ignored case named with its measured time, and run once in release with
   the outcome in step 5's commit.
 - The corpus property at its default case count, green.
@@ -134,11 +137,18 @@ unproven — an algorithm whose robustness or bound is established here.
 
 ## Open questions
 
+- **Settled (step 1 repair):** the initial implementation used absolute
+  `1e-9`, contrary to the roadmap's size-relative default. Correct it to
+  the construction-derived extent above; no solver or C1 fixture changes.
+  A small random triangle and large chains meet the roadmap requirement
+  while missing that accidental stricter absolute comparison. This repairs
+  the implementation to the existing acceptance, without narrowing ranges.
+
 - **Settled (human, 2026-11-04):** strict upstream bit preservation is
   deferred to M6, recorded in `BACKLOG.md` and the unchanged ignored
   `regression/upstream-edit-drift` tests for both algorithms. The human
   authorized "yes, mark in backlog and continue". M5 retains its original
-  coordinate tolerance, checker, status, DoF, diagnostics and drag assertions;
+  coordinate acceptance from the roadmap, checker, status, DoF, diagnostics and drag assertions;
   its ordinary tests and property check upstream geometry within that
   tolerance. This explicitly changes M5 acceptance, without accepting the
   drift as correct behavior.

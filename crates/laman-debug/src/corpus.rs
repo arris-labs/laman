@@ -61,8 +61,9 @@ pub enum CorpusError {
     Model(#[from] ModelError),
 }
 
-// Coordinate acceptance is the C1 fixture requirement, independent of solver tolerance.
-const COORDINATE_TOLERANCE: f64 = 1e-9;
+// ROADMAP.md §Fixtures compares coordinates within 1e-9 of the sketch size.
+// Measure that size from the construction, independently of guesses or solves.
+const COORDINATE_RELATIVE_TOLERANCE: f64 = 1e-9;
 // Each coordinate moves at most .03 of the smallest dimension, below the plan's tenth.
 const GUESS_FRACTION: f64 = 0.01;
 // Edits and the last drag target increase the selected dimension by one tenth.
@@ -79,6 +80,17 @@ fn dimension(name: &'static str, value: f64) -> Result<(), CorpusError> {
 }
 
 fn expected(coordinates: Coordinates, dof: u32) -> Expected {
+    let extent = |axis| {
+        let (min, max) = coordinates
+            .iter()
+            .filter(|((_, coordinate), _)| *coordinate == axis)
+            .map(|(_, value)| *value)
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), value| {
+                (min.min(value), max.max(value))
+            });
+        max - min
+    };
+    let size = extent(Coordinate::X).max(extent(Coordinate::Y));
     Expected {
         status: if dof == 0 {
             "FullyConstrained"
@@ -88,7 +100,7 @@ fn expected(coordinates: Coordinates, dof: u32) -> Expected {
         .into(),
         dof,
         coordinates,
-        tolerance: COORDINATE_TOLERANCE,
+        tolerance: COORDINATE_RELATIVE_TOLERANCE * size,
         redundant: Vec::new(),
         conflicts: Vec::new(),
         flips: Vec::new(),

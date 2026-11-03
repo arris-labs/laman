@@ -6,6 +6,9 @@ use laman_check::check;
 use laman_debug::corpus::{Case, rect_chain, slot_grid, triangle_strip};
 use laman_debug::dump;
 
+// Semicircle sweep is dimensionless; coordinate acceptance scales with size.
+const SWEEP_TOLERANCE: f64 = 1e-9;
+
 fn assert_solution(
     name: &str,
     sketch: &laman::model::Sketch,
@@ -52,7 +55,7 @@ fn assert_solution(
             let ey = at(*e, laman::model::Coordinate::Y) - at(*c, laman::model::Coordinate::Y);
             let sweep = libm::atan2(sx * ey - sy * ex, sx * ex + sy * ey).abs();
             assert!(
-                (sweep - std::f64::consts::PI).abs() <= expected.tolerance,
+                (sweep - std::f64::consts::PI).abs() <= SWEEP_TOLERANCE,
                 "{name}: arc sweep"
             );
         }
