@@ -65,7 +65,7 @@ a release is a local packaging proof, not a 32-job dispatch.
 Grades: **[1]** routine, **[2]** careful, **[3]** unproven; **[CI]** means
 the only test is a CI run on `plan/ci-job-count`.
 
-- [ ] Step 1 **[1]** — ADR-0008 as in *Design deltas*, plus its row in
+- [x] Step 1 **[1]** — ADR-0008 as in *Design deltas*, plus its row in
   `docs/adr/README.md`.
 - [ ] Step 2 **[1, CI]** — `wheels.yml`: the new triggers, and the 3.13
   install on `linux-x86_64`. Test: a `workflow_dispatch` on the branch,
