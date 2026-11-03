@@ -35,8 +35,9 @@ with its 50 digests equal on five OS/arch runners and wasm32-wasip1, the
 oracle run in `docs/COMPARISON.md` (ADRs 0001–0007). The claim rests on
 the Python gap, the checker and deterministic branch-keeping drag
 (`docs/COMPARISON.md`, SEED.md §3 note).
-**Next:** C2, the sketcher gate (`docs/ROADMAP.md`): `/plan` its first
-milestone, the rigid-cluster decomposition.
+**C2 M5 done:** generated corpus and bounded benchmark; baseline in
+`docs/ARCHITECTURE.md`, upstream edit bit drift recorded for M6.
+**Next:** `/plan` M6, the stage decomposition (`docs/ROADMAP.md`).
 
 ## Rules that are not derivable from the code
 

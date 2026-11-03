@@ -141,6 +141,12 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
+**Status: M5 done.** The generated corpus, construction properties and
+bounded release benchmark are in place; the baseline is in
+ARCHITECTURE.md §Frame budget. M6 is next. Strict upstream edit bit
+preservation remains required for C2 and is recorded as
+`regression/upstream-edit-drift`; M5 checks coordinate preservation.
+
 The risk this cycle retires is locality: that a decomposition into rigid
 clusters makes a local edit cost a local solve, without changing a
 diagnostic or a bit outside the clusters it reaches.
@@ -148,8 +154,10 @@ diagnostic or a bit outside the clusters it reaches.
 - In: subsystem decomposition into rigid clusters, with the (2,3) pebble
   game (`laman::rigidity`) as the combinatorial pre-pass; incremental
   edits that re-solve only the clusters they reach; generated sketches of
-  100 to 500 entities (chains of profiles, patterns of slots, nested
-  constraints) as fixtures by construction. Drag robustness: a frame that
+  about 100 to 500 entities as fixtures by construction: shared-edge
+  rectangle chains (98/248/498), slot grids (98/248/498), and nested
+  triangle strips (99/249/501). M5 supplies these families and the bench;
+  M6 supplies the decomposition. Drag robustness: a frame that
   moves an arc's tracked sweep more than a named fraction of a turn is
   bisected; a frame solved at a bisected target is marked in its
   `Solution`; a bisected frame is held to the frame budget; the drag

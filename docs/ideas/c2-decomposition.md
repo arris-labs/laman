@@ -1,6 +1,6 @@
 # Idea: c2-decomposition
 
-- Status: Accepted (C, S1); M5 absorbed by plans/m5-corpus, M6–M8 to follow
+- Status: Accepted (C, S1); M5 done, M6–M8 to follow
 - Raised: 2026-11-04
 - Prompt (verbatim from the human): "c2 (or you can directly plan first thing from it?)"
 
@@ -125,10 +125,10 @@ re-diagnosis misses 4 ms.
 
 Milestones (continuing C1's numbering):
 
-- **M5 — corpus and bench at scale**: generated sketches of 100–500
-  entities by construction (chains of profiles, slot patterns, nested
-  constraints) with closed-form expectations, the 4 ms bench, baseline
-  measured on today's solver. The harness before the solver (SEED.md §10.6).
+- **M5 — done, corpus and bench at scale**: rectangle chains, slot grids
+  and triangle strips, construction properties and the bounded 4 ms
+  benchmark. The measured baseline and corpus contract live in
+  ARCHITECTURE.md; upstream edit bit drift is an M6 regression in BACKLOG.md.
 - **M6 — stages**: the decomposition, staged solve and staged diagnostics
   with the deficient-stage fallback; ADR-0009; C1 digests re-blessed.
 - **M7 — drag robustness**: sweep-jump bisection, the bisected-frame mark,

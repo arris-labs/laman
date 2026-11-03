@@ -541,6 +541,42 @@ included: every step a complete answer, a non-finite target `NotConverged`).
 fixtures and each step of fixture 4's drag against the 1 ms frame budget and
 names the machine.
 
+The Rust-only `laman_debug::corpus` harness builds C2 sketches with
+closed-form coordinates, deterministic displaced guesses, dimension edits
+and drags. `Case` holds the static sketch and `Expected`, an `Edit` with
+its tag, replacement value, constructed answers and upstream `unmoved`
+entities, and an optional `DragCase`. The latter holds its own sketch
+with one dimension removed, initial answers and `fixture::Drag` targets
+with answers at every step. Zero counts and non-positive or non-finite
+dimensions are refused with `CorpusError`; model refusals retain their ids.
+
+The families are shared-edge rectangles (`5n+3` entities), C1-shaped slot
+grids (`10rc+8`), and equilateral triangle strips (`3n+3`). Each has a
+default constructor and a `_with` constructor taking dimensions. Rectangle
+edits change a middle width; later rectangles shift. Slot edits change one
+slot's vertical placement; a separate horizontal-placement dimension is
+removed for its drag. A triangle edit changes one middle skip-edge; the
+tail rotates rigidly about the preceding point by construction. Triangles
+have no constructed drag. The other two families have one-DoF drags with
+three targets. These generated cases do not replace the committed C1 fixtures.
+
+`tests/c2.rs` checks static, edited and dragged coordinates, status, DoF,
+empty redundant/conflict/flip diagnostics, semicircle sweeps and checker
+results under both algorithms. Coordinate acceptance is `1e-9` times the
+maximum x/y extent of the constructed answers; sweep acceptance is
+dimensionless `1e-9`. M5 checks upstream geometry within that coordinate
+tolerance; exact bits remain the ignored `upstream-edit-drift` regression
+for M6. Seven large tests exceed the 10 s debug threshold and remain
+ignored with measured lower bounds. Six passed in release; the 498-entity
+slot grid reached a 600 s bound after all LM checks passed, without a
+DogLeg verdict. M6 must lift these ignores and the bit-preservation regression.
+
+`tests/c2_props.rs` uses proptest's default case count and
+`PROPTEST_CASES`: rectangles draw 1–6 cells, widths 10–40 and heights
+5–20; slots draw 1–2 rows/columns, centre separations 20–60 and radii
+3–8; triangles draw 1–8 cells and sides 10–30. Each checks its static
+solve and warm-started edit against construction under both algorithms.
+
 ### Frame budget
 
 Measured by the bench (release, median of 200 runs, AMD Ryzen 9 7950X): the
@@ -679,7 +715,3 @@ value.
 - Closed by ADR-0005: a conflict set is inclusion-minimal, found by a
   bounded deletion filter with local certificates, never a minimum. Cycle 2
   measures the 256-re-solve bound again on its sizes.
-
-The Rust-only `laman_debug::corpus` harness builds C2 sketches with
-closed-form coordinates, displaced guesses, dimension edits and drags;
-these generated cases do not replace the committed C1 fixtures.
