@@ -27,7 +27,8 @@ pub struct Edit {
     pub value: f64,
     /// Closed-form answers after the edit.
     pub expected: Expected,
-    /// Entities upstream of the edit: their solved coordinates must keep their bits.
+    /// Entities upstream of the edit: M6 guarantees their solved
+    /// coordinates keep their bits; M5 asserts them within tolerance.
     pub unmoved: Vec<EntityId>,
 }
 
@@ -45,8 +46,9 @@ pub struct DragCase {
 /// A refused construction, before any solve.
 #[derive(Debug, thiserror::Error)]
 pub enum CorpusError {
-    /// A family needs at least one cell or edge.
-    #[error("{0} must be positive")]
+    /// A count is zero, or its construction exceeds [`MAX_CONSTRUCTION_ITEMS`]
+    /// entities or constraints (which also keeps it inside the model's id ranges).
+    #[error("{0} must be positive and build at most 4194304 entities and constraints")]
     Count(&'static str),
     /// A length must be positive and finite.
     #[error("{name} must be positive and finite, got {value}")]
@@ -76,6 +78,40 @@ fn dimension(name: &'static str, value: f64) -> Result<(), CorpusError> {
         Ok(())
     } else {
         Err(CorpusError::Dimension { name, value })
+    }
+}
+
+/// The most entities, and the most constraints, any generated construction
+/// may hold. The model's ids reach `u32::MAX`, but a count that fits the ids
+/// can still ask for tens of gigabytes (or overflow a 32-bit `Vec`), and the
+/// corpus' position, id and coordinate vectors scale with the same count. At
+/// 2^22 the largest per-item vector is a few hundred MiB and well under
+/// `isize::MAX` on wasm32; the C2 sizes are three orders smaller.
+pub const MAX_CONSTRUCTION_ITEMS: usize = 1 << 22;
+
+// Check the complete construction against MAX_CONSTRUCTION_ITEMS (and so the
+// u32 id ranges) before allocating positions or building any entities.
+fn construction_count(
+    name: &'static str,
+    count: usize,
+    entities_per_cell: usize,
+    initial_entities: usize,
+    constraints_per_cell: usize,
+    initial_constraints: usize,
+) -> Result<(), CorpusError> {
+    let fits = |per_cell, initial| {
+        count
+            .checked_mul(per_cell)
+            .and_then(|total| total.checked_add(initial))
+            .is_some_and(|total| total <= MAX_CONSTRUCTION_ITEMS)
+    };
+    if count > 0
+        && fits(entities_per_cell, initial_entities)
+        && fits(constraints_per_cell, initial_constraints)
+    {
+        Ok(())
+    } else {
+        Err(CorpusError::Count(name))
     }
 }
 
@@ -222,7 +258,8 @@ fn rectangles(
 }
 
 /// Builds `n` adjacent 20 by 10 rectangles, with shared edges (5n + 3 entities).
-/// Refuses zero rectangles or unrepresentable geometry.
+/// Refuses zero rectangles or counts exceeding the model's id ranges before
+/// building any sketch. Also refuses unrepresentable geometry.
 ///
 /// ```
 /// let case = laman_debug::corpus::rect_chain(3)?;
@@ -235,6 +272,7 @@ pub fn rect_chain(n: usize) -> Result<Case, CorpusError> {
 
 /// Builds a rectangle chain with positive finite width and height.
 /// Rectangle `n / 2` is edited and dragged; all previous entities are upstream.
+/// Refuses zero or excessive counts as [`CorpusError::Count`], before allocation.
 ///
 /// ```
 /// let case = laman_debug::corpus::rect_chain_with(3, 30.0, 12.0)?;
@@ -242,9 +280,7 @@ pub fn rect_chain(n: usize) -> Result<Case, CorpusError> {
 /// # Ok::<(), laman_debug::corpus::CorpusError>(())
 /// ```
 pub fn rect_chain_with(n: usize, width: f64, height: f64) -> Result<Case, CorpusError> {
-    if n == 0 {
-        return Err(CorpusError::Count("rectangles"));
-    }
+    construction_count("rectangles", n, 5, 3, 4, 2)?;
     dimension("width", width)?;
     dimension("height", height)?;
     let built = rectangles(n, width, height, width, true)?;
@@ -438,7 +474,7 @@ fn slots(
             unmoved.extend(sketch.entities().skip(start).map(|(id, _)| id));
         }
     }
-    let (horizontal, dragged, placement) = selection.ok_or(CorpusError::Count("slots"))?;
+    let (horizontal, dragged, placement) = selection.ok_or(CorpusError::Count("slot count"))?;
     Ok(SlotBuild {
         sketch,
         coordinates,
@@ -451,7 +487,8 @@ fn slots(
 
 /// Builds a grounded plate with `rows * cols` slots (10 entities each, plus 8).
 /// Slots have radius 5 and centres 40 apart, matching C1's slot geometry.
-/// Refuses zero rows/columns or unrepresentable geometry.
+/// Refuses zero rows/columns or counts exceeding the model's id ranges before
+/// building any sketch. Also refuses unrepresentable geometry.
 ///
 /// ```
 /// let case = laman_debug::corpus::slot_grid(2, 2)?;
@@ -465,6 +502,8 @@ pub fn slot_grid(rows: usize, cols: usize) -> Result<Case, CorpusError> {
 /// Builds a slot grid with positive finite centre separation and radius.
 /// The middle slot's vertical placement increases by one tenth on edit;
 /// the drag removes its horizontal placement and pulls its left centre.
+/// Refuses zero or excessive counts (including `rows * cols` overflow) as
+/// [`CorpusError::Count`], before allocation.
 ///
 /// ```
 /// let case = laman_debug::corpus::slot_grid_with(2, 2, 40.0, 8.0)?;
@@ -483,6 +522,10 @@ pub fn slot_grid_with(
     if cols == 0 {
         return Err(CorpusError::Count("columns"));
     }
+    let count = rows
+        .checked_mul(cols)
+        .ok_or(CorpusError::Count("slot count"))?;
+    construction_count("slot count", count, 10, 8, 10, 6)?;
     dimension("length", length)?;
     dimension("radius", radius)?;
     let built = slots(rows, cols, length, radius, [0.0, 0.0], true)?;
@@ -508,7 +551,7 @@ pub fn slot_grid_with(
             flips: Vec::new(),
         });
     }
-    let selected = rows * cols / 2;
+    let selected = count / 2;
     Ok(Case {
         sketch: built.sketch,
         expected: expected(built.coordinates, 0),
@@ -631,7 +674,8 @@ fn triangles(
 /// Builds `n` equilateral triangles in a zigzag strip (3n + 3 entities).
 /// The first edge is horizontal, with its first point grounded. A middle
 /// skip edge is edited; the subsequent tail rotates rigidly. No drag.
-/// Refuses zero triangles or unrepresentable geometry.
+/// Refuses zero triangles or counts exceeding the model's id ranges before
+/// allocating point positions. Also refuses unrepresentable geometry.
 ///
 /// ```
 /// let case = laman_debug::corpus::triangle_strip(6)?;
@@ -646,6 +690,7 @@ pub fn triangle_strip(n: usize) -> Result<Case, CorpusError> {
 /// Builds the equilateral strip with a positive finite side length.
 /// Every distance is `side`, except the edited skip edge, which grows by
 /// one tenth. Expectations use circle intersection and one rigid rotation.
+/// Refuses zero or excessive counts as [`CorpusError::Count`], before allocation.
 ///
 /// ```
 /// let case = laman_debug::corpus::triangle_strip_with(6, 30.0)?;
@@ -653,9 +698,7 @@ pub fn triangle_strip(n: usize) -> Result<Case, CorpusError> {
 /// # Ok::<(), laman_debug::corpus::CorpusError>(())
 /// ```
 pub fn triangle_strip_with(n: usize, side: f64) -> Result<Case, CorpusError> {
-    if n == 0 {
-        return Err(CorpusError::Count("triangles"));
-    }
+    construction_count("triangles", n, 3, 3, 2, 2)?;
     dimension("side", side)?;
     let (sketch, coordinates, unmoved) = triangles(n, side, false, true)?;
     let (_, moved, _) = triangles(n, side, true, false)?;

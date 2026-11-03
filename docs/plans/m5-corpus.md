@@ -38,6 +38,10 @@ are in ARCHITECTURE.md. The C1 corpus and its 50 digests do not move.
   dimension removed, its initial expectation (DoF 1), and the `Drag`;
   this is necessary because slot edits and drags remove different dimensions.
   `CorpusError` names refused counts/dimensions or wraps a model error.
+  `CorpusError::Count` refuses zero counts and counts whose derived entity
+  or constraint totals exceed the model's id ranges, before allocation;
+  checked size arithmetic also refuses count/product overflow. This remains
+  Rust-only debug tooling, deliberately unbound in Python.
   Each family has a default constructor and a `_with` variant taking
   positive finite dimensions for the property. The constructor computes the coordinates from the
   dimensions in closed form, so an edited or dragged expectation is the
