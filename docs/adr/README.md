@@ -24,3 +24,4 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0005](0005-conflict-sets-by-certified-deletion.md) | Conflict sets by certified deletion, redundancy by removal | accepted |
 | [0006](0006-branches-by-observation.md) | Branches by observation, compared beyond a margin | accepted |
 | [0007](0007-the-binding-carries-the-checker-the-dumps-and-the-digest.md) | The binding carries the checker, the dumps and the digest | accepted |
+| [0008](0008-the-release-gate-is-the-tags-own-ci-run.md) | The release gate is the tag's own CI run | accepted |
