@@ -77,7 +77,7 @@ the only test is a CI run on `plan/ci-job-count`.
   green-CI check to `publish-crate`. Test: `gh workflow run release.yml
   --ref plan/ci-job-count` builds 14 jobs green, its `release-check`
   refuses, and nothing publishes.
-- [ ] Step 5 **[1, CI]** — delete the `dry_run` input and the
+- [x] Step 5 **[1, CI]** — delete the `dry_run` input and the
   `metadata-artifact` plumbing from all three workflows, and delete
   `tools/release-dry-run.py` and `-test.py`. Test: step 4's dispatch again,
   plus `grep -r metadata-artifact .github tools` is empty.

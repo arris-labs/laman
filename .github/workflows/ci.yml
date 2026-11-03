@@ -1,12 +1,6 @@
 name: CI
 
 on:
-  workflow_call:
-    inputs:
-      metadata-artifact:
-        description: Release rehearsal metadata, prepared by release.yml
-        type: string
-        default: ""
   push:
     branches: [main]
     tags: ["v*"]
@@ -34,10 +28,6 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        if: inputs.metadata-artifact != ''
-        with:
-          name: ${{ inputs.metadata-artifact }}
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - run: tools/gate.sh
@@ -49,10 +39,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        if: inputs.metadata-artifact != ''
-        with:
-          name: ${{ inputs.metadata-artifact }}
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: bytecodealliance/actions/wasmtime/setup@v1
@@ -67,10 +53,6 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        if: inputs.metadata-artifact != ''
-        with:
-          name: ${{ inputs.metadata-artifact }}
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: astral-sh/setup-uv@v6
