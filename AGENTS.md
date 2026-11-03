@@ -34,17 +34,13 @@ system, tooling and design docs are written (SEED.md §10.1–5); the arc
 parametrisation is closed (ADR-0001). C1 goes ahead as planned; the claim
 rests on the Python gap, the checker and deterministic branch-keeping drag
 (`docs/COMPARISON.md`, SEED.md §3 note).
-**M0–M3 landed**: the model, serde form, checker, `laman-debug` and the four
-C1 fixtures with twins; every constraint's residual and gradient; `solve` and
-`apply` (LM, DogLeg, DoF, redundant and conflict sets); `drag`/`DragSession`
-(ADR-0006). Digests equal on wasm32-wasip1.
-**M4, Python and platforms landed** (`laman-py` over the whole API, ADR-0007;
-the 50 digests reproduced in CI on five OS/arch runners; wheels and sdist per
-platform; `release.yml` from a pushed `v*` tag behind the `crates-io` and
-`pypi` reviewers, rehearsed by a dry run; `/release`).
-**M4 landed** with the oracle run (`tools/oracle/`, three Rust solvers on
-the ten C1 sketches, `docs/COMPARISON.md`).
-**Next:** `/close-cycle` C1.
+**C1 closed** (2026-11-03): the solver, its diagnostics, `DragSession`,
+the checker and `laman-py` over the whole API, the C1 corpus green from
+Rust and Python with its 50 digests equal on five OS/arch runners and
+wasm32-wasip1, the oracle run in `docs/COMPARISON.md` (ADRs 0001–0007).
+The 0.1.0 release is due (`/release`).
+**Next:** C2, the sketcher gate (`docs/ROADMAP.md`): `/plan` its first
+milestone, the rigid-cluster decomposition.
 
 ## Rules that are not derivable from the code
 

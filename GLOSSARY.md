@@ -150,6 +150,17 @@ is a left null vector of the Jacobian to `STATIONARY`. No first-order
 motion reduces the residual there. It is local evidence of a conflict,
 never a proof that no solution exists anywhere (ADR-0005).
 
+**Component**:
+The free parameters connected through shared equations, solved as one
+problem (ARCHITECTURE.md §Solve).
+_Avoid_: subsystem (until it means a rigid cluster), island
+
+**Rigid cluster**:
+A part of a sketch that is rigid by itself, found by the combinatorial
+pre-pass (`laman::rigidity`'s pebble game) and solved on its own, so a
+local edit re-solves only the clusters it reaches (ROADMAP.md §C2).
+_Avoid_: block, group
+
 **Generic rigidity**:
 Rigidity of a bar framework for points in general position, decided by
 Laman's condition alone (`laman::rigidity`).

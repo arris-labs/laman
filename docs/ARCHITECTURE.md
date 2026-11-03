@@ -282,8 +282,8 @@ bound. Contradictory fixes retain their analytic midpoint and exhaust the
 128-iteration cap with 125 rejected trials. Construction properties exercise
 radial solves over scales 1e-6 through 1e6; extremes include nonzero motion
 at 1e300 and unrepresentable differences. These are measured examples,
-not a general convergence guarantee. Conflict certification and public
-status mapping are separate stages still to be implemented.
+not a general convergence guarantee. Conflict certification and the
+status are the diagnosis's (§Diagnose).
 
 ### DogLeg engine
 
@@ -498,8 +498,8 @@ expects violations lists them. The Python package exposes it as
 
 ## Determinism
 
-Same input, same bits, on Linux, macOS, Windows (x86_64) and
-wasm32 (SEED.md §4, §9):
+Same input, same bits, on Linux and macOS (x86_64 and aarch64), Windows
+(x86_64) and wasm32 (SEED.md §4, §9):
 
 - `BTreeMap` and `Vec` only where order reaches a result or an id; no
   `HashMap` iteration.
@@ -560,9 +560,10 @@ empty on wasm32.
 
 ## Serde
 
-The `serde` feature (on by default) gives `Sketch` its serde form,
-`Solution` and `Report` theirs. The form, its fields and its versioning
-are in DATA-MODEL.md §The serde form.
+The `serde` feature (on by default) gives `Sketch` and `Solution` their
+serde forms; the checker's `Report` has none (`laman-debug`'s dumps render
+it). The forms, their fields and their versioning are in DATA-MODEL.md §The
+serde form.
 
 ## The Python binding
 

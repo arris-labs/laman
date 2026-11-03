@@ -64,7 +64,8 @@
 pub const STEP: f64 = 5.0e-3;
 
 /// The agreement demanded of each term, relative to the gradient's size.
-/// The roadmap's number (docs/ROADMAP.md §M1); the module doc shows the
+/// The number DATA-MODEL.md §Constraints states for every Jacobian (C1's
+/// acceptance, docs/ROADMAP.md §C1); the module doc shows the
 /// stencil's own error stays under it.
 pub const AGREEMENT: f64 = 1.0e-6;
 

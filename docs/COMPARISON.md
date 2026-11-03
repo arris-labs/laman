@@ -4,7 +4,7 @@ A survey for someone choosing a 2D constraint solver for Rust or Python,
 and the check on laman's own reason to exist (SEED.md §3, §4). Surveyed
 2026-11-01 from each project's own pages and registry metadata, cited
 inline; no benchmark was run. Three of the Rust solvers were also run on
-laman's C1 fixtures (§The comparison run). Laman's column is what it does
+laman's C1 fixtures (§The comparison run). Laman's row is what it does
 today: it solves, drags and checks sketches from Rust and Python
 (`CHANGELOG.md`), with cross-OS wheel builds in CI and its digests held
 equal on five OS/arch runners and wasm32.
@@ -33,6 +33,7 @@ Rust is now what a solver is expected to have, not a reason for laman.
 
 | Solver | Language | Licence | Python | wasm32 | Diagnostics | Drag / interactive | Determinism claimed | State |
 |---|---|---|---|---|---|---|---|---|
+| `laman` | Rust | MIT OR Apache-2.0 | `laman`: abi3 wheels (Linux x86_64 and aarch64, macOS arm64 and x86_64, Windows x86_64) and an sdist, from the same crate, typed stubs | yes, no glue (`wasm32-unknown-unknown`) | DoF total, per entity and as free directions; redundant constraints; inclusion-minimal conflict sets; degenerate entities; branch flips; each named by the caller's id and tag; an independent checker | `DragSession`: warm-started, least change, branch-keeping | yes: the fixture digests equal on five OS/arch runners and wasm32-wasip1, checked in CI | this repository; points, lines, circles, arcs and 18 constraint kinds |
 | SolveSpace `slvs` | C++ | GPL-3.0 | `python-solvespace` 3.0.8 (GPLv3+, last upload 2022-11) [^pss]; `py-slvs` 1.0.6 (GPL-3.0) [^pyslvs] | not packaged | a `failed[]` list: provably inconsistent, or unsatisfied [^slvsdoc] | no API for it | no | mature, the de-facto Python choice |
 | FreeCAD PlaneGCS | C++ / Eigen | LGPL-2.1+ | `planegcs` 0.9.6 (2026-10-10; wheels for Linux and Windows x86_64 only) [^planegcs] | `@salusoft89/planegcs` (npm) [^npmgcs] | DoF, redundant and conflicting (FreeCAD's sketcher) | inside FreeCAD | no | mature; standalone only through these extractions |
 | `slvs` (Rust) | Rust wrapper of SolveSpace | GPL (SolveSpace's) | — | — | SolveSpace's | — | no | 0.6.0, last release 2023-06 [^crates] |

@@ -44,115 +44,37 @@ plate: each solved, checker green, with exact DoF; the over-constrained
 twins naming the right constraints; the digests identical natively and on
 wasm32; the same fixtures solving from Python (SEED.md §6).*
 
-The risk this cycle retires is the diagnostics: that rank-based DoF,
-redundant and conflicting sets come out right and named, deterministically,
-on sketches whose answers are known by hand.
+**Status: done 2026-11-03.** Retired the diagnostics risk: rank-based DoF,
+redundant and conflicting sets come out right, named and deterministic on
+sketches whose answers are known by hand. ADRs 0001–0007. Known gaps are
+findings in `docs/BACKLOG.md`.
 
-### M0 — the model and the harness
-
-*Goal: everything needed to judge a solve exists before the solver.*
-*Status: landed. The senses taken from the drawing moved here from M1: the
-builder's signature must not change when the residuals arrive.*
-
-- In: the `model` module (sketch, ids, handles, entities, constraint
-  descriptions, tags, payloads, revision, validation and `ModelError`);
-  the serde form with versioning; `laman-check` with every constraint of
-  DATA-MODEL.md measured; `laman-debug` with the text dump, the SVG dump,
-  the digest and the fixture loader; `tools/check-layers.sh` in the gate;
-  the four acceptance fixtures below committed with their `expected.json`;
-  the fixture tests written and `#[ignore]`d until the solver exists; CI's
-  wasm32-wasip1 job running the digest corpus under wasmtime; the fuzz
-  crate (one target: load any bytes as a sketch, never panic).
-- Out: residuals, the solver, diagnostics.
-- Accept: **the checker passes every fixture's expected coordinates** and
-  fails each twin's (the fixtures are proven right before anything solves
-  them); the serde form of every fixture round-trips byte for byte; the
-  fuzz target runs 10 minutes without a panic; the SVG dump of each fixture
-  is looked at once (`inspect`).
-
-### M1 — constraints
-
-*Goal: every cycle-1 constraint has residuals and an analytic Jacobian
-that agree with finite differences.*
-*Status: landed.*
-
-- In: `laman::residual` for every row of DATA-MODEL.md §Constraints and
-  the arc's intrinsic equation;
-  the finite-difference check (an eighth-order central stencil, step
-  `5e-3` of the equation's local scale, agreement within `1e-6` of the
-  gradient's size; sound to a line `1e-6` of the sketch's size anywhere in
-  it, `laman_debug::fd`) over `proptest` strategies of random
-  non-degenerate and near-degenerate configurations.
-- Out: the solve.
-- Accept: the finite-difference property at 1 000 cases per constraint,
-  green; each residual is zero at its fixture's expected coordinates.
-
-### M2 — the solver and its diagnostics (the risk milestone)
-
-*Goal: the three static fixtures and their twins solve from their guesses
-with the right status, DoF and named constraints.*
-
-- In: compile, components, Levenberg–Marquardt and DogLeg with caps,
-  warm start, least change; rank, geometric DoF for regular configurations
-  and C1 contacts (ADR-0002), per-entity DoF, free directions,
-  redundant and conflicting sets, degenerate entities; `Sketch::apply`.
-  The ADRs closing **tolerances** (absolute or scale-relative) and the
-  **conflict set** (exact or bounded).
-- Out: drag, priorities beyond `Required`.
-- Accept: fixtures 1–3 and their twins below, every number as listed; a
-  re-solve of each solution returns the same bits; property: random sketches
-  built by construction from a known solution solve back to a solution the
-  checker passes, with the DoF of their construction.
-
-*Status: landed. Both algorithms solve the bases and redundant twins within
-the budget and name the conflicting twins' sets exactly; the 20 solved
-digests agree on native and wasm32-wasip1. Known gaps, all findings in
-`docs/BACKLOG.md`: DogLeg ends `NotConverged` on conflicts Levenberg-Marquardt
-proves, and the checker overflows past about 1e154.*
-
-### M3 — the drag session
-
-*Goal: one drag across a profile keeps its branch and leaves the rest
-alone.*
-
-- In: `DragSession`, `Goal` priority, the branch observations and flips,
-  bisection on a flip; the ADR closing **branch preservation**.
-- Out: incremental decomposition (C2).
-- Accept: fixture 4 below; every step within the cycle-1 frame budget.
-
-*Status: landed. Fixture 4 passes in full through `DragSession` under both
-algorithms (checker green, DoF 3, no flips, `Q`'s bits kept); its ten step
-digests agree on native and wasm32-wasip1; every step is under 1 ms on the
-reference machine (median; thin margin). ADR-0006 closes branch
-preservation. Known gaps, all findings in `docs/BACKLOG.md`: a frame can
-end a radius just below zero (`apply` refuses it), arc tracking assumes
-under half a turn per frame, and bisected frames are not budgeted.*
-
-### M4 — Python and the cycle's close
-
-*Goal: the same corpus from Python, the same bits on every target.*
-
-- In: `laman-py` over the whole API (sketch, solve, drag, check, dumps),
-  stubs under `mypy.stubtest` and `mypy --strict`; pytest running every
-  fixture; `hypothesis` building random sketches by construction; CI's test
-  job on macOS and Windows; the wheel matrix and the release workflow.
-- Out: anything C2.
-- Status: the Python half landed (`laman-py` over the whole API; pytest
-  reproduces the corpus and its 50 digests under both algorithms;
-  `hypothesis`; stubtest and `mypy --strict`); the platforms landed (the
-  gate and the Python tests green in CI on Linux x86_64 and aarch64, macOS
-  arm64 and x86_64 and Windows x86_64, all 50 digests reproduced on each;
-  abi3 wheels and an sdist built and installed clean per platform;
-  `release.yml` rehearsed by a dry run, nothing uploaded); the oracle ran
-  (`sketch-solver`, `acs-solver` and `ezpz` on the ten C1 sketches,
-  thirty reports under `tools/oracle/results/`, the table in COMPARISON.md).
-  **M4 landed.**
-- Accept: the C1 acceptance below, in full, from `cargo test` and pytest;
-  the comparison (COMPARISON.md) re-read against the code;
-  `sketch-solver`, `acs-solver` and `ezpz` run out of process
-  (`tools/oracle/`) on the four fixtures and their twins, with their
-  status, DoF and conflict sets (not coordinates) recorded in
-  COMPARISON.md.
+- In: the `model` module and its versioned serde form; `laman-check`;
+  `laman-debug` (dumps, digest, fixture loader, strategies, bench);
+  `tools/check-layers.sh`; the fuzz targets; `laman::residual` for every
+  constraint and the arc's intrinsic equation, held by the
+  finite-difference check (`laman_debug::fd`); compile, components,
+  Levenberg–Marquardt and DogLeg with caps, warm start, least change; rank,
+  geometric DoF (ADR-0002), per-entity DoF, free directions, redundant and
+  conflicting sets, degenerate entities; `Sketch::apply`; `DragSession`
+  with `Goal` priority, branch observations, flips and bisection;
+  `laman-py` over the whole API with stubs; CI on five OS/arch runners and
+  wasm32-wasip1; the wheel matrix and the release workflow; the oracle run
+  (`tools/oracle/`).
+- Out: incremental decomposition and priorities beyond `Required` and
+  `Goal` (C2).
+- Accept: the fixtures below and their twins, every number as listed, from
+  `cargo test` and pytest under both algorithms, checker green; the
+  finite-difference property at 1 000 cases per constraint, agreement
+  within `1e-6` of the gradient's size; a re-solve of each solution
+  returns the same bits; random sketches built by construction solve back
+  with the DoF of their construction; the checker passes every fixture's
+  expected coordinates and fails each twin's; every fixture's serde form
+  round-trips byte for byte; the fuzz targets run 10 minutes without a
+  panic; the frame budget below; every digest equal natively, on the five
+  CI runners and on wasm32-wasip1; `sketch-solver`, `acs-solver` and
+  `ezpz` run out of process on the ten C1 sketches, their status, DoF and
+  conflict sets recorded in COMPARISON.md.
 
 ### C1 acceptance
 
@@ -215,22 +137,38 @@ step in ≤ 1 ms.
 
 ## C2 — the sketcher gate
 
-*Goal: laman can sit under an interactive sketcher (SEED.md §6).*
+*Goal: laman can sit under an interactive sketcher (SEED.md §6): edits and
+drags at 100 to 500 entities solve inside a frame, keep their branch and
+leave unrelated geometry where it was.*
+
+The risk this cycle retires is locality: that a decomposition into rigid
+clusters makes a local edit cost a local solve, without changing a
+diagnostic or a bit outside the clusters it reaches.
 
 - In: subsystem decomposition into rigid clusters, with the (2,3) pebble
-  game (`laman::rigidity`) as the combinatorial pre-pass, so a local edit
-  costs a local solve; incremental edits that re-solve only the clusters
-  they reach; generated sketches of 100 to 500 entities (chains of
-  profiles, patterns of slots, nested constraints) as fixtures by
-  construction; the first consumer's requirements written as laman
-  fixtures (the consumer integrates on its own schedule).
+  game (`laman::rigidity`) as the combinatorial pre-pass; incremental
+  edits that re-solve only the clusters they reach; generated sketches of
+  100 to 500 entities (chains of profiles, patterns of slots, nested
+  constraints) as fixtures by construction. Drag robustness: a frame that
+  moves an arc's tracked sweep more than a named fraction of a turn is
+  bisected; a frame solved at a bisected target is marked in its
+  `Solution`; a bisected frame is held to the frame budget; the drag
+  property's construction gets an observed subject, so it can fail on a
+  flip. A radius never ends below zero (findings `negative-radius-solve`,
+  `drag-negative-radius`; their fixtures lifted).
+- Out: a named consumer's fixtures (none is named yet; they join when one
+  is, and integrate on its own schedule); the conflict analysis's cost and
+  the inconclusive-conflict findings (`docs/BACKLOG.md`); the Python and
+  release-workflow backlog; new constraint kinds.
 - Accept: on 500-entity sketches, a drag step and a one-dimension edit each
-  re-solve in ≤ 4 ms (a quarter of a 60 Hz frame) on the reference machine;
-  geometry outside the edited clusters keeps its bits; no flip across the
-  generated drags; conflict sets measured against the exact minimum where
-  the conflict-set ADR says they are approximate.
-
----
+  re-solve in ≤ 4 ms (a quarter of a 60 Hz frame) on the reference
+  machine, bisected drag frames included; geometry outside the edited
+  clusters keeps its bits; DoF, redundant and conflict sets equal to those
+  of a whole-sketch solve; no flip across the generated drags; no radius
+  below zero from any solve or drag the properties draw; conflict sets
+  measured against the exact minimum where ADR-0005 says they are
+  approximate; the C1 corpus and its digests unchanged, or re-blessed with
+  the reason.
 
 ## Later cycles, one line each, unordered
 
