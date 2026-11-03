@@ -226,3 +226,25 @@ fn upstream_edit_drift_lm() {
 fn upstream_edit_drift_dogleg() {
     assert_upstream_edit_keeps_bits(Algorithm::DogLeg);
 }
+
+#[test]
+#[ignore = "a satisfied status at a tangent whose line has collapsed, which the checker cannot measure"]
+fn satisfied_status_degenerate_tangent() {
+    let f = load("satisfied-status-degenerate-tangent");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        let report = check(&f.sketch, &solution.coordinates);
+        if matches!(
+            solution.status,
+            Status::FullyConstrained | Status::UnderConstrained
+        ) {
+            assert!(
+                report.violations.is_empty(),
+                "{algorithm:?}: {:?} but {report:?}",
+                solution.status
+            );
+        }
+    }
+}

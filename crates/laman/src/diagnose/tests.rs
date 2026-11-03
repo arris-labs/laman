@@ -311,3 +311,119 @@ fn rank_threshold_ties_and_sign() {
     assert_eq!(qr.null_basis(), [vec![1.0, 0.0]]);
     assert_eq!(qr.null_basis()[0][1].to_bits(), 0.0f64.to_bits());
 }
+
+/// The staged freedom of `sk` at `values` next to the whole path's.
+fn staged_and_whole(sk: &Sketch, values: &Coordinates) -> (Freedom, Freedom) {
+    let system = System::new(sk);
+    (
+        freedom_on(&system, values, Path::Staged),
+        freedom_on(&system, values, Path::Whole),
+    )
+}
+
+#[test]
+fn the_staged_path_runs_on_the_c1_bases() {
+    // Not a vacuous comparison: every C1 base's components of more than one
+    // part are factorized part by part at the expected coordinates, and give
+    // the whole path's DoF and per-entity DoF.
+    for slug in [
+        "sss-triangle",
+        "belt",
+        "slotted-plate",
+        "slotted-plate-drag",
+    ] {
+        let (sk, values, _) = load(slug);
+        let system = System::new(&sk);
+        let coordinates = merged(&sk, &values);
+        let mut staged_components = 0;
+        for component in &system.components {
+            if crate::stage::decompose(&system, component).parts.len() < 2 {
+                continue;
+            }
+            let (rank, _) = staged(&system, component, &coordinates, true)
+                .unwrap_or_else(|| panic!("{slug}: fell back"));
+            assert_eq!(rank, rank_of(&system, component, &coordinates), "{slug}");
+            staged_components += 1;
+        }
+        assert!(staged_components > 0, "{slug}");
+        let (s, w) = staged_and_whole(&sk, &values);
+        assert_eq!((s.dof, &s.entities), (w.dof, &w.entities), "{slug}");
+        assert_null_basis(&sk, &values, &s);
+    }
+}
+
+#[test]
+fn a_column_deficient_head_falls_back_to_the_whole_component() {
+    // P on the x axis, 5, 5 and 15 from fixed (0,0), (10,0), (20,0): three
+    // rows on P's two columns, all along x, so the head has rank 1. Q, 3
+    // above P, reads P after it. By construction P.x and Q's distance are
+    // held (rank 2 of 4) and P.y moves with Q.y; staged without the
+    // fallback would pin P.y. The fallback is the whole path, bit for bit.
+    let mut sk = Sketch::new();
+    let a = sk.point_fixed(0.0, 0.0).unwrap();
+    let b = sk.point_fixed(10.0, 0.0).unwrap();
+    let c = sk.point_fixed(20.0, 0.0).unwrap();
+    let p = sk.point(5.0, 0.0).unwrap();
+    let q = sk.point(5.0, 3.0).unwrap();
+    sk.distance(a, p, 5.0).unwrap();
+    sk.distance(b, p, 5.0).unwrap();
+    sk.distance(c, p, 15.0).unwrap();
+    sk.distance(p, q, 3.0).unwrap();
+    let values = sk.coordinates();
+    let system = System::new(&sk);
+    let component = system
+        .components
+        .iter()
+        .find(|c| !c.sources.is_empty())
+        .unwrap();
+    let kinds: Vec<_> = crate::stage::decompose(&system, component)
+        .parts
+        .iter()
+        .map(|part| part.kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        [crate::stage::Kind::Head, crate::stage::Kind::Remainder]
+    );
+    assert_eq!(staged(&system, component, &values, true), None);
+    let (s, w) = staged_and_whole(&sk, &values);
+    assert_eq!(s, w);
+    assert_eq!(s.dof, 2);
+    assert_eq!(s.entities[&p.id()], 1);
+    assert!(
+        s.directions.iter().any(|d| d
+            .iter()
+            .any(|(id, c, _)| *id == p.id() && *c == Coordinate::Y)),
+        "{:?}",
+        s.directions
+    );
+    assert_null_basis(&sk, &values, &s);
+}
+
+#[test]
+fn a_row_dependent_on_earlier_parts_adds_no_rank() {
+    // The shrunk seed 226646 of `solved.rs`: L = (P2, P0) and M = (P2, P1)
+    // vertical, P1 on L, P0.x fixed. The verticals put P2 and P1 on x = 0,
+    // where P1 is on L whatever its y: the point-on-line row lies in the
+    // verticals' span, so the DoF is 5 - 2 = 3. Its entries on the
+    // remainder's own columns are rounding at the solver's answer from the
+    // seed's guesses; a row normalized over them alone would count a rank
+    // the whole path does not.
+    let mut sk = Sketch::new();
+    let p0 = sk.point(0.0, 0.0).unwrap();
+    sk.set_fixed(p0.id(), Coordinate::X, true).unwrap();
+    let p1 = sk.point(0.0, 0.0).unwrap();
+    let p2 = sk.point(161.2587271685016, -605.1274985744651).unwrap();
+    let l = sk.line(p2, p0).unwrap();
+    let m = sk.line(p2, p1).unwrap();
+    sk.point_on_line(p1, l).unwrap();
+    sk.vertical(m).unwrap();
+    sk.vertical(l).unwrap();
+    let out = solve(&sk, Options::default());
+    assert!(out.converged);
+    let values = out.coordinates;
+    let (s, w) = staged_and_whole(&sk, &values);
+    assert_eq!(s.dof, 3);
+    assert_eq!((s.dof, &s.entities), (w.dof, &w.entities));
+    assert_null_basis(&sk, &values, &s);
+}

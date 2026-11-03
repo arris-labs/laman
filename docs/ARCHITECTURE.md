@@ -144,7 +144,15 @@ The pipeline, each stage deterministic:
    norms recomputed at every step (no downdating) and ties to the lowest
    original parameter, written by hand in index order: no library's tie
    rule or kernel choice reaches a DoF. It stops at the first remaining
-   column whose part outside the chosen span is at most `RANK`.
+   column whose part outside the chosen span is at most `RANK`. A satisfied
+   component is factorized part by part over its stages (`stage`): each
+   part's rows, unit over the whole row, cut to its own columns; the rank
+   is the parts' sum and the free directions the last part's null basis.
+   A failed or degenerate component, or one whose part before the last is
+   column-deficient, is factorized whole. Both give the same DoF and
+   direction span; the non-default `reference` feature exposes the whole
+   path (`laman::reference::solve`, hidden, unbound) for the tests to
+   compare.
 
 **Priorities**: two levels, kept in two lists. Every constraint's
 equations are required, compiled into `System::equations`; a drag target

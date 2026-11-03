@@ -25,7 +25,7 @@ use crate::model::tolerance::Source;
 use crate::model::{
     ConstraintId, ConstraintKind, Coordinate, Coordinates, EntityId, EntityKind, ModelError, Sketch,
 };
-use crate::solve::{self, Options, Outcome};
+use crate::solve::{self, Options, Outcome, Path};
 use crate::system::Goal;
 
 #[cfg(feature = "serde")]
@@ -88,15 +88,22 @@ impl Default for SolverOptions {
 }
 
 impl SolverOptions {
-    fn internal(&self) -> Options {
+    fn internal_on(&self, path: Path) -> Options {
         Options {
             algorithm: self.algorithm,
             max_iterations: self.max_iterations,
             max_evaluations: self.max_evaluations,
             max_analysis_solves: self.max_analysis_solves,
+            path,
             ..Options::default()
         }
     }
+}
+
+/// [`Sketch::solve`] by `path`.
+pub(crate) fn solve_on(sketch: &Sketch, options: &SolverOptions, path: Path) -> Solution {
+    let before = Observations::at(sketch, &sketch.coordinates());
+    solve_observed(sketch, &[], options, &before, sketch.provenance(), path).0
 }
 
 /// An entity as a diagnostic names it: the caller's id, its kind and its tag.
@@ -261,24 +268,28 @@ pub(crate) struct Attempt {
     pub(crate) observed: Observations,
     /// The flips from that earlier frame to this one.
     pub(crate) flips: Vec<branch::Flip>,
+    /// How it is diagnosed.
+    path: Path,
 }
 
 /// One solve of `sketch` toward `goals`, its branches observed after
 /// `before` (the guesses' for a static solve, the last frame's for a drag
-/// step) and compared with them.
+/// step) and compared with them, to be diagnosed by `path`.
 pub(crate) fn attempt(
     sketch: &Sketch,
     goals: &[Goal],
     options: &SolverOptions,
     before: &Observations,
+    path: Path,
 ) -> Attempt {
-    let outcome = solve::solve_toward(sketch, goals, options.internal());
+    let outcome = solve::solve_toward(sketch, goals, options.internal_on(path));
     let observed = before.next(sketch, &outcome.coordinates);
     let flips = before.flips(&observed);
     Attempt {
         outcome,
         observed,
         flips,
+        path,
     }
 }
 
@@ -290,7 +301,7 @@ pub(crate) fn conclude(
     attempt: Attempt,
     source: Provenance,
 ) -> (Solution, Observations) {
-    let diagnosis = diagnose::analyse(sketch, &attempt.outcome, &options.internal());
+    let diagnosis = diagnose::analyse(sketch, &attempt.outcome, &options.internal_on(attempt.path));
     let solution = Solution {
         coordinates: attempt.outcome.coordinates,
         status: diagnosis.status,
@@ -307,11 +318,12 @@ pub(crate) fn solve_observed(
     options: &SolverOptions,
     before: &Observations,
     source: Provenance,
+    path: Path,
 ) -> (Solution, Observations) {
     conclude(
         sketch,
         options,
-        attempt(sketch, goals, options, before),
+        attempt(sketch, goals, options, before, path),
         source,
     )
 }
@@ -381,8 +393,7 @@ impl Sketch {
     /// # Ok::<(), laman::model::ModelError>(())
     /// ```
     pub fn solve(&self, options: &SolverOptions) -> Solution {
-        let before = Observations::at(self, &self.coordinates());
-        solve_observed(self, &[], options, &before, self.provenance()).0
+        solve_on(self, options, Path::Staged)
     }
 
     pub(crate) fn provenance(&self) -> Provenance {

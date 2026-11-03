@@ -91,6 +91,22 @@ pub enum Algorithm {
     DogLeg,
 }
 
+/// How a component is analysed: part by part over its decomposition
+/// ([`crate::stage`]), or whole. Both give the same DoF and the same span of
+/// free directions; the staged path falls back to the whole one wherever its
+/// part ranks do not add up (plans/m6-stages).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Path {
+    /// Head, stages and remainder, each factorized on its own columns.
+    #[default]
+    Staged,
+    /// The whole component at once: what the staged path is compared with
+    /// (`laman::reference`). Only that feature and the tests ask for it; the
+    /// staged path falls back to the same factorization without it.
+    #[cfg_attr(not(any(test, feature = "reference")), allow(dead_code))]
+    Whole,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Options {
     pub algorithm: Algorithm,
@@ -101,6 +117,8 @@ pub(crate) struct Options {
     /// Re-solves the conflict analysis may spend in all (`diagnose::analysis`);
     /// exhausting it is inconclusive, never a conflict.
     pub max_analysis_solves: usize,
+    /// How the diagnosis analyses each component.
+    pub path: Path,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -111,6 +129,7 @@ impl Default for Options {
             initial_damping: INITIAL_DAMPING,
             initial_radius: INITIAL_RADIUS,
             max_analysis_solves: crate::diagnose::MAX_ANALYSIS_SOLVES,
+            path: Path::Staged,
         }
     }
 }

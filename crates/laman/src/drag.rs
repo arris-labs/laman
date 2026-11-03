@@ -22,6 +22,7 @@ use crate::model::{Coordinate, EntityId, ModelError, Sketch};
 use crate::solution::{
     Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of, solve_observed,
 };
+use crate::solve::Path;
 use crate::system::Goal;
 
 /// A point being dragged through a series of targets, one frame per
@@ -97,7 +98,7 @@ impl Sketch {
         }
         let source = self.provenance();
         let before = Observations::at(self, &self.coordinates());
-        let (last, observed) = solve_observed(self, &[], options, &before, source);
+        let (last, observed) = solve_observed(self, &[], options, &before, source, Path::Staged);
         let mut sketch = self.clone();
         sketch.place(&last.coordinates);
         let at = |c| last.coordinates.get(&(id, c)).copied().unwrap_or(f64::NAN);
@@ -175,7 +176,13 @@ impl DragSession {
                     target: here[1],
                 },
             ];
-            let tried = attempt(&self.sketch, &goals, &self.options, &self.observed);
+            let tried = attempt(
+                &self.sketch,
+                &goals,
+                &self.options,
+                &self.observed,
+                Path::Staged,
+            );
             if !tried.flips.is_empty() {
                 // Keep the flips of the nearest halving tried, then halve.
                 refused = Some(flips_of(&self.sketch, &tried.flips));

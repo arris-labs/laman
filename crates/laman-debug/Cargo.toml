@@ -26,6 +26,12 @@ proptest = { workspace = true, optional = true }
 sha2.workspace = true
 thiserror.workspace = true
 
+# The whole-component reference, for the staged analysis's tests
+# (plans/m6-stages); the library itself, and `laman-py` through it, does not
+# enable it.
+[dev-dependencies]
+laman = { workspace = true, features = ["reference"] }
+
 [lints]
 workspace = true
 

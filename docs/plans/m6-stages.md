@@ -39,11 +39,12 @@ step is measured, and that number decides M8.
   is a `Component` subset carrying its parent's frozen scale, origin and
   acceptance, so no tolerance changes (ADR-0003).
 - **Part rank** (ADR-0009): when every part before the last has full
-  column rank, rank J = Σ part ranks, the null space lies in head and
-  remainder columns, and a dependency among rows stays inside one part.
+  column rank, rank J = Σ part ranks, the null space lies in the last
+  part's columns, and a dependency among rows stays inside one part.
   So DoF and free directions come from per-part QRs (ADR-0003's, rows
-  unit-normalized over the part's columns), redundancy is a deletion
-  inside the head only, and a square stage is never redundant.
+  unit-normalized over the whole row, then cut to the part's columns),
+  redundancy is a deletion inside the head only, and a square stage is
+  never redundant.
 - **Fallback**: a part that fails to converge, or ends column-deficient
   before the last, sends its component back to today's whole-component
   solve and analysis, from the component's start, with the budget counters
@@ -86,11 +87,17 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   Henneberg shape, built in the module's tests: laman's unit tests cannot
   share `laman-debug`'s strategies): each part reads only earlier parts,
   stages square, Σ matched = structural rank.
-- [ ] Step 2 **[3]** — Staged freedom (DoF, per-entity DoF, directions)
+- [x] Step 2 **[3]** — Staged freedom (DoF, per-entity DoF, directions)
   with the column-deficiency fallback, plus the `reference` hook. Equal to
   reference: DoF and per-entity DoF exactly, direction projectors within
   `1e-9`, on C1 at expected coordinates, the corpus at constructed ones and
-  the solve properties. Re-bless digests that move.
+  the solve properties. Re-bless digests that move. (*Settled* at step 2:
+  only a satisfied component is staged, a failed or degenerate one is
+  whole, as the fallback delta has its solve; at 60000 random solves that
+  makes DoF and per-entity DoF equal at every magnitude and projectors
+  within 4e-14, where staging unsatisfied best efforts gave gaps to 8e-3.
+  Moved: the drag plate's solved and drag-step digests, its free
+  directions only.)
 - [ ] Step 3 **[2]** — Staged redundancy: head-only deletion on the
   head's columns. Equal to reference: `right-angle`, `same-belt`, `level`,
   and the redundant/conflict extra-distance property.
@@ -143,10 +150,13 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
 - `AGENTS.md` current state.
 
 ## Open questions
-- ⚠ OPEN: rows normalized over the part's columns, or over the whole
-  row as today? Agent, by step 2. Pick: the part's (the rank is then a
-  property of the part); equality to reference is measured, and a
-  difference near `RANK` is recorded in ADR-0009.
+- *Settled* at step 2: rows are normalized over the whole row, as today,
+  then cut to the part's columns, not over the part's columns. A row
+  dependent on earlier parts has rounding on its own columns (1e-17 of a
+  unit row); normalized over them alone it counted a rank the whole path
+  does not (seed 226646 in `solved.proptest-regressions`, DoF 2 against
+  3; `diagnose::tests::a_row_dependent_on_earlier_parts_adds_no_rank`).
+  ADR-0009 records it.
 - ⚠ OPEN: fallback grain, whole component or merge the failed part with
   its upstream closure? Agent, by step 4. Pick: whole component; it keeps
   every failure's bits, and failures are outside the frame budget.

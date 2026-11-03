@@ -23,6 +23,9 @@ mod branch;
 mod diagnose;
 pub mod drag;
 pub mod model;
+#[cfg(feature = "reference")]
+#[doc(hidden)]
+pub mod reference;
 pub mod residual;
 mod rigidity;
 pub mod solution;

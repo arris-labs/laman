@@ -90,6 +90,14 @@ A defect a run measured, one block each:
 - Measured: DogLeg ends at -2.55e-19, Levenberg-Marquardt at +3.7e-14
 - State: regression/drag-negative-radius
 
+### satisfied-status-degenerate-tangent
+- What: a static solve reports `UnderConstrained` where the checker finds the tangency violated (NaN measure) and the circle and line degenerate
+- Where: `laman::diagnose` (status at degenerate coordinates), same family as `drag-negative-radius`
+- Seen: property `any_well_formed_sketch_solves_to_a_complete_answer` at 20000 cases, M6 step 2
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored satisfied_status_degenerate_tangent`
+- Measured: a line of length 1.04e-209 through the centre of a circle of radius 0.001, tangent; Levenberg-Marquardt ends at r = 3.7e-14
+- State: regression/satisfied-status-degenerate-tangent
+
 ### upstream-edit-drift
 - What: an edit to a downstream distance changes the previously solved coordinate bits of its upstream point
 - Where: `laman::solve`, whole-component edit re-solve under both algorithms

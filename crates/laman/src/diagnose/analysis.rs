@@ -14,10 +14,10 @@
 //! rests on the certificate, which is first-order and local (ADR-0005).
 //! Intrinsic equations and ground are part of their entities: never removed,
 //! never named.
-use super::{Freedom, dof_only, freedom};
+use super::{Freedom, dof_only, freedom_on};
 use crate::model::tolerance::{Component, STATIONARY, Source, Tolerances};
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
-use crate::solve::{Options, Outcome, satisfied, solve};
+use crate::solve::{Options, Outcome, Path, satisfied, solve};
 use crate::system::System;
 use std::collections::BTreeSet;
 
@@ -143,7 +143,7 @@ pub(crate) fn analyse(sketch: &Sketch, outcome: &Outcome, options: &Options) -> 
             ));
         }
     }
-    let freedom = freedom(sketch, values);
+    let freedom = freedom_on(&system, values, options.path);
     let status = if !conflicts.is_empty() {
         Status::Unsatisfiable
     } else if failed {
@@ -153,7 +153,7 @@ pub(crate) fn analyse(sketch: &Sketch, outcome: &Outcome, options: &Options) -> 
     } else {
         Status::UnderConstrained
     };
-    let redundant = redundant(sketch, values, &held, freedom.dof);
+    let redundant = redundant(sketch, values, &held, freedom.dof, options.path);
     let (degenerate, ill_conditioned) = degeneracy(sketch, &system, values);
     Diagnosis {
         status,
@@ -307,6 +307,7 @@ fn redundant(
     values: &Coordinates,
     held: &BTreeSet<ConstraintId>,
     dof: usize,
+    path: Path,
 ) -> Vec<ConstraintId> {
     let mut working = sketch.clone();
     working.place(values);
@@ -316,7 +317,7 @@ fn redundant(
         if less.remove_constraint(*id).is_err() {
             continue;
         }
-        if dof_only(&less, values) == dof {
+        if dof_only(&less, values, path) == dof {
             out.push(*id);
             working = less;
         }

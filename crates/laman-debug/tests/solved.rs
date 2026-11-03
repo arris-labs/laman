@@ -6,6 +6,9 @@
 //! `tests/fixtures/regression/` (`.agents/skills/inspect`).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
+#[path = "support/staged.rs"]
+mod staged;
+
 use laman::model::{Point, Sketch};
 use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::{Source, check};
@@ -136,12 +139,14 @@ proptest! {
 
     /// The count of a construction is the solve's DoF; the answer is
     /// satisfied by the checker's measure; a count of 0 is fully constrained
-    /// and nothing is redundant or in conflict.
+    /// and nothing is redundant or in conflict. The staged freedom equals
+    /// the whole-component reference's.
     #[test]
     fn a_construction_has_the_dof_it_was_built_with(steps in proptest::collection::vec(step(), 1..8)) {
         let Some(built) = build(&steps, false) else { return Ok(()); };
         for algorithm in ALGORITHMS {
-            let solution = built.sketch.solve(&options(algorithm));
+            let solution =
+                staged::assert_same_freedom("construction", &built.sketch, &options(algorithm));
             let report = check(&built.sketch, &solution.coordinates);
             prop_assert!(report.is_clean(), "{algorithm:?}: {report:?}");
             prop_assert_eq!(solution.diagnostics.dof, built.dof, "{:?}", algorithm);
@@ -253,11 +258,13 @@ proptest! {
     /// a complete answer without a panic under both algorithms, and the
     /// checker judges every solve: a satisfied status has no violation, a
     /// proven conflict has a violated member. Above `CHECKABLE` the checker
-    /// overflows (regression `extreme-point-on-line`) and is skipped.
+    /// overflows (regression `extreme-point-on-line`) and is skipped. The
+    /// staged freedom equals the whole-component reference's, at any
+    /// magnitude.
     #[test]
     fn any_well_formed_sketch_solves_to_a_complete_answer(sk in sketch(20)) {
         for algorithm in ALGORITHMS {
-            let solution = sk.solve(&options(algorithm));
+            let solution = staged::assert_same_freedom("well-formed", &sk, &options(algorithm));
             prop_assert_eq!(solution.coordinates.len(), sk.coordinates().len());
             let checkable = sk.coordinates().values().chain(solution.coordinates.values()).all(|v| v.abs() <= CHECKABLE);
             if !checkable {

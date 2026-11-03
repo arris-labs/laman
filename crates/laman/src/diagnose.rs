@@ -9,8 +9,21 @@
 //! original parameter, so no library tie rule reaches a result. Every sum runs
 //! in index order. Status, redundancy, conflicts and degeneracy build on it
 //! in [`analysis`] (ADR-0005).
+//!
+//! **Staged**, the default [`Path`]: a component is cut into parts
+//! ([`crate::stage`]) and each part factorized alone, on its own columns,
+//! its rows unit-normalized over the whole row as the whole path's are, then
+//! cut to those columns. The parts are in dependency
+//! order, so the Jacobian is block lower triangular; when every part before
+//! the last has full column rank, a null vector is zero on their columns,
+//! the rank is the sum of the part ranks and the null space is the last
+//! part's. A component that is not satisfied (failed or degenerate), a part
+//! before the last that is column-deficient, or a Jacobian entry that
+//! breaks the block structure at these coordinates, sends the component to
+//! the whole factorization instead (plans/m6-stages).
 use crate::model::tolerance::{self, Component, RANK};
 use crate::model::{Coordinate, Coordinates, EntityId, Sketch};
+use crate::solve::Path;
 use crate::system::System;
 use std::collections::BTreeMap;
 
@@ -32,21 +45,33 @@ pub(crate) struct Freedom {
     pub directions: Vec<Vec<(EntityId, Coordinate, f64)>>,
 }
 
-/// [`Freedom`] of `sketch` at `values` (missing keys read from the sketch).
+/// [`Freedom`] of `sketch` at `values` (missing keys read from the sketch),
+/// staged.
+#[cfg(test)]
 pub(crate) fn freedom(sketch: &Sketch, values: &Coordinates) -> Freedom {
     freedom_of(&System::new(sketch), values)
 }
 
-/// The `dof` of [`freedom`] alone: the same ranks from the same
+/// The `dof` of [`freedom_on`] alone: the same ranks from the same
 /// factorizations, without the null basis or the per-entity counts, which
 /// is all redundancy needs and most of what a freedom costs.
-pub(crate) fn dof_only(sketch: &Sketch, values: &Coordinates) -> usize {
+pub(crate) fn dof_only(sketch: &Sketch, values: &Coordinates, path: Path) -> usize {
     let system = System::new(sketch);
     let coordinates = merged(sketch, values);
     system
         .components
         .iter()
-        .map(|component| component.params.len() - rank_of(&system, component, &coordinates))
+        .map(|component| {
+            let rank = match path {
+                Path::Staged => staged(&system, component, &coordinates, false),
+                Path::Whole => None,
+            }
+            .map_or_else(
+                || rank_of(&system, component, &coordinates),
+                |(rank, _)| rank,
+            );
+            component.params.len() - rank
+        })
         .sum()
 }
 
@@ -61,13 +86,23 @@ fn merged(sketch: &Sketch, values: &Coordinates) -> Coordinates {
     coordinates
 }
 
-/// [`Freedom`] of an already compiled system.
+/// [`Freedom`] of an already compiled system, staged.
+#[cfg(test)]
 pub(crate) fn freedom_of(system: &System<'_>, values: &Coordinates) -> Freedom {
+    freedom_on(system, values, Path::Staged)
+}
+
+/// [`Freedom`] of an already compiled system, by `path`.
+pub(crate) fn freedom_on(system: &System<'_>, values: &Coordinates, path: Path) -> Freedom {
     let coordinates = merged(system.sketch, values);
     let mut dof = 0;
     let mut basis: Vec<Vec<(Param, f64)>> = Vec::new();
     for component in &system.components {
-        let (rank, vectors) = null_space(system, component, &coordinates);
+        let (rank, vectors) = match path {
+            Path::Staged => staged(system, component, &coordinates, true),
+            Path::Whole => None,
+        }
+        .unwrap_or_else(|| null_space(system, component, &coordinates));
         dof += component.params.len() - rank;
         basis.extend(vectors.into_iter().map(|v| {
             component
@@ -129,6 +164,104 @@ fn rank_of(system: &System<'_>, component: &Component, values: &Coordinates) -> 
         return 0;
     }
     component_qr(system, component, values).rank
+}
+
+/// A component's rank and, when `basis` is asked for, its null basis over
+/// `component.params`, part by part (the module's *Staged*). `None`, for
+/// the whole path, when the component is not satisfied at `values` (failed
+/// or degenerate) or the part ranks do not add up to the component's: a
+/// part before the last is column-deficient, or a row reads a later part's
+/// column at `values`.
+/// A component of one part is factorized whole, the same matrix in the same
+/// order, so it keeps the whole path's bits.
+fn staged(
+    system: &System<'_>,
+    component: &Component,
+    values: &Coordinates,
+    basis: bool,
+) -> Option<(usize, Vec<Vec<f64>>)> {
+    if component.params.is_empty() || component.sources.is_empty() {
+        return None;
+    }
+    // A failed or degenerate component is the whole path's, as its solve
+    // and its conflict search are: only a satisfied one is staged.
+    if !crate::solve::satisfied(system, component, values) {
+        return None;
+    }
+    let decomposition = crate::stage::decompose(system, component);
+    if decomposition.parts.len() < 2 {
+        return None;
+    }
+    // Each component column's part, and each row's.
+    let n = component.params.len();
+    let mut part_of: BTreeMap<Param, usize> = BTreeMap::new();
+    for (p, part) in decomposition.parts.iter().enumerate() {
+        for param in &part.params {
+            part_of.insert(*param, p);
+        }
+    }
+    let column_part: Vec<usize> = component
+        .params
+        .iter()
+        .map(|param| part_of.get(param).copied())
+        .collect::<Option<_>>()?;
+    let mut row_part: BTreeMap<usize, usize> = BTreeMap::new();
+    for (p, part) in decomposition.parts.iter().enumerate() {
+        for &row in &part.rows {
+            row_part.insert(row, p);
+        }
+    }
+    let (evaluation, indices) = system.evaluate_indexed(component, values, 1.0);
+    let mut blocks: Vec<Vec<Vec<f64>>> = vec![vec![]; decomposition.parts.len()];
+    for (row, index) in evaluation.jacobian.into_iter().zip(indices) {
+        let p = *row_part.get(&index)?;
+        // Block lower triangular: a row reads nothing of a later part.
+        if row
+            .iter()
+            .zip(&column_part)
+            .any(|(x, q)| *q > p && *x != 0.0)
+        {
+            return None;
+        }
+        // Unit over the whole row, then cut to the part's columns: a row
+        // whose own entries are rounding of a dependency on earlier rows
+        // stays below RANK there, instead of being blown up to a unit row
+        // that the whole factorization would never count.
+        if let Some(unit) = unit_row(row) {
+            blocks[p].push(
+                unit.into_iter()
+                    .zip(&column_part)
+                    .filter(|(_, q)| **q == p)
+                    .map(|(x, _)| x)
+                    .collect(),
+            );
+        }
+    }
+    let last = decomposition.parts.len() - 1;
+    let mut rank = 0;
+    let mut vectors = Vec::new();
+    for (p, rows) in blocks.into_iter().enumerate() {
+        let columns: Vec<usize> = (0..n).filter(|&j| column_part[j] == p).collect();
+        let qr = Qr::new(rows, columns.len());
+        if p < last && qr.rank < columns.len() {
+            return None;
+        }
+        rank += qr.rank;
+        if p == last && basis {
+            vectors = qr
+                .null_basis()
+                .into_iter()
+                .map(|v| {
+                    let mut full = vec![0.0; n];
+                    for (j, x) in columns.iter().zip(v) {
+                        full[*j] = x;
+                    }
+                    full
+                })
+                .collect();
+        }
+    }
+    Some((rank, vectors))
 }
 
 /// The factorization of a component's unit-row Jacobian at `values`.

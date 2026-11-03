@@ -15,6 +15,10 @@ readme.workspace = true
 # The serde form of a sketch (on by default; DATA-MODEL.md §The serde form).
 default = ["serde"]
 serde = ["dep:serde", "dep:base64"]
+# `laman::reference`: the whole-component analysis, for laman's own tests to
+# compare the staged one with. Hidden, outside the stability promise and the
+# binding (plans/m6-stages).
+reference = []
 
 [dependencies]
 nalgebra.workspace = true

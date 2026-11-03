@@ -161,6 +161,18 @@ impl<'a> System<'a> {
         coordinates: &Coordinates,
         target: f64,
     ) -> Evaluation {
+        self.evaluate_indexed(component, coordinates, target).0
+    }
+
+    /// [`Self::evaluate_to`] with, for each row it returns, the index of its
+    /// equation in [`Self::equations`]: an equation that cannot be read at
+    /// `coordinates` gives no row.
+    pub fn evaluate_indexed(
+        &self,
+        component: &Component,
+        coordinates: &Coordinates,
+        target: f64,
+    ) -> (Evaluation, Vec<usize>) {
         let scale = component.scale.max(tolerance::LENGTH_FLOOR);
         let acceptance = self.acceptance(component, coordinates);
         let mut out = Evaluation {
@@ -169,10 +181,12 @@ impl<'a> System<'a> {
             satisfied: true,
             valid: true,
         };
-        for eq in self
+        let mut indices = Vec::new();
+        for (index, eq) in self
             .equations
             .iter()
-            .filter(|e| component.sources.contains(&e.source))
+            .enumerate()
+            .filter(|(_, e)| component.sources.contains(&e.source))
         {
             let original = match eq.source {
                 Source::Arc(id) => residual::intrinsic(self.sketch, coordinates, id),
@@ -215,9 +229,10 @@ impl<'a> System<'a> {
             out.valid &= value.is_finite() && row.iter().all(|x| x.is_finite());
             out.values.push(value);
             out.jacobian.push(row);
+            indices.push(index);
         }
         out.satisfied &= out.valid;
-        out
+        (out, indices)
     }
 }
 

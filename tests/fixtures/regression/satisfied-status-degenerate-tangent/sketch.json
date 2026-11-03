@@ -1,0 +1,39 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": 1,
+      "kind": "circle",
+      "c": 0,
+      "r": 0.001
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 1.0429063058282983e-209,
+      "y": 0.0
+    },
+    {
+      "id": 3,
+      "kind": "line",
+      "a": 0,
+      "b": 2
+    }
+  ],
+  "constraints": [
+    {
+      "id": 0,
+      "kind": "tangent",
+      "line": 3,
+      "circle": 1,
+      "sense": 1
+    }
+  ]
+}
