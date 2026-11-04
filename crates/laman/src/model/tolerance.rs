@@ -508,6 +508,18 @@ pub(crate) fn scale_at(component: &Component, values: &Coordinates) -> f64 {
     component.frame.measure(values).0
 }
 
+/// Every coordinate `component`'s equations and its frame can read: the
+/// parameters of its entities, fixed ones included, in order.
+pub(crate) fn component_reads(sk: &Sketch, component: &Component) -> Vec<Param> {
+    let mut reads: Vec<Param> = component_entities(sk, component)
+        .into_iter()
+        .flat_map(|id| entity_params(sk, id))
+        .collect();
+    reads.sort();
+    reads.dedup();
+    reads
+}
+
 fn component_entities(sk: &Sketch, component: &Component) -> BTreeSet<EntityId> {
     let mut ids: BTreeSet<_> = component.params.iter().map(|p| p.0).collect();
     for s in &component.sources {

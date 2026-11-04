@@ -407,7 +407,18 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
   remainder is never redundant (ADR-0009). A part after the head with a
   row dependent on the others (a point on a line through a point it
   coincides with: the structure hides it) sends the component to the full
-  test. Each test still compares the whole DoF.
+  test. Each test still compares the whole DoF. The first list of head
+  constraints is read on the analysis's own compilation, at the scales its
+  status and freedom were judged at; after a constraint is named, on the
+  recompiled sketch.
+- **One staged factorization per component and frame.** The solve's
+  acceptance of a staged component, the freedom and the head constraints
+  each read the component's staged factorization; where they read it at
+  the same coordinates it is made once and kept for the frame, matched by
+  the component's parameters, sources, scale and parts and by the bits of
+  every coordinate it reads. A static solve or an edit makes one per
+  staged component; a drag frame two, its solve accepting the staged
+  result before it pursues the goal.
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the

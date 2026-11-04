@@ -150,6 +150,9 @@ pub(crate) struct Outcome {
     /// parts do not exhaust a cap sized for one component.
     pub iteration_work: f64,
     pub evaluation_work: f64,
+    /// The staged factorizations the solve made accepting its staged
+    /// components, for the diagnosis at the same coordinates to read.
+    pub staged: crate::diagnose::StagedRanks,
 }
 
 impl Outcome {
@@ -162,6 +165,7 @@ impl Outcome {
             rejected: 0,
             iteration_work: 0.0,
             evaluation_work: 0.0,
+            staged: crate::diagnose::StagedRanks::default(),
         }
     }
 
@@ -389,7 +393,7 @@ fn solve_staged(
                 out,
             )
     });
-    if !descended || !crate::diagnose::stageable(system, component, &out.coordinates) {
+    if !descended || !crate::diagnose::stageable(system, component, &out.coordinates, &out.staged) {
         (
             out.coordinates,
             out.iterations,

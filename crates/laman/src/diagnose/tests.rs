@@ -316,8 +316,8 @@ fn rank_threshold_ties_and_sign() {
 fn staged_and_whole(sk: &Sketch, values: &Coordinates) -> (Freedom, Freedom) {
     let system = System::new(sk);
     (
-        freedom_on(&system, values, Path::Staged),
-        freedom_on(&system, values, Path::Whole),
+        freedom_on(&system, values, Path::Staged, &StagedRanks::default()),
+        freedom_on(&system, values, Path::Whole, &StagedRanks::default()),
     )
 }
 
@@ -426,4 +426,198 @@ fn a_row_dependent_on_earlier_parts_adds_no_rank() {
     assert_eq!(s.dof, 3);
     assert_eq!((s.dof, &s.entities), (w.dof, &w.entities));
     assert_null_basis(&sk, &values, &s);
+}
+
+/// This crate's sketch from the debug crate's (the test links two `laman`s).
+fn ours(sketch: &impl serde::Serialize) -> Sketch {
+    serde_json::from_str(&serde_json::to_string(sketch).unwrap()).unwrap()
+}
+
+/// Every solution a C2 case's solve, warm-started edit and drag return,
+/// both algorithms, as their `Debug` text: every coordinate's and every
+/// diagnostic's bits.
+fn frames(
+    sketch: &Sketch,
+    edit: Option<(&str, f64)>,
+    drag: Option<(&Sketch, EntityId, &[[f64; 2]])>,
+) -> Vec<String> {
+    use crate::model::Constraint;
+    use crate::solution::{Algorithm, SolverOptions};
+    let mut out = Vec::new();
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let options = SolverOptions {
+            algorithm,
+            ..SolverOptions::default()
+        };
+        let initial = sketch.solve(&options);
+        out.push(format!("{initial:?}"));
+        if let Some((tag, value)) = edit {
+            let mut edited = sketch.clone();
+            edited.apply(&initial).unwrap();
+            let (id, constraint) = edited
+                .constraints()
+                .find(|(id, _)| edited.constraint_tag_of(*id) == Some(tag))
+                .map(|(id, c)| (id, *c))
+                .unwrap();
+            let replacement = if let Constraint::Distance { p, q, .. } = constraint {
+                Constraint::Distance { p, q, value }
+            } else if let Constraint::PointLineDistance { p, line, sense, .. } = constraint {
+                Constraint::PointLineDistance {
+                    p,
+                    line,
+                    sense,
+                    value,
+                }
+            } else {
+                panic!("a corpus edit names a distance dimension")
+            };
+            edited.remove_constraint(id).unwrap();
+            edited.add_constraint_with_id(id, replacement).unwrap();
+            edited.tag_constraint(id, tag).unwrap();
+            out.push(format!("{:?}", edited.solve(&options)));
+        }
+        if let Some((sketch, point, targets)) = drag {
+            let mut session = sketch.drag(point, &options).unwrap();
+            for target in targets {
+                out.push(format!("{:?}", session.to(*target)));
+            }
+        }
+    }
+    out
+}
+
+/// The shared staged factorizations against the three-pass reference: the
+/// same solutions, bit for bit (plans/m8-frame-budget step 2).
+fn assert_shared_is_three_pass(name: &str, case: &laman_debug::corpus::Case) {
+    let sketch = ours(&case.sketch);
+    let drag = case.drag.as_ref().map(|d| {
+        (
+            ours(&d.sketch),
+            EntityId(d.drag.dragged.0),
+            d.drag.targets.clone(),
+        )
+    });
+    let run = || {
+        frames(
+            &sketch,
+            Some((&case.edit.tag, case.edit.value)),
+            drag.as_ref().map(|(s, p, t)| (s, *p, t.as_slice())),
+        )
+    };
+    let shared = run();
+    let reference = three_pass::run(run);
+    assert_eq!(shared.len(), reference.len(), "{name}");
+    for (i, (s, r)) in shared.iter().zip(&reference).enumerate() {
+        assert!(
+            s == r,
+            "{name}: frame {i} differs from the three-pass reference"
+        );
+    }
+}
+
+#[test]
+fn shared_ranks_are_the_three_pass_ones_on_c1() {
+    for slug in [
+        "sss-triangle",
+        "belt",
+        "slotted-plate",
+        "sss-triangle-redundant",
+        "belt-redundant",
+        "slotted-plate-redundant",
+        "sss-triangle-conflicting",
+        "belt-conflicting",
+        "slotted-plate-conflicting",
+        "slotted-plate-drag",
+    ] {
+        let (sk, _, fixture) = load(slug);
+        let drag = fixture
+            .drag
+            .as_ref()
+            .map(|d| (EntityId(d.dragged.0), d.targets.clone()));
+        let run = || {
+            frames(
+                &sk,
+                None,
+                drag.as_ref().map(|(p, t)| (&sk, *p, t.as_slice())),
+            )
+        };
+        let shared = run();
+        let reference = three_pass::run(run);
+        assert!(shared == reference, "{slug}");
+    }
+}
+
+#[test]
+fn shared_ranks_are_the_three_pass_ones_on_every_family_and_size() {
+    use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+    for (name, case) in [
+        ("rect-chain-3", rect_chain(3)),
+        ("rect-chain-19", rect_chain(19)),
+        ("rect-chain-49", rect_chain(49)),
+        ("rect-chain-99", rect_chain(99)),
+        ("slot-grid-2x2", slot_grid(2, 2)),
+        ("slot-grid-3x3", slot_grid(3, 3)),
+        ("slot-grid-4x6", slot_grid(4, 6)),
+        ("slot-grid-7x7", slot_grid(7, 7)),
+        ("triangle-strip-6", triangle_strip(6)),
+        ("triangle-strip-32", triangle_strip(32)),
+        ("triangle-strip-82", triangle_strip(82)),
+        ("triangle-strip-166", triangle_strip(166)),
+    ] {
+        assert_shared_is_three_pass(name, &case.unwrap());
+    }
+}
+
+proptest::proptest! {
+    // No explicit case count: proptest's default and PROPTEST_CASES both apply.
+    #[test]
+    fn shared_ranks_are_the_three_pass_ones_on_random_rectangles(
+        n in 1..=6_usize,
+        width in 10.0..40.0_f64,
+        height in 5.0..20.0_f64,
+    ) {
+        let case = laman_debug::corpus::rect_chain_with(n, width, height).unwrap();
+        assert_shared_is_three_pass("property-rectangles", &case);
+    }
+
+    #[test]
+    fn shared_ranks_are_the_three_pass_ones_on_random_slots(
+        rows in 1..=2_usize,
+        cols in 1..=2_usize,
+        length in 20.0..60.0_f64,
+        radius in 3.0..8.0_f64,
+    ) {
+        let case = laman_debug::corpus::slot_grid_with(rows, cols, length, radius).unwrap();
+        assert_shared_is_three_pass("property-slots", &case);
+    }
+
+    #[test]
+    fn shared_ranks_are_the_three_pass_ones_on_random_triangles(
+        n in 1..=8_usize,
+        side in 10.0..30.0_f64,
+    ) {
+        let case = laman_debug::corpus::triangle_strip_with(n, side).unwrap();
+        assert_shared_is_three_pass("property-triangles", &case);
+    }
+}
+
+#[test]
+fn a_frame_factorizes_each_staged_component_once_at_its_coordinates() {
+    // Not a vacuous comparison: the slot grid is one staged component. A
+    // static solve's acceptance makes its factorization and the freedom and
+    // the redundancy candidates read it. A drag frame's solve accepts the
+    // staged result before pursuing the goal, at other coordinates, so the
+    // frame makes two and reads one.
+    let case = laman_debug::corpus::slot_grid(3, 3).unwrap();
+    let options = crate::solution::SolverOptions::default();
+    let _ = three_pass::reads();
+    let _ = ours(&case.sketch).solve(&options);
+    assert_eq!(three_pass::reads(), [1, 2]);
+    let drag = case.drag.unwrap();
+    let mut session = ours(&drag.sketch)
+        .drag(EntityId(drag.drag.dragged.0), &options)
+        .unwrap();
+    let _ = three_pass::reads();
+    let _ = session.to(drag.drag.targets[0]);
+    assert_eq!(three_pass::reads(), [2, 1]);
 }

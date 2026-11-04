@@ -21,10 +21,17 @@
 //! before the last that is column-deficient, or a Jacobian entry that
 //! breaks the block structure at these coordinates, sends the component to
 //! the whole factorization instead (plans/m6-stages).
-use crate::model::tolerance::{self, Component, RANK};
+//!
+//! A frame's solve and analysis read one component's staged factorization
+//! up to three times at the same coordinates: the solve's acceptance of a
+//! staged result, the freedom, the redundancy candidates. [`StagedRanks`]
+//! makes it once for all of them (plans/m8-frame-budget).
+use crate::model::tolerance::{self, Component, RANK, Source};
 use crate::model::{Coordinate, Coordinates, EntityId, Sketch};
 use crate::solve::Path;
+use crate::stage::Decomposition;
 use crate::system::System;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 type Param = (EntityId, Coordinate);
@@ -87,22 +94,22 @@ pub(crate) fn head_constraints(
     system: &System<'_>,
     values: &Coordinates,
     path: Path,
+    ranks: &StagedRanks,
 ) -> std::collections::BTreeSet<crate::model::ConstraintId> {
-    use crate::model::tolerance::Source;
     let coordinates = merged(system.sketch, values);
     let mut out = std::collections::BTreeSet::new();
     for component in &system.components {
         let heads: Option<std::collections::BTreeSet<usize>> = match path {
-            Path::Staged => {
-                staged_checked(system, component, &coordinates, false, true).map(|_| {
+            Path::Staged => ranks
+                .read(system, component, &coordinates, false, true)
+                .map(|_| {
                     crate::stage::decompose(system, component)
                         .parts
                         .into_iter()
                         .filter(|part| part.kind == crate::stage::Kind::Head)
                         .flat_map(|part| part.rows)
                         .collect()
-                })
-            }
+                }),
             Path::Whole => None,
         };
         for (row, eq) in system.equations.iter().enumerate() {
@@ -134,17 +141,23 @@ fn merged(sketch: &Sketch, values: &Coordinates) -> Coordinates {
 /// [`Freedom`] of an already compiled system, staged.
 #[cfg(test)]
 pub(crate) fn freedom_of(system: &System<'_>, values: &Coordinates) -> Freedom {
-    freedom_on(system, values, Path::Staged)
+    freedom_on(system, values, Path::Staged, &StagedRanks::default())
 }
 
-/// [`Freedom`] of an already compiled system, by `path`.
-pub(crate) fn freedom_on(system: &System<'_>, values: &Coordinates, path: Path) -> Freedom {
+/// [`Freedom`] of an already compiled system, by `path`, its staged
+/// factorizations read from `ranks`.
+pub(crate) fn freedom_on(
+    system: &System<'_>,
+    values: &Coordinates,
+    path: Path,
+    ranks: &StagedRanks,
+) -> Freedom {
     let coordinates = merged(system.sketch, values);
     let mut dof = 0;
     let mut basis: Vec<Vec<(Param, f64)>> = Vec::new();
     for component in &system.components {
         let (rank, vectors) = match path {
-            Path::Staged => staged(system, component, &coordinates, true),
+            Path::Staged => ranks.read(system, component, &coordinates, true, false),
             Path::Whole => None,
         }
         .unwrap_or_else(|| null_space(system, component, &coordinates));
@@ -225,21 +238,304 @@ fn staged(
     values: &Coordinates,
     basis: bool,
 ) -> Option<(usize, Vec<Vec<f64>>)> {
-    staged_checked(system, component, values, basis, false)
+    #[cfg(test)]
+    if three_pass::active() {
+        return staged_checked(system, component, values, basis, false);
+    }
+    let parts = crate::stage::decompose(system, component);
+    factorize(system, component, values, &parts)?.read(basis, false)
 }
 
 /// Whether `component` is analysed by parts at `values`: satisfied there,
 /// of more than one part, every part before the last of full column rank and
 /// no row reading a later part's column. The staged solve keeps its result
-/// only then, so a solve and its diagnosis take the same path.
-pub(crate) fn stageable(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
-    staged(system, component, &merged(system.sketch, values), false).is_some()
+/// only then, so a solve and its diagnosis take the same path. The
+/// factorization is kept in `ranks` for the diagnosis to read.
+pub(crate) fn stageable(
+    system: &System<'_>,
+    component: &Component,
+    values: &Coordinates,
+    ranks: &StagedRanks,
+) -> bool {
+    ranks
+        .read(
+            system,
+            component,
+            &merged(system.sketch, values),
+            false,
+            false,
+        )
+        .is_some()
+}
+
+/// The staged factorizations of one frame (plans/m8-frame-budget): the
+/// solve's acceptance of a staged result ([`stageable`]), the freedom
+/// ([`freedom_on`]) and the redundancy candidates ([`head_constraints`])
+/// each read a component's, and where they read it at the same coordinates
+/// it is made once. An entry is read again only for the same component
+/// (parameters, sources, scale and parts) at the same bits of every
+/// coordinate it can read, so a read returns what a factorization made
+/// there returns. The systems that share one compile the same sketch
+/// structure: one frame's solve and analysis.
+#[derive(Debug, Default)]
+pub(crate) struct StagedRanks {
+    entries: RefCell<Vec<Entry>>,
+}
+
+/// One factorization and everything it was made from.
+#[derive(Debug)]
+struct Entry {
+    params: Vec<Param>,
+    sources: Vec<Source>,
+    scale: u64,
+    parts: Decomposition,
+    /// Every coordinate the component can read ([`tolerance::component_reads`])
+    /// and its bits.
+    reads: Vec<(Param, Option<u64>)>,
+    staged: Option<Staged>,
+}
+
+impl StagedRanks {
+    /// [`staged`] with `independent` as [`staged_checked`] reads it, from the
+    /// entry made at these coordinates or a new one. `values` holds every
+    /// coordinate of the sketch ([`merged`]).
+    fn read(
+        &self,
+        system: &System<'_>,
+        component: &Component,
+        values: &Coordinates,
+        basis: bool,
+        independent: bool,
+    ) -> Option<(usize, Vec<Vec<f64>>)> {
+        #[cfg(test)]
+        if three_pass::active() {
+            return staged_checked(system, component, values, basis, independent);
+        }
+        if component.params.is_empty() || component.sources.is_empty() {
+            return None;
+        }
+        let parts = crate::stage::decompose(system, component);
+        let reads: Vec<(Param, Option<u64>)> = tolerance::component_reads(system.sketch, component)
+            .into_iter()
+            .map(|p| (p, values.get(&p).map(|v| v.to_bits())))
+            .collect();
+        let scale = component.scale.to_bits();
+        let mut entries = self.entries.borrow_mut();
+        let found = entries.iter().position(|e| {
+            e.params == component.params
+                && e.sources == component.sources
+                && e.scale == scale
+                && e.reads == reads
+                && e.parts == parts
+        });
+        #[cfg(test)]
+        three_pass::count(found.is_some());
+        let index = match found {
+            Some(index) => index,
+            None => {
+                let staged = factorize(system, component, values, &parts);
+                entries.push(Entry {
+                    params: component.params.clone(),
+                    sources: component.sources.clone(),
+                    scale,
+                    parts,
+                    reads,
+                    staged,
+                });
+                entries.len() - 1
+            }
+        };
+        entries
+            .get(index)?
+            .staged
+            .as_ref()?
+            .read(basis, independent)
+    }
+}
+
+/// A component's staged factorization at some coordinates, whoever reads it.
+#[derive(Debug)]
+struct Staged {
+    /// The sum of the part ranks.
+    rank: usize,
+    /// Every part outside the head has a rank equal to its row count.
+    independent: bool,
+    /// The last part's factorization, whose null space is the component's.
+    last: Qr,
+    /// The component columns the last part owns, ascending.
+    columns: Vec<usize>,
+    /// The component's column count.
+    n: usize,
+}
+
+impl Staged {
+    /// The rank and, when `basis` is asked for, the null basis over the
+    /// component's columns; `None` when `independent` is asked for and a
+    /// part outside the head has a dependent row.
+    fn read(&self, basis: bool, independent: bool) -> Option<(usize, Vec<Vec<f64>>)> {
+        if independent && !self.independent {
+            return None;
+        }
+        let vectors = if basis {
+            self.last
+                .null_basis()
+                .into_iter()
+                .map(|v| {
+                    let mut full = vec![0.0; self.n];
+                    for (j, x) in self.columns.iter().zip(v) {
+                        if let Some(slot) = full.get_mut(*j) {
+                            *slot = x;
+                        }
+                    }
+                    full
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+        Some((self.rank, vectors))
+    }
+}
+
+/// The factorization [`staged`] reads, part by part over `parts`; `None`
+/// where it falls back to the whole path. Whether a part outside the head
+/// has a row dependent on the others at `values` (a rank below its row
+/// count: a redundancy the structure does not show, as a point on a line
+/// through a point it coincides with) is kept for [`head_constraints`].
+fn factorize(
+    system: &System<'_>,
+    component: &Component,
+    values: &Coordinates,
+    parts: &Decomposition,
+) -> Option<Staged> {
+    if component.params.is_empty() || component.sources.is_empty() {
+        return None;
+    }
+    // A failed or degenerate component is the whole path's, as its solve
+    // and its conflict search are: only a satisfied one is staged.
+    if !crate::solve::satisfied(system, component, values) {
+        return None;
+    }
+    if parts.parts.len() < 2 {
+        return None;
+    }
+    // Each component column's part, and each row's.
+    let n = component.params.len();
+    let mut part_of: BTreeMap<Param, usize> = BTreeMap::new();
+    for (p, part) in parts.parts.iter().enumerate() {
+        for param in &part.params {
+            part_of.insert(*param, p);
+        }
+    }
+    let column_part: Vec<usize> = component
+        .params
+        .iter()
+        .map(|param| part_of.get(param).copied())
+        .collect::<Option<_>>()?;
+    let mut row_part: BTreeMap<usize, usize> = BTreeMap::new();
+    for (p, part) in parts.parts.iter().enumerate() {
+        for &row in &part.rows {
+            row_part.insert(row, p);
+        }
+    }
+    let (evaluation, indices) = system.evaluate_indexed(component, values, 1.0);
+    let mut blocks: Vec<Vec<Vec<f64>>> = vec![vec![]; parts.parts.len()];
+    for (row, index) in evaluation.jacobian.into_iter().zip(indices) {
+        let p = *row_part.get(&index)?;
+        // Block lower triangular: a row reads nothing of a later part.
+        if row
+            .iter()
+            .zip(&column_part)
+            .any(|(x, q)| *q > p && *x != 0.0)
+        {
+            return None;
+        }
+        // Unit over the whole row, then cut to the part's columns: a row
+        // whose own entries are rounding of a dependency on earlier rows
+        // stays below RANK there, instead of being blown up to a unit row
+        // that the whole factorization would never count.
+        if let (Some(unit), Some(block)) = (unit_row(row), blocks.get_mut(p)) {
+            block.push(
+                unit.into_iter()
+                    .zip(&column_part)
+                    .filter(|(_, q)| **q == p)
+                    .map(|(x, _)| x)
+                    .collect(),
+            );
+        }
+    }
+    let last = parts.parts.len() - 1;
+    let mut rank = 0;
+    let mut independent = true;
+    let mut tail = None;
+    for (p, (rows, part)) in blocks.into_iter().zip(&parts.parts).enumerate() {
+        let columns: Vec<usize> = (0..n).filter(|&j| column_part[j] == p).collect();
+        let qr = Qr::new(rows, columns.len());
+        if p < last && qr.rank < columns.len() {
+            return None;
+        }
+        independent &= !(part.kind != crate::stage::Kind::Head && qr.rank < part.rows.len());
+        rank += qr.rank;
+        if p == last {
+            tail = Some((qr, columns));
+        }
+    }
+    let (last, columns) = tail?;
+    Some(Staged {
+        rank,
+        independent,
+        last,
+        columns,
+        n,
+    })
+}
+
+/// The pre-M8 reads, each factorizing afresh by [`staged_checked`]: the
+/// reference [`StagedRanks`] is held bit-equal to (plans/m8-frame-budget).
+#[cfg(test)]
+pub(crate) mod three_pass {
+    use std::cell::Cell;
+
+    thread_local! {
+        static ACTIVE: Cell<bool> = const { Cell::new(false) };
+        static READS: Cell<[usize; 2]> = const { Cell::new([0; 2]) };
+    }
+
+    /// Counts one read of a kept factorization (`hit`) or a new one.
+    pub(crate) fn count(hit: bool) {
+        READS.with(|r| {
+            let mut n = r.get();
+            n[usize::from(hit)] += 1;
+            r.set(n);
+        });
+    }
+
+    /// The factorizations made and the reads of a kept one on this thread
+    /// since the last call, which resets them.
+    pub(crate) fn reads() -> [usize; 2] {
+        READS.with(|r| r.replace([0; 2]))
+    }
+
+    /// Whether this thread runs the reference.
+    pub(crate) fn active() -> bool {
+        ACTIVE.with(Cell::get)
+    }
+
+    /// `f` run on the reference.
+    pub(crate) fn run<T>(f: impl FnOnce() -> T) -> T {
+        ACTIVE.with(|a| a.set(true));
+        let out = f();
+        ACTIVE.with(|a| a.set(false));
+        out
+    }
 }
 
 /// [`staged`], and with `independent` also `None` when a part outside the
 /// head has a row dependent on the others at `values` (a rank below its
 /// row count): a redundancy the structure does not show, as a point on a
-/// line through a point it coincides with.
+/// line through a point it coincides with. The pre-M8 code, kept as the
+/// reference ([`three_pass`]).
+#[cfg(test)]
 fn staged_checked(
     system: &System<'_>,
     component: &Component,
@@ -369,6 +665,7 @@ fn unit_row(row: Vec<f64>) -> Option<Vec<f64>> {
 /// Column-pivoted Householder QR of an `m × n` matrix, stopped at the first
 /// remaining column whose part outside the chosen columns' span is at most
 /// [`RANK`]. `a` holds R in its first `rank` rows, columns permuted by `perm`.
+#[derive(Debug)]
 struct Qr {
     a: Vec<Vec<f64>>,
     perm: Vec<usize>,

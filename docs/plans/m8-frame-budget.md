@@ -44,7 +44,9 @@ No public type or signature changes. No new glossary term.
   `staged_checked` at a frame's final coordinates is computed once and the
   solve's `stageable`, the analysis's `freedom_on` and `head_constraints`
   read it. Same matrices in the same order, so the same bits; a cache
-  keyed by component and values, not a new path.
+  keyed by component and values, not a new path. Kept on the solve's
+  `Outcome` (`diagnose::StagedRanks`), matched by params, sources, scale
+  bits, parts and the bits of every coordinate the component reads.
 - **One `Tolerances::at` per frame.** The tolerances of a sketch at one
   set of coordinates are made once and shared by `System::new` (solve,
   analysis, redundancy), `observe`, `flips` and `degeneracy`, where the
@@ -74,7 +76,7 @@ careful, **[3]** unproven.
   share per suspect, plus anything unnamed above 10 %, under *Profile*
   below, and reorder steps 2–5 to match. Commit: `docs(plan)` plus the
   bench flag.
-- [ ] Step 2 **[3]** — One staged rank per component and frame, as in the
+- [x] Step 2 **[3]** — One staged rank per component and frame, as in the
   deltas. Test: the solve, DoF, per-entity DoF, direction span and
   redundant sets are bit-equal to the three-pass code (kept under
   `cfg(test)` as the reference) on the C1 fixtures and every generated
@@ -163,5 +165,17 @@ shared tolerances are new; the extent split stays. Step 5 re-profiles.
 
 ## Open questions
 - Settled by the agent: `perf_event_paranoid` is 1; step 1 used `perf`.
+- Settled by the agent (step 2): `head_constraints` compiled its own
+  `System::new(&working)`, whose component scales are measured at the
+  solve's coordinates, not the sketch's; its rows (ratio rows are scaled)
+  and acceptance differ from the analysis's, so no cache keyed soundly by
+  scale could share it. Its first call now reads the analysis's own system,
+  the one `held` and `dof` were judged on (the recompiles after a naming
+  are unchanged). Held bit-equal to the three-pass reference on C1, every
+  family and size and the corpus proptests. A drag frame still factorizes
+  twice: the solve accepts before `pursue` moves the last part. A/B on a
+  loaded machine (load 17, 15 samples, LM): slot edit 35 → 22 ms, drag 34
+  → 22, bisect 64 → 54; triangle edit 17.5 → 12.8; rectangle edit 17.8 →
+  15.3, drag 35 → 30.
 - Settled by the agent: the acceptance is the worst sample, not the median,
   because the budget applies to every frame, not to the average.

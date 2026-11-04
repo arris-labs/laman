@@ -18,7 +18,7 @@
 //! component is tested; the other parts hold no redundancy (ADR-0009).
 //! Intrinsic equations and ground are part of their entities: never removed,
 //! never named.
-use super::{Freedom, dof_only, freedom_on, head_constraints};
+use super::{Freedom, StagedRanks, dof_only, freedom_on, head_constraints};
 use crate::model::tolerance::{Component, STATIONARY, Source, Tolerances};
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
 use crate::solve::{Algorithm, Options, Outcome, Path, satisfied, solve};
@@ -160,7 +160,7 @@ pub(crate) fn analyse_kept(
             ));
         }
     }
-    let freedom = freedom_on(&system, values, options.path);
+    let freedom = freedom_on(&system, values, options.path, &outcome.staged);
     let status = if !conflicts.is_empty() {
         Status::Unsatisfiable
     } else if failed {
@@ -170,7 +170,14 @@ pub(crate) fn analyse_kept(
     } else {
         Status::UnderConstrained
     };
-    let redundant = redundant(sketch, values, &held, freedom.dof, options.path);
+    let redundant = redundant(
+        &system,
+        values,
+        &held,
+        freedom.dof,
+        options.path,
+        &outcome.staged,
+    );
     let (degenerate, ill_conditioned) = degeneracy(sketch, &system, values);
     Diagnosis {
         status,
@@ -350,19 +357,30 @@ fn test(
 /// Satisfied constraints of satisfied components, in reverse source order,
 /// whose removal keeps `dof`. Each one named stays removed for the next.
 fn redundant(
-    sketch: &Sketch,
+    system: &System<'_>,
     values: &Coordinates,
     held: &BTreeSet<ConstraintId>,
     dof: usize,
     path: Path,
+    ranks: &StagedRanks,
 ) -> Vec<ConstraintId> {
-    let mut working = sketch.clone();
+    let mut working = system.sketch.clone();
     working.place(values);
     let mut out = Vec::new();
     // Only a head constraint can be redundant (ADR-0009): the others are
-    // skipped without a factorization. Naming one recompiles `working`, so
-    // the list is read again.
-    let mut tested = head_constraints(&System::new(&working), values, path);
+    // skipped without a factorization. The first list is read on the
+    // analysis's own system, whose components `held` and `dof` were judged
+    // on, from the factorizations the freedom made; naming one recompiles
+    // `working`, so the list is read again there.
+    #[cfg(test)]
+    let first = if super::three_pass::active() {
+        head_constraints(&System::new(&working), values, path, ranks)
+    } else {
+        head_constraints(system, values, path, ranks)
+    };
+    #[cfg(not(test))]
+    let first = head_constraints(system, values, path, ranks);
+    let mut tested = first;
     for id in held.iter().rev() {
         if !tested.contains(id) {
             continue;
@@ -374,7 +392,12 @@ fn redundant(
         if dof_only(&less, values, path) == dof {
             out.push(*id);
             working = less;
-            tested = head_constraints(&System::new(&working), values, path);
+            tested = head_constraints(
+                &System::new(&working),
+                values,
+                path,
+                &StagedRanks::default(),
+            );
         }
     }
     out.sort();
