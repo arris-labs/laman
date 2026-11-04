@@ -101,7 +101,7 @@ established here.
 - [x] Step 9 **[2]** — The drag property's construction gets an arc on
   the chain (an observed subject): flips empty or the frame bisected and
   marked; the C2 slot-grid drags assert no flip on every frame.
-- [ ] Step 10 **[1]** — Bench: a 500-entity slot-grid drag cell whose
+- [x] Step 10 **[1]** — Bench: a 500-entity slot-grid drag cell whose
   first frame bisects; numbers in ARCHITECTURE.md §Frame budget.
 
 ## Acceptance

@@ -756,6 +756,15 @@ each term's parameter) are further suspects of the same order. No
 profile has confirmed the attribution yet; M8 profiles first
 (ROADMAP.md §C2).
 
+**A bisected frame (M7, 2026-11-04)**, same command and machine: the 498-entity
+slot grid's `bisect` cell is its drag with the middle slot's left arc let
+loose of its tangent lines and its start pulled a quarter turn about its
+centre, so the first frame moves the arc's sweep past `MAX_SWEEP_STEP` and is
+bisected (the worker fails if it is not). Median / worst, five samples:
+LM 42.3 / 42.7 ms, DogLeg 40.5 / 42.7 ms, against 21.5 / 22.2 and
+20.8 / 21.0 for the plain first drag step: the extra tries roughly double
+the frame. Over 4 ms like every 500-entity cell; M8's accept covers it.
+
 ## wasm32
 
 `laman` and `laman-check` build for `wasm32-unknown-unknown` with no

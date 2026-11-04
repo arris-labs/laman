@@ -2,7 +2,7 @@
 //! laman-debug --example bench_c2`. Every row runs in a separate process,
 //! bounded even during setup. Budget misses and timeouts are data, not an
 //! exit failure. Triangle drags have no construction and are printed N/A.
-use laman::model::Constraint;
+use laman::model::{Constraint, Coordinate, Entity, Sketch};
 use laman::solution::{Algorithm, SolverOptions};
 use laman_debug::corpus::{Case, rect_chain, slot_grid, triangle_strip};
 use std::io::{BufRead, Write};
@@ -20,7 +20,7 @@ const RUNS: usize = 5;
 // At most 48 workers: the entire run takes at most 240 s plus process overhead.
 const WORKER_LIMIT: Duration = Duration::from_secs(5);
 const FAMILIES: [&str; 3] = ["rectangles", "slots", "triangles"];
-const OPERATIONS: [&str; 3] = ["static", "edit", "drag"];
+const OPERATIONS: [&str; 4] = ["static", "edit", "drag", "bisect"];
 const COUNTS: [[usize; 3]; 3] = [[98, 248, 498], [98, 248, 498], [99, 249, 501]];
 
 type Error = Box<dyn std::error::Error>;
@@ -35,6 +35,39 @@ fn case(family: usize, size: usize) -> Result<Case, Error> {
         2 => triangle_strip([32, 82, 166][size])?,
         _ => return Err("unknown family".into()),
     })
+}
+
+/// The slot grid's drag sketch with the middle slot's left arc let loose of
+/// its tangent lines, and the target that turns the arc's start a quarter
+/// turn about its centre: the arc's sweep moves by half a turn's quarter,
+/// more than `MAX_SWEEP_STEP`, so the first frame is bisected
+/// (plans/m7-drag-conflicts step 10).
+fn bisecting_drag(case: &Case) -> Result<(Sketch, laman::model::EntityId, [f64; 2]), Error> {
+    let drag = case.drag.as_ref().ok_or("no constructed drag")?;
+    let mut sketch = drag.sketch.clone();
+    let tag = format!("slot-{}-left", sketch.entities().count() / 10 / 2);
+    let tagged = sketch
+        .entities()
+        .find(|(id, _)| sketch.tag_of(*id) == Some(tag.as_str()))
+        .ok_or("missing slot arc")?;
+    let (arc, (c, s)) = match tagged {
+        (id, Entity::Arc { c, s, .. }) => (id, (*c, *s)),
+        _ => return Err("slot tag is not an arc".into()),
+    };
+    let tangents: Vec<_> = sketch
+        .constraints()
+        .filter(|(_, constraint)| {
+            matches!(constraint, Constraint::TangentLineCircle { round, .. } if round.id() == arc)
+        })
+        .map(|(id, _)| id)
+        .collect();
+    for id in tangents {
+        sketch.remove_constraint(id)?;
+    }
+    let at = |p: laman::model::Point, axis| drag.expected.coordinates[&(p.id(), axis)];
+    let (cx, cy) = (at(c, Coordinate::X), at(c, Coordinate::Y));
+    let (dx, dy) = (at(s, Coordinate::X) - cx, at(s, Coordinate::Y) - cy);
+    Ok((sketch, s.id(), [cx + dy, cy - dx]))
 }
 
 fn signal(message: &str) -> Result<(), Error> {
@@ -54,6 +87,7 @@ fn worker(family: usize, size: usize, algorithm: Algorithm, operation: &str) -> 
         // Re-create each warm start outside the measured operation.
         let mut edited = case.sketch.clone();
         let mut session = None;
+        let mut bisect_target = None;
         if operation == "edit" {
             let initial = edited.solve(&options);
             edited.apply(&initial)?;
@@ -81,6 +115,10 @@ fn worker(family: usize, size: usize, algorithm: Algorithm, operation: &str) -> 
             edited.remove_constraint(id)?;
             edited.add_constraint_with_id(id, replacement)?;
             edited.tag_constraint(id, &case.edit.tag)?;
+        } else if operation == "bisect" {
+            let (sketch, dragged, target) = bisecting_drag(&case)?;
+            session = Some(sketch.drag(dragged, &options)?);
+            bisect_target = Some(target);
         } else if operation == "drag" {
             let drag = case.drag.as_ref().ok_or("no constructed drag")?;
             session = Some(drag.sketch.drag(drag.drag.dragged, &options)?);
@@ -90,12 +128,20 @@ fn worker(family: usize, size: usize, algorithm: Algorithm, operation: &str) -> 
         let start = Instant::now();
         signal("timing")?;
         if let Some(mut session) = session {
-            let target = case
-                .drag
-                .as_ref()
-                .and_then(|d| d.drag.targets.first())
-                .ok_or("no drag target")?;
-            std::hint::black_box(session.to(*target));
+            if let Some(target) = bisect_target {
+                let frame = std::hint::black_box(session.to(target));
+                // The cell times a bisected frame; one that is not is a bug.
+                if frame.diagnostics.bisection.is_none() {
+                    return Err("the bisect cell's first frame was not bisected".into());
+                }
+            } else {
+                let target = case
+                    .drag
+                    .as_ref()
+                    .and_then(|d| d.drag.targets.first())
+                    .ok_or("no drag target")?;
+                std::hint::black_box(session.to(*target));
+            }
         } else {
             std::hint::black_box(edited.solve(&options));
         }
@@ -256,6 +302,8 @@ fn run() -> Result<(), Error> {
                 for operation in OPERATIONS {
                     let result = if family == 2 && operation == "drag" {
                         "N/A; no constructed drag".to_owned()
+                    } else if operation == "bisect" && (family != 1 || size != 2) {
+                        continue;
                     } else {
                         let child = Command::new(&executable)
                             .args([
