@@ -94,7 +94,7 @@ careful, **[3]** unproven.
   `evaluate_within` (`malloc`/`calloc` ~15-20 %), the `BTreeMap`
   coordinate lookups (26-35 % of samples), `unit_row` (8 %), and reuse
   across bisection tries when the bisect cell alone misses.
-- [ ] Step 6 **[1]** — Re-run `bench_c2` in full and replace the post-M6
+- [x] Step 6 **[1]** — Re-run `bench_c2` in full and replace the post-M6
   table in ARCHITECTURE.md §Frame budget with the new one, the profile's
   attribution included. If a cell misses, record the miss and the profile
   that chooses between A, S2 and the driver split. Commit: `perf(debug)`
@@ -202,3 +202,7 @@ each, none of them a single removable one.
   15.3, drag 35 → 30.
 - Settled by the agent: the acceptance is the worst sample, not the median,
   because the budget applies to every frame, not to the average.
+- Settled by the agent (step 6, the miss): the 500-entity cells still miss,
+  so the step's profile chooses option A (rigid bodies in the remainder) over
+  S2 and the driver split, with the reasons in ARCHITECTURE.md §Frame budget.
+  A second M8 plan takes A; this plan is retired with its outcome there.

@@ -541,9 +541,9 @@ The redundancy pass takes the rank alone (`dof_only`: no null basis, no
 per-entity counts) and tests only the head's constraints (§Diagnose). Each of
 its ten steps, solve and diagnostics, takes 0.39–0.40 ms under both
 algorithms (§Frame budget), inside C1's 1 ms. At 500 entities the first
-drag step takes 20 ms, over C2's 4 ms: the step pays every part's extent
-measurement and the diagnosis's recompile and re-cut of the placed sketch
-(§Frame budget).
+drag step takes 12–17 ms after M8's steps 2–5, over C2's 4 ms; the
+per-part extent measurement and the diagnosis's recompile are gone, and what
+remains is the solve of the sketch's rows (§Frame budget).
 
 **Bisection.** A step whose solve flips a branch, or moves an arc's sweep
 past `MAX_SWEEP_STEP` (§Branches), is retried
@@ -721,52 +721,85 @@ lower bounds are **over** 4 ms; setup timeouts remain unmeasured.
 | triangles | 501 | LM | T ≥ 4998.992 | S | N/A |
 | triangles | 501 | DogLeg | T ≥ 4999.145 | S | N/A |
 
-C2 after M6 (stages, 2026-11-04), same command, machine and cell
-conventions (median / worst in ms, five samples; every position now
-finishes inside its limit). **Under 4 ms: the 98- and 99-entity cells and
-one 249-entity cell (triangles edit, LM, 3.992, a hair under; DogLeg 4.001
-is over). Every other cell is over, and none of the 500-entity acceptance
-cells (edit and first drag step, each ≤ 4 ms) is met.**
+C2 after M8 steps 2–5 (`plans/m8-frame-budget`, 2026-11-04), same command,
+machine and cell conventions (median / worst in ms, five samples; every
+position finishes inside its limit; the verdict is on the median, the
+acceptance on the worst sample). Load average at the run: 5.1 (1 min), 12.2
+(5 min), 14.2 (15 min), from other processes on the machine; a second run
+at 3.7 (1 min) put every 500-entity cell within 0.7 ms of these. **Under 4 ms:
+the 98- and 99-entity cells, the 249-entity triangle cells and the
+248-entity rectangle cells (rectangles 248 DogLeg drag's worst sample is
+5.04). Over: the 248-entity slot cells (4.2–5.4) and every 500-entity cell:
+edit 6.4–11.3, first drag step 12.1–17.4, bisected frame 29.5–30.0. The
+500-entity acceptance (edit and first drag step, each ≤ 4 ms) is not met.**
 
 | Family | Actual entities | Algorithm | Static | Edit | First drag step |
 |---|---:|---|---:|---:|---:|
-| rectangles | 98 | LM | 1.795 / 2.020 | 1.486 / 1.516 | 1.397 / 1.460 |
-| rectangles | 98 | DogLeg | 1.577 / 1.793 | 1.452 / 1.621 | 1.389 / 1.462 |
-| rectangles | 248 | LM | 6.765 / 6.933 | 5.040 / 5.155 | 5.684 / 5.723 |
-| rectangles | 248 | DogLeg | 5.653 / 5.909 | 4.720 / 5.110 | 5.005 / 5.089 |
-| rectangles | 498 | LM | 17.483 / 18.851 | 11.783 / 11.926 | 20.135 / 20.379 |
-| rectangles | 498 | DogLeg | 14.035 / 14.524 | 11.436 / 11.650 | 20.144 / 20.275 |
-| slots | 98 | LM | 2.771 / 3.013 | 2.277 / 2.326 | 2.018 / 2.164 |
-| slots | 98 | DogLeg | 2.737 / 2.957 | 2.282 / 2.306 | 2.012 / 2.164 |
-| slots | 248 | LM | 11.265 / 11.693 | 7.858 / 7.928 | 7.064 / 7.203 |
-| slots | 248 | DogLeg | 9.737 / 10.296 | 7.951 / 8.092 | 7.275 / 7.791 |
-| slots | 498 | LM | 33.213 / 33.805 | 22.535 / 24.668 | 19.857 / 20.623 |
-| slots | 498 | DogLeg | 29.544 / 30.915 | 22.534 / 23.197 | 20.280 / 21.244 |
-| triangles | 99 | LM | 1.243 / 1.400 | 1.134 / 1.359 | N/A |
-| triangles | 99 | DogLeg | 1.236 / 1.605 | 1.140 / 1.172 | N/A |
-| triangles | 249 | LM | 4.535 / 5.112 | 3.992 / 4.074 | N/A |
-| triangles | 249 | DogLeg | 4.413 / 4.537 | 4.001 / 4.342 | N/A |
-| triangles | 501 | LM | 12.147 / 12.592 | 11.664 / 11.986 | N/A |
-| triangles | 501 | DogLeg | 12.605 / 13.197 | 10.816 / 11.091 | N/A |
+| rectangles | 98 | LM | 1.104 / 1.948 | 0.924 / 0.967 | 0.929 / 0.969 |
+| rectangles | 98 | DogLeg | 0.986 / 1.136 | 0.888 / 0.945 | 0.953 / 1.003 |
+| rectangles | 248 | LM | 3.862 / 4.038 | 2.945 / 3.225 | 3.926 / 4.423 |
+| rectangles | 248 | DogLeg | 3.184 / 3.642 | 2.930 / 3.103 | 3.891 / 5.040 |
+| rectangles | 498 | LM | 9.860 / 10.456 | 7.322 / 7.389 | 17.357 / 17.658 |
+| rectangles | 498 | DogLeg | 8.093 / 8.340 | 7.159 / 7.364 | 17.265 / 17.382 |
+| slots | 98 | LM | 1.750 / 1.904 | 1.434 / 1.535 | 1.319 / 1.657 |
+| slots | 98 | DogLeg | 1.813 / 2.092 | 1.382 / 1.463 | 1.307 / 1.430 |
+| slots | 248 | LM | 5.348 / 6.131 | 4.172 / 4.326 | 4.420 / 4.610 |
+| slots | 248 | DogLeg | 5.369 / 5.528 | 4.350 / 4.374 | 4.423 / 4.693 |
+| slots | 498 | LM | 15.327 / 15.745 | 11.277 / 11.773 | 12.072 / 13.612 |
+| slots | 498 | DogLeg | 13.737 / 14.432 | 11.382 / 11.724 | 12.231 / 12.531 |
+| triangles | 99 | LM | 0.827 / 0.935 | 0.721 / 0.860 | N/A |
+| triangles | 99 | DogLeg | 0.797 / 0.924 | 0.740 / 0.779 | N/A |
+| triangles | 249 | LM | 2.868 / 3.015 | 2.343 / 2.644 | N/A |
+| triangles | 249 | DogLeg | 2.679 / 2.786 | 2.430 / 2.466 | N/A |
+| triangles | 501 | LM | 6.887 / 7.875 | 6.351 / 6.450 | N/A |
+| triangles | 501 | DogLeg | 7.198 / 7.455 | 6.379 / 6.404 | N/A |
 
-The 98- and 99-entity cells are 11–15 times faster than the baseline and
-under 4 ms; the 498-entity cells went from not finishing in 5 s to 11–34 ms.
-The 4 ms target is missed at 500 entities by 2.8× (triangles edit) to 5.6×
-(slots edit), and the 500-entity drag step by 5× (20 ms) on both families
-that have one. The time is not in the solve of the edited stage. Two
-measured sources account for it: every part's evaluation measures
-the whole component's extent for its acceptance (O(n²) a solve), and the
-redundancy pass compiles and cuts the placed sketch again (5–13 ms). The
-scaling from 248 to 498 entities (edit 5.0 → 11.8, 7.9 → 22.5, 4.0 → 11.7)
-is 2.3–2.9× for 2× the size, consistent with a quadratic term on top of
-a linear one. The drag step is the same cost as an edit: a drag opens its
-decomposition once, but each frame still pays the per-part extent and the
-frame's diagnostics. Two linear scans repeated per component or per term
-(the head's constraints found by a search of each component's sources,
-rerun after each redundancy found; the continuation's membership test of
-each term's parameter) are further suspects of the same order. No
-profile has confirmed the attribution yet; M8 profiles first
-(ROADMAP.md §C2).
+The bisected frame is the slot grid's `bisect` cell (M7, below): 29.99 /
+30.81 ms LM and 29.51 / 30.05 ms DogLeg, against 12.1 / 12.2 ms for the plain
+first drag step.
+
+Against M6's table, the 500-entity edits went 1.6–2.0× faster (rectangles
+11.8 → 7.3 ms, slots 22.5 → 11.3, triangles 11.7 → 6.4) and the first drag
+step 1.2–1.7× (rectangles 20.1 → 17.4, slots 19.9 → 12.1); no cell got
+slower, and the 248-entity slot drag went 7.1 → 4.4. The 4 ms target is
+still missed at 500 entities by 1.6× (triangles edit) to 2.8× (slots edit),
+the drag step by 4.3× on rectangles (17.4 ms) and the bisected frame by 7.5×.
+
+**Profile and the choice (M8 step 5; self time, `perf report
+--no-children`, the 500-entity cells, LM and DogLeg).** Steps 2–4 removed the
+costs step 1 measured: the staged rank computed three times per frame
+(`staged_checked`, 30–55 % of a frame), the per-part extent measure
+(`scale_at`, 12–24 %) and the tolerances made six or seven times per frame
+(`Tolerances::at`, 15–28 %). Step 5 removed the one source it found above
+10 %, the per-part split of the frame (12 % of the slot edit). What is left has no
+single source above 9 %. Most of it is the solver's per-iteration work:
+`unit_row` 7–8 %, `evaluate_within` 6 %, `entity_params` 3–5 %, `BTreeMap`
+lookups about 6 %, `malloc`/`free` about 8 %. The rest is the diagnosis's
+placement of the sketch: `Splitter::split` 8.5 % and `stage::cut` 6 % on the
+rectangle edit. Of the three options the plan named, the choice is:
+
+- **Rigid bodies in the remainder (A)**, the next M8 plan. It shrinks the rows
+  and parameters every solve touches, the per-iteration work above, and so
+  reaches all four cell kinds: edit, first drag step, the bisect's tries and
+  the static solve.
+- A **diagnosis cache (S2)** is not chosen. It reaches only the placement
+  share (under 15 % on the rectangle edit), and not the bisected frame at all:
+  its tries carry no diagnostics, so the solve is most of that cell (30 ms
+  against the 12 ms plain drag it extends).
+- A **driver split of the remainder** is not chosen. It moves the solve of
+  the rest out of a drag frame only; the edits (6–11 ms) and each bisect try
+  of the edited stage keep the full per-iteration cost.
+
+The gain of A is not measured; its plan's own profile measures it before any
+cut. (`docs/plans/m8-frame-budget.md`, Open questions: settled by the agent.)
+
+The 98- and 99-entity cells are 11–15 times faster than the M5 baseline and
+under 4 ms; the 498-entity cells went from not finishing in 5 s to 6–30 ms.
+After M6, the 500-entity cells were attributed to the per-part extent
+measure, the diagnosis's recompile and re-cut of the placed sketch, and the
+repeated linear scans; M8's step-1 profile confirmed the first and the
+rank and tolerance repeats, and steps 2–5 removed them. The table above is
+the state now.
 
 **A bisected frame (M7, 2026-11-04)**, same command and machine: the 498-entity
 slot grid's `bisect` cell is its drag with the middle slot's left arc let
@@ -775,7 +808,8 @@ centre, so the first frame moves the arc's sweep past `MAX_SWEEP_STEP` and is
 bisected (the worker fails if it is not). Median / worst, five samples:
 LM 42.3 / 42.7 ms, DogLeg 40.5 / 42.7 ms, against 21.5 / 22.2 and
 20.8 / 21.0 for the plain first drag step: the extra tries roughly double
-the frame. Over 4 ms like every 500-entity cell; M8's accept covers it.
+the frame. Over 4 ms like every 500-entity cell; after M8 steps 2–5 it is
+29.5–30.0 ms (the table above), still over.
 
 ## wasm32
 

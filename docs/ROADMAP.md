@@ -141,7 +141,7 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5, M6 and M7 done; the frame budget missed.** M5: the generated
+**Status: M5, M6 and M7 done; M8's first plan measured, and the frame budget is still missed.** M5: the generated
 corpus, construction properties and bounded release benchmark. M6: every
 component solved and diagnosed by stages (ADR-0009); an edit keeps every
 bit outside its stage's downstream closure (`upstream-edit-drift`
@@ -153,7 +153,11 @@ entities 1.1–2.8 ms (ARCHITECTURE.md §Frame budget, with the two measured
 cost sources). M7: no radius below 0 in a solve or drag (ADR-0010), conflict
 sets equal on the staged and whole paths and the fundamental circuit where
 the stretch is small (ADR-0005 amendments), a frame that jumps an arc's
-sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). Next: M8.
+sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). M8's first
+plan (staged rank and tolerances once per frame, the extent split): the
+500-entity edits are 6–11 ms, the first drag step 12–17 ms, the bisected
+frame 29–30 ms, still over 4 ms; the profile in ARCHITECTURE.md §Frame budget
+chooses rigid bodies in the remainder for the next M8 plan.
 
 - **M7 — drag robustness and conflicts**: done (status line).
 - **M8 — the frame budget at 500 entities**: profile the 500-entity edit
@@ -161,9 +165,10 @@ sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). Next: M8.
   measurement, the diagnosis's recompile and re-cut of the placed sketch,
   repeated linear scans), one path, no public type. Accept: every
   500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
-  *Accept*). If they still miss, rigid
-  bodies in the remainder, a cache or a driver split is chosen by that
-  profile (`docs/plans/m8-frame-budget.md`).
+  *Accept*). They still miss after the first plan: the profile in
+  ARCHITECTURE.md §Frame budget chooses rigid bodies in the remainder
+  (option A) over a diagnosis cache and a driver split; that is the next
+  M8 plan, whose profile measures its gain before any cut.
 
 The risk this cycle retires is locality: that a decomposition into stages
 makes a local edit cost a local solve, without changing a diagnostic or a
