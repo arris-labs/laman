@@ -89,7 +89,7 @@ established here.
   sets in `solved.rs`, the witness exemption deleted.
 - [x] Step 5 **[3]** — Fix the staged DogLeg inconclusive case; lift its
   fixture; the inconclusive-side exemption removed where one side concludes.
-- [ ] Step 6 **[2]** — Fundamental-circuit oracle in test support; the
+- [x] Step 6 **[2]** — Fundamental-circuit oracle in test support; the
   conflict property asserts every set named equals it, under both
   algorithms; the C1 twins' sets checked minimum by their analysis.
 - [ ] Step 7 **[2]** — Sweep-jump bisection, `MAX_SWEEP_STEP`, ADR-0006
@@ -167,6 +167,18 @@ established here.
   staged = whole with no exemption. Changelog at retirement: DogLeg's
   analysis now concludes where LM's does (the 0.1.0 bullet's "under DogLeg
   occasionally the reverse" goes).
+- *Settled* (step 6): the circuit is the minimum set only while every proper
+  subset of it is feasible at the stretched length, and an independent
+  subset is infeasible at lengths past its range (a triangle whose third
+  side passes the other two: a conflict of three inside the five-edge
+  circuit). So the exact-circuit property is its own test, stretches a part
+  in ten thousand, and discards a draw whose leave-one-out subsets are
+  near-singular (`circuit::margin`), a guard computed from the geometry;
+  the wide-stretch property keeps its weaker claim. The C1 twins' minimum
+  is checked by exhaustive search over smaller subsets (`c1.rs`).
+  Found: `solved.rs`'s older staged = whole check fails at 2000 cases on
+  `framework-conflict-inconclusive`'s case (whole `[]`, staged names a
+  set); untouched, that finding stands.
 - ⚠ OPEN: `MAX_SWEEP_STEP`'s value. A move of `f` turns is read
   correctly up to half a turn, so any `f < ½` catches true moves in
   `(f, 1 − f)` turns and misses the rest; the agent picks it in step 7

@@ -6,10 +6,12 @@
 //! `tests/fixtures/regression/` (`.agents/skills/inspect`).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
+#[path = "support/circuit.rs"]
+mod circuit;
 #[path = "support/staged.rs"]
 mod staged;
 
-use laman::model::{Coordinate, Point, Sketch};
+use laman::model::{ConstraintId, Coordinate, Point, Sketch};
 use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::{Source, check};
 use laman_debug::strategy::sketch;
@@ -20,6 +22,11 @@ use proptest::prelude::*;
 /// is the gap of the regression fixture `extreme-point-on-line`, not a
 /// property of the solver; its fix lifts this bound.
 const CHECKABLE: f64 = 1e100;
+
+/// Smallest `circuit::margin` at which the exact-circuit property trusts
+/// that a subset of the circuit is feasible at a length a part in ten
+/// thousand off the truth.
+const MARGIN: f64 = 0.02;
 
 const ALGORITHMS: [Algorithm; 2] = [Algorithm::LevenbergMarquardt, Algorithm::DogLeg];
 
@@ -56,6 +63,9 @@ struct Built {
     points: Vec<Point>,
     truth: Vec<(f64, f64)>,
     dof: usize,
+    /// Each distance as the indices (into `points`) of its two ends and
+    /// its id; points 0 and 1 are the fixed ones.
+    edges: Vec<(usize, usize, ConstraintId)>,
 }
 
 /// Distance of the second fixed point from the origin.
@@ -72,6 +82,7 @@ fn build(steps: &[Step], force_two: bool) -> Option<Built> {
     let mut points = vec![origin, anchor];
     let mut truth = vec![(0.0, 0.0), (ANCHOR, 0.0)];
     let mut dof = 0;
+    let mut edges = Vec::new();
     for s in steps {
         let n = points.len();
         let mut ties: Vec<usize> = s.ties.iter().map(|t| t % n).collect();
@@ -108,7 +119,8 @@ fn build(steps: &[Step], force_two: bool) -> Option<Built> {
             .point(s.truth.0 + s.nudge.0, s.truth.1 + s.nudge.1)
             .ok()?;
         for &t in &ties {
-            sk.distance(points[t], p, dist(truth[t], s.truth)).ok()?;
+            let id = sk.distance(points[t], p, dist(truth[t], s.truth)).ok()?;
+            edges.push((t, n, id));
         }
         dof += 2 - ties.len();
         points.push(p);
@@ -119,6 +131,7 @@ fn build(steps: &[Step], force_two: bool) -> Option<Built> {
         points,
         truth,
         dof,
+        edges,
     })
 }
 
@@ -132,6 +145,29 @@ fn norm(v: (f64, f64)) -> f64 {
 
 fn dist(a: (f64, f64), b: (f64, f64)) -> f64 {
     norm(sub(a, b))
+}
+
+/// The steps moved off any alignment the shrinker could reach (all on an
+/// axis, equal coordinates, mirror images): each truth is shifted by an
+/// offset fixed per index, so that the construction is in general position
+/// unless the draw itself conspires. The fundamental circuit is the minimal
+/// conflict set only in general position; at an alignment a smaller set can
+/// be a true conflict.
+fn generic(steps: &[Step]) -> Vec<Step> {
+    steps
+        .iter()
+        .enumerate()
+        .map(|(k, s)| {
+            let k = k as f64;
+            Step {
+                truth: (
+                    s.truth.0 + 37.0 * libm::sin(1.7 * k + 0.3),
+                    s.truth.1 + 41.0 * libm::cos(2.3 * k + 0.9),
+                ),
+                ..s.clone()
+            }
+        })
+        .collect()
 }
 
 proptest! {
@@ -251,6 +287,61 @@ proptest! {
                 );
             }
             prop_assert!(solution.coordinates.values().all(|v| v.is_finite()));
+        }
+    }
+
+    /// The conflict set is the minimum one, known from the graph alone: a
+    /// rigid distance framework in general position plus one distance
+    /// stretched a little names the **fundamental circuit** of that edge
+    /// (`support/circuit.rs`), and no other set, under both algorithms. The
+    /// stretch is tiny (a part in ten thousand): the circuit is infeasible at any
+    /// stretch, but a smaller independent subset is feasible only near the
+    /// true length (a triangle whose third side passes the sum of the other
+    /// two is a conflict of three), so a large stretch can name a smaller
+    /// set that is just as true. An analysis that does not conclude
+    /// (regression `framework-conflict-inconclusive`) names nothing and is
+    /// not asserted here.
+    #[test]
+    fn the_conflict_of_a_stretched_distance_is_its_fundamental_circuit(
+        steps in proptest::collection::vec(step(), 3..8),
+        pick in (0..64_usize, 0..64_usize),
+        false_by in 1.00001..1.0001_f64,
+    ) {
+        let Some(built) = build(&generic(&steps), true) else { return Ok(()); };
+        prop_assert_eq!(built.dof, 0);
+        let (i, j) = (pick.0 % built.points.len(), pick.1 % built.points.len());
+        prop_assume!(i != j);
+        let d = dist(built.truth[i], built.truth[j]);
+        prop_assume!(d > 5.0);
+        let basis: Vec<(usize, usize)> = built.edges.iter().map(|e| (e.0, e.1)).collect();
+        let members = circuit::fundamental_circuit(&basis, (i, j), &[0, 1])
+            .expect("a rigid construction plus an edge has a circuit");
+        // Leave any one member out and what remains is independent, so
+        // generically feasible near the truth; at an alignment it is not
+        // (`circuit::margin`), and that draw proves nothing.
+        let mut with_extra: Vec<(usize, usize)> = members.iter().map(|&k| basis[k]).collect();
+        with_extra.push((i, j));
+        for skip in 0..members.len() {
+            let mut rest = with_extra.clone();
+            rest.remove(skip);
+            prop_assume!(circuit::margin(&built.truth, &rest, &[0, 1]) > MARGIN);
+        }
+        for algorithm in ALGORITHMS {
+            let mut sk = built.sketch.clone();
+            let stretched = sk
+                .distance(built.points[i], built.points[j], d * false_by)
+                .unwrap();
+            let solution = sk.solve(&options(algorithm));
+            if solution.status != Status::Unsatisfiable {
+                continue;
+            }
+            let mut want: Vec<_> = members.iter().map(|&k| built.edges[k].2).collect();
+            want.push(stretched);
+            want.sort_unstable();
+            prop_assert_eq!(solution.diagnostics.conflicts.len(), 1, "{:?}", algorithm);
+            let mut got: Vec<_> = solution.diagnostics.conflicts[0].iter().map(|c| c.id).collect();
+            got.sort_unstable();
+            prop_assert_eq!(got, want, "{:?}: not the fundamental circuit", algorithm);
         }
     }
 

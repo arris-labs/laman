@@ -195,6 +195,48 @@ fn the_conflict_sets_are_the_ones_the_roadmap_names() {
     );
 }
 
+/// Every way to choose `size` of `items`, in order.
+fn combinations<T: Copy>(items: &[T], size: usize) -> Vec<Vec<T>> {
+    if size == 0 {
+        return vec![Vec::new()];
+    }
+    let mut out = Vec::new();
+    for (k, &first) in items.iter().enumerate() {
+        for mut rest in combinations(&items[k + 1..], size - 1) {
+            rest.insert(0, first);
+            out.push(rest);
+        }
+    }
+    out
+}
+
+/// Each conflicting twin's set is the minimum one, not only inclusion
+/// minimal: no choice of fewer of the twin's constraints is unsatisfiable
+/// (plans/m7-drag-conflicts step 6). Exhaustive, so the twins stay small:
+/// belt's eight of thirteen are 5812 solves.
+#[test]
+fn the_conflicting_twins_sets_are_the_minimum_ones() {
+    for name in CONFLICTING {
+        let fixture = load(name);
+        let ids: Vec<_> = fixture.sketch.constraints().map(|(id, _)| id).collect();
+        let named = fixture.expected.conflicts[0].len();
+        for size in 1..named {
+            for keep in combinations(&ids, size) {
+                let mut sketch = fixture.sketch.clone();
+                for id in ids.iter().filter(|id| !keep.contains(id)) {
+                    sketch.remove_constraint(*id).unwrap();
+                }
+                let solution = sketch.solve(&SolverOptions::default());
+                assert_ne!(
+                    solution.status,
+                    Status::Unsatisfiable,
+                    "{name}: {keep:?} is a conflict of {size} < {named}"
+                );
+            }
+        }
+    }
+}
+
 /// The values a fixture is checked at: its sketch's, each expected
 /// coordinate replacing its guess, as `laman_debug::runner::run` does.
 fn expected_values(fixture: &Fixture) -> Coordinates {

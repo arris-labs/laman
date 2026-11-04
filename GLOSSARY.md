@@ -157,6 +157,14 @@ projected step: a radius on the bound that descent presses below takes no
 step, and a step that would cross 0 is cut there (ADR-0010).
 _Avoid_: radius clamp
 
+**Fundamental circuit**:
+In a rigid distance framework with one extra distance, the extra edge and
+every edge whose removal leaves the rest independent: the smallest
+over-braced set holding the extra edge. Generically the only minimal
+conflict set when that distance is stretched a little (Laman 1970; pebble
+game, Jacobs and Hendrickson 1997). A test oracle computed from the graph
+alone (`laman-debug` test support), never a solver output.
+
 **Component**:
 The free parameters connected through shared equations, solved as one
 problem (ARCHITECTURE.md §Solve).
