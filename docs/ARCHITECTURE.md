@@ -540,9 +540,12 @@ toward the last good target: the full step, then half of it, a quarter, and
 so on, each solved from the last solution (never from the failed try), at
 most `SolverOptions::max_bisections` halvings. The first try that keeps
 every branch is the frame, `flips` empty and the dragged point stopped
-short of the target; the session's reference target moves to it. If every
+short of the target; the session's reference target moves to it, and the
+frame says so in `Diagnostics::bisection` (the target solved at and the
+halvings; `None` for a frame at its own target). If every
 try flips, the frame is the last solution unchanged with the nearest try's
-flips named, and the session stays where it was (ADR-0006): a drag cannot
+flips named and `bisection` the last halving tried, and the session stays
+where it was (ADR-0006): a drag cannot
 cross a branch, only a static solve can. `max_bisections` defaults to 8:
 the smallest step tried is 1/256 of the frame's, below what the eye reads
 on a drag, and a refused frame costs at most that many extra solves,

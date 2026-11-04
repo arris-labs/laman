@@ -68,9 +68,9 @@ pub struct SolverOptions {
     /// Re-solves the conflict analysis may spend in all; running out names
     /// no conflict and leaves the status `NotConverged`.
     pub max_analysis_solves: usize,
-    /// Halvings of a drag step that flips a branch, toward the last good
-    /// target, before the step gives up and stays put (ADR-0006). Zero
-    /// tries the target alone. A static solve ignores it.
+    /// Halvings of a drag step that flips a branch or jumps an arc's sweep,
+    /// toward the last good target, before the step gives up and stays put
+    /// (ADR-0006). Zero tries the target alone. A static solve ignores it.
     pub max_bisections: usize,
 }
 
@@ -221,6 +221,53 @@ pub struct Diagnostics {
     /// compares with the guesses. In subject order: entities by id, then
     /// constraints by id.
     pub flips: Vec<Flip>,
+    /// Set on a drag frame that was halved toward its target (ADR-0006): see
+    /// [`Bisection`]. `None` for a static solve and for a frame solved at
+    /// its own target.
+    pub bisection: Option<Bisection>,
+}
+
+/// A drag frame that was bisected: halved toward the last target because
+/// the full step flipped a branch or moved an arc's sweep past
+/// `tolerance::MAX_SWEEP_STEP` (ADR-0006).
+///
+/// A frame the session stayed put on, because every halving flipped, is
+/// bisected too: `reached` is then the target of the last halving tried and
+/// `halvings` their number, and the coordinates are the previous frame's.
+///
+/// ```
+/// use laman::model::{Coordinate, Sketch};
+/// use laman::solution::SolverOptions;
+///
+/// // A line from the fixed (0, 1) to a tip held parallel to the fixed
+/// // horizontal line (0, 0)-(1, 0): the tip may not cross x = 0.
+/// let mut sk = Sketch::new();
+/// let o = sk.point_fixed(0.0, 0.0)?;
+/// let e = sk.point_fixed(1.0, 0.0)?;
+/// let ground = sk.line(o, e)?;
+/// let top = sk.point_fixed(0.0, 1.0)?;
+/// let tip = sk.point(3.0, 1.0)?;
+/// let arm = sk.line(top, tip)?;
+/// sk.parallel(ground, arm)?;
+/// let mut drag = sk.drag(tip.id(), &SolverOptions::default())?;
+///
+/// let frame = drag.to([2.0, 1.0]);
+/// assert!(frame.diagnostics.bisection.is_none()); // solved at its own target
+///
+/// let frame = drag.to([-1.0, 1.0]); // would cross: halved once, to x = 0.5
+/// let bisection = frame.diagnostics.bisection.unwrap();
+/// assert_eq!(bisection.halvings, 1);
+/// assert_eq!(bisection.reached, [0.5, 1.0]);
+/// assert!((frame.coordinates[&(tip.id(), Coordinate::X)] - 0.5).abs() < 1e-9);
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Bisection {
+    /// The target the frame was solved at: the full step's, halved
+    /// `halvings` times toward the previous frame's.
+    pub reached: [f64; 2],
+    /// How many times the step was halved, at least 1.
+    pub halvings: usize,
 }
 
 /// What changed branch: an arc or circle, or a `parallel`, `perpendicular`
@@ -623,5 +670,6 @@ fn diagnostics(sketch: &Sketch, d: &Diagnosis, flips: &[branch::Flip]) -> Diagno
             .filter_map(|s| origin(sketch, *s))
             .collect(),
         flips: flips_of(sketch, flips),
+        bisection: None,
     }
 }

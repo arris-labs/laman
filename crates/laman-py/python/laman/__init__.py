@@ -27,7 +27,21 @@ frame per `to`; the sketch itself is untouched until `apply`:
 >>> frame = session.to(0.0, 5.0)
 >>> round(frame.coordinates[(b.id, "x")], 9), round(frame.coordinates[(b.id, "y")], 9)
 (0.0, 5.0)
+>>> frame.diagnostics.bisection is None
+True
 >>> _ = session.finish()
+
+A frame that would flip a branch (or carry an arc's sweep too far) is halved
+toward the last target, and says so:
+
+>>> o, e, top = sk.point(0.0, 0.0, fixed=True), sk.point(1.0, 0.0, fixed=True), sk.point(0.0, 1.0, fixed=True)
+>>> tip = sk.point(3.0, 1.0)
+>>> _ = sk.parallel(sk.line(o, e), sk.line(top, tip))
+>>> arm = sk.drag(tip)
+>>> frame = arm.to(-1.0, 1.0)  # the tip may not cross x = 0
+>>> frame.diagnostics.bisection
+Bisection(reached=(1, 1), halvings=1)
+>>> _ = arm.finish()
 
 A sketch loaded from JSON hands out its handles, and `laman.check` re-reads
 a solution independently of the solver:
@@ -43,6 +57,7 @@ True
 from ._errors import ModelError
 from ._laman import (
     Arc,
+    Bisection,
     Circle,
     ConstraintRef,
     Coordinates,
@@ -69,6 +84,7 @@ from ._types import Algorithm, Sense, Status
 __all__ = [
     "Algorithm",
     "Arc",
+    "Bisection",
     "Circle",
     "ConstraintRef",
     "Coordinates",

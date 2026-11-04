@@ -33,7 +33,8 @@ fn tags(flips: &[laman::solution::Flip]) -> Vec<String> {
 
 /// Runs a drag fixture: the checker is clean at every step, every listed
 /// step lands within the fixture's tolerance and names exactly the flips it
-/// lists; an unlisted step names none.
+/// lists and is bisected exactly the listed `halvings` times; an unlisted
+/// step names no flip and is not bisected.
 fn run(name: &str) {
     let fixture = load(name);
     let drag = fixture.drag.as_ref().unwrap();
@@ -55,6 +56,11 @@ fn run(name: &str) {
                 f
             });
             assert_eq!(tags(&step.diagnostics.flips), want, "{label}: flips");
+            assert_eq!(
+                step.diagnostics.bisection.map(|b| b.halvings),
+                listed.and_then(|a| a.halvings),
+                "{label}: halvings"
+            );
             for (key, expected) in listed.iter().flat_map(|a| &a.coordinates) {
                 let got = step.coordinates[key];
                 assert!(
@@ -91,6 +97,15 @@ fn a_sweep_jump_is_bisected_without_a_flip() {
         let mut session = fixture.sketch.drag(drag.dragged, &options).unwrap();
         let step = session.to(drag.targets[0]);
         let at = |c| step.coordinates[&(drag.dragged, c)];
+        let reached = step.diagnostics.bisection.unwrap().reached;
+        assert!(
+            (reached[0] - 0.4665023668442045).abs() < 1e-12,
+            "{algorithm:?}: {reached:?}"
+        );
+        assert!(
+            (reached[1] - 0.23414015499600466).abs() < 1e-12,
+            "{algorithm:?}: {reached:?}"
+        );
         let sweep = libm::atan2(at(Coordinate::Y), at(Coordinate::X));
         assert!(
             sweep > 0.3 && sweep - 0.3 <= laman::model::tolerance::MAX_SWEEP_STEP,

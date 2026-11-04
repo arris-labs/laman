@@ -295,6 +295,29 @@ impl Flip {
     }
 }
 
+/// A drag frame that was bisected: halved toward the last target because
+/// the full step flipped a branch or moved an arc's sweep too far. A frame
+/// the session stayed put on, every halving having flipped, is bisected
+/// too: `reached` is then the last halving's target.
+#[pyclass(frozen, eq, get_all, module = "laman")]
+#[derive(Clone, PartialEq)]
+pub struct Bisection {
+    /// The target the frame was solved at, `(x, y)`.
+    reached: (f64, f64),
+    /// How many times the step was halved, at least 1.
+    halvings: usize,
+}
+
+#[pymethods]
+impl Bisection {
+    fn __repr__(&self) -> String {
+        format!(
+            "Bisection(reached=({}, {}), halvings={})",
+            self.reached.0, self.reached.1, self.halvings
+        )
+    }
+}
+
 /// What a solve established about the sketch.
 #[pyclass(frozen, get_all, module = "laman")]
 pub struct Diagnostics {
@@ -315,6 +338,9 @@ pub struct Diagnostics {
     ill_conditioned: Vec<Py<PyAny>>,
     /// Branches the solution left that no equation holds.
     flips: Vec<Flip>,
+    /// Set on a drag frame that was halved toward its target; `None` for a
+    /// static solve and a frame solved at its own target.
+    bisection: Option<Bisection>,
 }
 
 impl Diagnostics {
@@ -370,6 +396,10 @@ impl Diagnostics {
                 .map(|o| origin(py, o))
                 .collect::<PyResult<_>>()?,
             flips: d.flips.iter().map(flip).collect(),
+            bisection: d.bisection.map(|b| Bisection {
+                reached: (b.reached[0], b.reached[1]),
+                halvings: b.halvings,
+            }),
         })
     }
 }
@@ -406,11 +436,14 @@ fn collapse_name(c: laman::solution::Collapse) -> &'static str {
 impl Diagnostics {
     fn __repr__(&self) -> String {
         format!(
-            "Diagnostics(dof={}, redundant={}, conflicts={}, flips={})",
+            "Diagnostics(dof={}, redundant={}, conflicts={}, flips={}, bisection={})",
             self.dof,
             self.redundant.len(),
             self.conflicts.len(),
-            self.flips.len()
+            self.flips.len(),
+            self.bisection
+                .as_ref()
+                .map_or_else(|| "None".to_owned(), Bisection::__repr__)
         )
     }
 }

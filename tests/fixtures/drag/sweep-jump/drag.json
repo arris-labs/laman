@@ -2,7 +2,7 @@
   "dragged": 2,
   "targets": [[-1.0, 0.05]],
   "after": [
-    {"step": 1, "coordinates": [
+    {"step": 1, "halvings": 2, "coordinates": [
       {"id": 2, "coordinate": "x", "value": 0.8937449015438548},
       {"id": 2, "coordinate": "y", "value": 0.4485755799911153}
     ]}

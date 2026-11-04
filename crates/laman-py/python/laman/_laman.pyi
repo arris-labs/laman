@@ -5,6 +5,7 @@ from ._types import Algorithm, Sense, Status
 
 __all__ = [
     "Arc",
+    "Bisection",
     "Circle",
     "Line",
     "Point",
@@ -186,6 +187,17 @@ class Flip:
     def __eq__(self, other: object, /) -> bool: ...
 
 @final
+class Bisection:
+    """A drag frame that was halved toward its target: the full step flipped
+    a branch or moved an arc's sweep too far."""
+
+    @property
+    def reached(self) -> tuple[float, float]: ...
+    @property
+    def halvings(self) -> int: ...
+    def __eq__(self, other: object, /) -> bool: ...
+
+@final
 class Diagnostics:
     """What a solve established about the sketch."""
 
@@ -205,6 +217,11 @@ class Diagnostics:
     def ill_conditioned(self) -> list[ConstraintRef | EntityRef]: ...
     @property
     def flips(self) -> list[Flip]: ...
+    @property
+    def bisection(self) -> Bisection | None:
+        """Set on a drag frame halved toward its target; None for a static
+        solve and a frame solved at its own target."""
+        ...
 
 @final
 class Solution:

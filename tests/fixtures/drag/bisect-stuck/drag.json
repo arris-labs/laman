@@ -2,23 +2,23 @@
   "dragged": 4,
   "targets": [[-5.0, 1.0], [-5.0, 1.0], [-5.0, 1.0], [-5.0, 1.0], [-5.0, 1.0]],
   "after": [
-    {"step": 1, "coordinates": [
+    {"step": 1, "halvings": 2, "coordinates": [
       {"id": 4, "coordinate": "x", "value": 1.0},
       {"id": 4, "coordinate": "y", "value": 1.0}
     ]},
-    {"step": 2, "coordinates": [
+    {"step": 2, "halvings": 3, "coordinates": [
       {"id": 4, "coordinate": "x", "value": 0.25},
       {"id": 4, "coordinate": "y", "value": 1.0}
     ]},
-    {"step": 3, "coordinates": [
+    {"step": 3, "halvings": 5, "coordinates": [
       {"id": 4, "coordinate": "x", "value": 0.0859375},
       {"id": 4, "coordinate": "y", "value": 1.0}
     ]},
-    {"step": 4, "coordinates": [
+    {"step": 4, "halvings": 6, "coordinates": [
       {"id": 4, "coordinate": "x", "value": 0.0064697265625},
       {"id": 4, "coordinate": "y", "value": 1.0}
     ]},
-    {"step": 5, "flips": ["same-way"], "coordinates": [
+    {"step": 5, "halvings": 8, "flips": ["same-way"], "coordinates": [
       {"id": 4, "coordinate": "x", "value": 0.0064697265625},
       {"id": 4, "coordinate": "y", "value": 1.0}
     ]}

@@ -282,6 +282,13 @@ fn diagnostics_text(solution: &Solution) -> String {
         };
         let _ = writeln!(out, "  flip {subject} {} -> {}", f.was, f.now);
     }
+    if let Some(b) = &d.bisection {
+        let _ = writeln!(
+            out,
+            "  bisected {} halvings, reached ({}, {})",
+            b.halvings, b.reached[0], b.reached[1]
+        );
+    }
     out
 }
 

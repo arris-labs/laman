@@ -313,6 +313,13 @@ fn feed_solution(b: &mut Builder, sketch: &Sketch, solution: &Solution, report: 
         b.float(f.was);
         b.float(f.now);
     }
+    // Only a bisected frame has one, so every other digest is unchanged.
+    if let Some(bisection) = &d.bisection {
+        b.text("bisection");
+        b.float(bisection.reached[0]);
+        b.float(bisection.reached[1]);
+        b.u64(len_of(bisection.halvings));
+    }
     feed_report(b, report);
 }
 

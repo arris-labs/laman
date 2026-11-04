@@ -19,7 +19,9 @@
 
 use crate::branch::Observations;
 use crate::model::{Coordinate, EntityId, ModelError, Sketch};
-use crate::solution::{Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of};
+use crate::solution::{
+    Bisection, Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of,
+};
 use crate::solve::Path;
 use crate::stage::Decompositions;
 use crate::system::{Goal, System};
@@ -137,6 +139,12 @@ fn toward(from: [f64; 2], to: [f64; 2], halvings: usize) -> [f64; 2] {
     [mix(from[0], to[0]), mix(from[1], to[1])]
 }
 
+/// The mark of a frame solved at `reached` after `halvings` halvings: none
+/// for a frame at its own target.
+fn bisection(reached: [f64; 2], halvings: usize) -> Option<Bisection> {
+    (halvings > 0).then_some(Bisection { reached, halvings })
+}
+
 impl DragSession {
     /// One frame: solves with the point pulled toward `target`, from the
     /// previous step, and returns the full [`Solution`].
@@ -151,7 +159,10 @@ impl DragSession {
     /// flips, the frame is the last solution unchanged, its `flips` naming
     /// what the nearest halving would have changed; the session stays on
     /// its branch, and the caller can finish and solve statically to take
-    /// the other. The target is a goal, never a constraint:
+    /// the other. A frame halved at least once carries
+    /// [`Diagnostics::bisection`](crate::solution::Diagnostics::bisection):
+    /// the target it was solved at and the halvings (for a frame that stayed
+    /// put, the last halving tried). The target is a goal, never a constraint:
     /// one the sketch makes unreachable ends at the nearest reachable place,
     /// `UnderConstrained` or better, not `NotConverged`. A target that is
     /// not finite is refused as a frame: the last solution's coordinates
@@ -172,12 +183,15 @@ impl DragSession {
         if !(target[0].is_finite() && target[1].is_finite()) {
             let mut kept = self.last.clone();
             kept.status = Status::NotConverged;
+            kept.diagnostics.bisection = None;
             return kept;
         }
         let from = self.reached;
         let mut refused = None;
+        let mut last_try = (from, 0);
         for halvings in 0..=self.options.max_bisections {
             let here = toward(from, target, halvings);
+            last_try = (here, halvings);
             let goals = [
                 Goal {
                     param: (self.point, Coordinate::X),
@@ -208,13 +222,14 @@ impl DragSession {
                 }
                 continue;
             }
-            let (solution, observed) = conclude(
+            let (mut solution, observed) = conclude(
                 &self.sketch,
                 &self.options,
                 tried,
                 self.source,
                 Some(&self.parts),
             );
+            solution.diagnostics.bisection = bisection(here, halvings);
             self.sketch.place(&solution.coordinates);
             self.observed = observed;
             self.reached = here;
@@ -225,6 +240,7 @@ impl DragSession {
         // one would have flipped.
         let mut stayed = self.last.clone();
         stayed.diagnostics.flips = refused.unwrap_or_default();
+        stayed.diagnostics.bisection = bisection(last_try.0, last_try.1);
         stayed
     }
 

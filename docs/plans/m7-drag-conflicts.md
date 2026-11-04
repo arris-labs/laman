@@ -95,7 +95,7 @@ established here.
 - [x] Step 7 **[2]** — Sweep-jump bisection, `MAX_SWEEP_STEP`, ADR-0006
   amendment; fixture `tests/fixtures/drag/sweep-jump` (ADR-0006's 0.3 →
   −3.2 frame: bisected, lands on the short side, no flip).
-- [ ] Step 8 **[1]** — `Diagnostics::bisection` and `Bisection`, rustdoc
+- [x] Step 8 **[1]** — `Diagnostics::bisection` and `Bisection`, rustdoc
   with example; binding, `.pyi`, pytest; `bisect-stuck` and `sweep-jump`
   assert it; changelog `### Breaking`.
 - [ ] Step 9 **[2]** — The drag property's construction gets an arc on

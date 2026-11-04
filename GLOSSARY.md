@@ -231,6 +231,12 @@ Halving a drag step that flips, or moves an arc's tracked sweep past
 `max_bisections` times, so the step keeps its branch (ADR-0006).
 _Avoid_: backtracking, line search
 
+**Bisected frame**:
+A drag frame that was halved at least once toward the last target; its
+`Diagnostics::bisection` holds the target it was solved at and the number
+of halvings. A frame that stayed put because every halving flipped is
+bisected too (its mark is the last halving tried).
+
 **Branch**:
 Which of a constraint system's discrete solutions a sketch sits on (which
 side of a line a tangent circle is on). Kept across edits and drags.

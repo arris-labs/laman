@@ -298,6 +298,7 @@ pub fn rect_chain_with(n: usize, width: f64, height: f64) -> Result<Case, Corpus
             step,
             coordinates: moved.coordinates,
             flips: Vec::new(),
+            halvings: None,
         });
     }
     Ok(Case {
@@ -549,6 +550,7 @@ pub fn slot_grid_with(
             step,
             coordinates: moved.coordinates,
             flips: Vec::new(),
+            halvings: None,
         });
     }
     let selected = count / 2;

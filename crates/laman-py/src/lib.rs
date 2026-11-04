@@ -95,6 +95,7 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<solve::Degenerate>()?;
     m.add_class::<solve::FlipSubject>()?;
     m.add_class::<solve::Flip>()?;
+    m.add_class::<solve::Bisection>()?;
     // `laman.check` and `laman.debug` re-export these under their own names.
     m.add("CheckReport", m.py().get_type::<check::CheckReport>())?;
     m.add("CheckViolation", m.py().get_type::<check::CheckViolation>())?;

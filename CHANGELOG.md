@@ -32,6 +32,15 @@ release by release. Written in the commit that makes the change, under
   the short way round and land where many small frames would have been
   refused. A static solve is unchanged.
 
+### Breaking
+
+- `Diagnostics` gains a field, `bisection: Option<Bisection>`, set on a drag
+  frame that was halved toward its target (`Bisection { reached, halvings }`)
+  and `None` otherwise. `Diagnostics` is not `#[non_exhaustive]`, so a
+  struct literal needs `bisection: None`; the Python `Diagnostics` has a
+  `bisection` attribute (`laman.Bisection` or `None`) and `Solution` JSON
+  gains an optional `diagnostics.bisection`.
+
 ## 0.1.0 — 2026-11-03
 
 - Python: abi3 wheels for Linux x86_64 and aarch64 (glibc ≥ 2.17),

@@ -117,3 +117,37 @@ def test_the_dragged_sketch_is_untouched_until_apply() -> None:
     sketch.drag(DRAG["dragged"]).to(*TARGETS[0])
     assert sketch.revision == revision
     assert isinstance(sketch.coordinates(), Coordinates)
+
+
+DRAG_FIXTURES = C1.parent / "drag"
+
+
+def test_a_bisected_frame_is_marked_and_an_unbisected_one_is_not() -> None:
+    # bisect-keeps: the tip (x = 3) may not cross x = 0; the target (-1, 1)
+    # is halved once to x = 1, then (2, 1) is on the same side.
+    sketch = Sketch.from_json((DRAG_FIXTURES / "bisect-keeps" / "sketch.json").read_text())
+    session = sketch.drag(4)
+    assert sketch.solve().diagnostics.bisection is None
+    frame = session.to(-1.0, 1.0)
+    mark = frame.diagnostics.bisection
+    assert mark is not None
+    assert (mark.halvings, mark.reached) == (1, (1.0, 1.0))
+    assert not frame.diagnostics.flips
+    assert repr(mark) == "Bisection(reached=(1, 1), halvings=1)"
+    assert mark == frame.diagnostics.bisection
+    again = session.to(2.0, 1.0)
+    assert again.diagnostics.bisection is None
+
+
+def test_a_frame_that_stays_put_names_the_last_halving() -> None:
+    # bisect-stuck: the tip at 53/8192 of the boundary; even the eighth
+    # halving of (-5, 1) crosses it, so the frame is the last solution.
+    sketch = Sketch.from_json((DRAG_FIXTURES / "bisect-stuck" / "sketch.json").read_text())
+    session = sketch.drag(4)
+    for _ in range(4):
+        session.to(-5.0, 1.0)
+    frame = session.to(-5.0, 1.0)
+    assert [f.subject.constraint.tag for f in frame.diagnostics.flips if f.subject.constraint] == ["same-way"]
+    mark = frame.diagnostics.bisection
+    assert mark is not None
+    assert mark.halvings == 8

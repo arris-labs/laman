@@ -6,8 +6,8 @@
 //! coordinates into a sketch it was not solved for.
 
 use super::{
-    Collapse, ConstraintRef, Degenerate, Diagnostics, EntityFreedom, EntityRef, Flip, FlipSubject,
-    Motion, Origin, Provenance, Solution, Status,
+    Bisection, Collapse, ConstraintRef, Degenerate, Diagnostics, EntityFreedom, EntityRef, Flip,
+    FlipSubject, Motion, Origin, Provenance, Solution, Status,
 };
 use crate::model::{ConstraintId, ConstraintKind, Coordinate, EntityId, EntityKind};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -253,6 +253,15 @@ struct DiagnosticsForm {
     /// Absent when empty.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     flips: Vec<FlipForm>,
+    /// Absent for a static solve and an unbisected frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bisection: Option<BisectionForm>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct BisectionForm {
+    reached: [f64; 2],
+    halvings: usize,
 }
 
 impl From<&EntityRef> for EntityRefForm {
@@ -384,6 +393,10 @@ fn form_of(s: &Solution) -> SolutionForm {
                     now: f.now.is_finite().then_some(f.now),
                 })
                 .collect(),
+            bisection: d.bisection.as_ref().map(|b| BisectionForm {
+                reached: b.reached,
+                halvings: b.halvings,
+            }),
         },
     }
 }
@@ -473,6 +486,10 @@ fn solution_of(form: SolutionForm) -> Result<Solution, String> {
                     now: f.now.unwrap_or(f64::NAN),
                 })
                 .collect(),
+            bisection: d.bisection.map(|b| Bisection {
+                reached: b.reached,
+                halvings: b.halvings,
+            }),
         },
         source: Provenance {
             revision: form.source.revision,

@@ -168,6 +168,12 @@ free directions, redundant, conflicting and degenerate sets are computed
   `perpendicular` or `angle` pair (ARCHITECTURE.md §Branches, ADR-0006).
   A quantity within its margin (a degenerate entity, lines within
   `ANGLE` of where the roots meet) is not compared.
+- **Bisection**: `Some(Bisection { reached, halvings })` on a drag frame
+  that was halved toward its target (`halvings ≥ 1`), `None` for a static
+  solve and a frame solved at its own target. `reached` is the target the
+  frame was solved at; a frame that stayed put because every halving
+  flipped carries the last halving tried (ARCHITECTURE.md §Drag sessions,
+  ADR-0006).
 
 Every item names constraints and entities as `(id, kind, tag)`; the caller's
 payload is reachable through the id.
@@ -258,7 +264,8 @@ constraints are `id`, `kind`, optional `tag`; the two tangents are
 fields to tell them apart. A non-finite degenerate `size` is `null`.
 `diagnostics.flips` is absent when empty (an optional member, no version
 bump): each flip is `{"of": "entity" | "constraint", id, kind, tag?, was,
-now}`, the quantities `null` when not finite. Reading
+now}`, the quantities `null` when not finite. `diagnostics.bisection`
+is absent when `None`, else `{"reached": [x, y], "halvings": n}`. Reading
 a solution validates its shape only (format, version, digest, no repeated
 coordinate); `Sketch::apply` decides whether it fits, so a file cannot bypass
 the checks. The checker's `Report` has no
