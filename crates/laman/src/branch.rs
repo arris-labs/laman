@@ -47,6 +47,9 @@ pub(crate) struct Observation {
     /// The branch here if beyond the margin, else the last one known
     /// before; `None` if never known.
     pub known: Option<Known>,
+    /// Whether the reading here is beyond its margin (so `known` is current,
+    /// not carried from an earlier set).
+    pub beyond: bool,
     /// An arc whose tracked sweep moved more than [`MAX_SWEEP_STEP`] from
     /// the observation before, read beyond its margin both times. Not a
     /// flip: a change of branch the tracking could still read, but a move
@@ -140,6 +143,7 @@ fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -
             Observation {
                 value: reading.value,
                 known,
+                beyond: reading.branch.is_some(),
                 jump: reading.jump,
             },
         );
@@ -154,7 +158,11 @@ fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -
                 record(subject, sign(r, margin));
             }
             Entity::Arc { c, s, e } => {
-                let before = previous(subject).map_or(f64::NAN, |o| o.value);
+                // A sweep read at a degenerate arc is arbitrary: only one
+                // read beyond its margin is tracked from, or a jump from it.
+                let before = previous(subject)
+                    .filter(|o| o.beyond)
+                    .map_or(f64::NAN, |o| o.value);
                 record(subject, arc(&rd, (c, s, e), before, margin));
             }
         }

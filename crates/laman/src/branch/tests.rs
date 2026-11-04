@@ -273,3 +273,29 @@ fn non_finite_coordinates_are_unknown_never_a_flip() {
         }
     }
 }
+
+#[test]
+fn an_arc_degenerate_the_frame_before_is_no_sweep_jump() {
+    // The sweep of an arc with radius 0 is arbitrary, so coming back into
+    // range is no move of it: a jump needs both readings beyond the margin.
+    let mut sk = Sketch::new();
+    let c = sk.point_fixed(0.0, 0.0).unwrap();
+    let s = sk.point(0.0, 0.0).unwrap();
+    let e = sk.point(10.0, 0.0).unwrap();
+    let arc = sk.arc(c, s, e).unwrap();
+    let degenerate = Observations::at(&sk, &sk.coordinates());
+    let mut back = sk.coordinates();
+    back.insert((s.id(), Coordinate::Y), 10.0);
+    let after = degenerate.next(&sk, &back);
+    let sweep = after.get(Subject::Entity(arc.id())).unwrap();
+    assert!((sweep.value - 1.5 * PI).abs() < QUANTITY_ERROR);
+    assert_eq!(sweep.known.map(|k| k.branch), Some(0));
+    assert!(!after.jumped());
+    // Both readings in range and the sweep moved a half turn: a jump.
+    let mut turned = back.clone();
+    turned.insert((s.id(), Coordinate::X), 10.0);
+    turned.insert((s.id(), Coordinate::Y), 0.0);
+    turned.insert((e.id(), Coordinate::X), 0.0);
+    turned.insert((e.id(), Coordinate::Y), 10.0);
+    assert!(after.next(&sk, &turned).jumped());
+}
