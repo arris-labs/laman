@@ -81,8 +81,21 @@ impl Observations {
 
     /// Observed after `self`: arcs tracked from its sweeps, and a quantity
     /// inside its margin carrying `self`'s known branch.
+    #[cfg(test)]
     pub(crate) fn next(&self, sketch: &Sketch, values: &Coordinates) -> Self {
         observe(sketch, values, Some(self))
+    }
+
+    /// [`Self::next`] with the tolerances of `sketch` at `values` given, so
+    /// that the frame measures them once (`reached`, which must be
+    /// [`Tolerances::at`] of `sketch` and `values`).
+    pub(crate) fn next_under(
+        &self,
+        sketch: &Sketch,
+        values: &Coordinates,
+        reached: &Tolerances,
+    ) -> Self {
+        observe_under(sketch, values, reached, Some(self))
     }
 
     /// The flips from `self` (the earlier set) to `now`: every subject known
@@ -126,7 +139,15 @@ struct Reading {
 }
 
 fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -> Observations {
-    let tolerances = Tolerances::at(sketch, values);
+    observe_under(sketch, values, &Tolerances::at(sketch, values), last)
+}
+
+fn observe_under(
+    sketch: &Sketch,
+    values: &Coordinates,
+    tolerances: &Tolerances,
+    last: Option<&Observations>,
+) -> Observations {
     let rd = Reader { sketch, values };
     let previous = |s: Subject| last.and_then(|l| l.0.get(&s));
     let mut out = BTreeMap::new();
@@ -168,7 +189,7 @@ fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -
         }
     }
     for (id, constraint) in sketch.constraints() {
-        let pair = |a: Line, b: Line, coeffs: (f64, f64)| lines(&rd, &tolerances, (a, b), coeffs);
+        let pair = |a: Line, b: Line, coeffs: (f64, f64)| lines(&rd, tolerances, (a, b), coeffs);
         let reading = match *constraint {
             Constraint::Parallel { a, b } => pair(a, b, (0.0, 1.0)),
             Constraint::Perpendicular { a, b } => pair(a, b, (1.0, 0.0)),

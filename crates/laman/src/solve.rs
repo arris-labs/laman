@@ -8,7 +8,7 @@
 //! budgets; an algorithm only proposes a step and updates its own control.
 //! Defaults are measured in docs/ARCHITECTURE.md, “LM engine” and “DogLeg
 //! engine”; no reference solver code is used.
-use crate::model::tolerance::{Component, LENGTH_FLOOR, Source};
+use crate::model::tolerance::{Component, LENGTH_FLOOR, Source, Tolerances};
 use crate::model::{Constraint, Coordinate, Coordinates, Sketch};
 use crate::system::{Evaluation, Goal, System};
 use nalgebra::{DMatrix, DVector};
@@ -288,7 +288,19 @@ pub(crate) fn solve_kept(
     options: Options,
     kept: Option<&crate::stage::Decompositions>,
 ) -> Outcome {
-    let mut system = System::with_goals(sketch, goals);
+    solve_under(sketch, goals, options, kept, &Tolerances::new(sketch))
+}
+
+/// [`solve_kept`] under `frozen`, which must be [`Tolerances::new`] of
+/// `sketch`: the frame's one measure of the sketch at its stored coordinates.
+pub(crate) fn solve_under(
+    sketch: &Sketch,
+    goals: &[Goal],
+    options: Options,
+    kept: Option<&crate::stage::Decompositions>,
+    frozen: &Tolerances,
+) -> Outcome {
+    let mut system = System::with_goals_under(sketch, goals, frozen);
     system.decompositions = kept;
     let mut out = Outcome::start(sketch.coordinates());
     for component in &system.components {

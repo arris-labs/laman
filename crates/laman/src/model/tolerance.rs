@@ -492,6 +492,28 @@ impl Tolerances {
     }
 }
 
+/// The two measures of a sketch one frame needs: [`Tolerances::new`] (the
+/// solve's and the analysis's systems are compiled under it) and
+/// [`Tolerances::at`] the frame's final coordinates (the branch observation
+/// and the degeneracy test). Made once and shared, never remade; each is
+/// what a fresh call at the same sketch and coordinates returns.
+#[derive(Clone, Debug)]
+pub(crate) struct FrameTolerances {
+    /// At the sketch's stored coordinates.
+    pub frozen: Tolerances,
+    /// At the coordinates the frame reached.
+    pub reached: Tolerances,
+}
+
+impl FrameTolerances {
+    pub(crate) fn of(sk: &Sketch, reached: &Coordinates) -> Self {
+        Self {
+            frozen: Tolerances::new(sk),
+            reached: Tolerances::at(sk, reached),
+        }
+    }
+}
+
 /// The sketch's coordinates overlaid with `values` for the keys it has.
 fn merged(sk: &Sketch, values: &Coordinates) -> Coordinates {
     let mut coords = sk.coordinates();

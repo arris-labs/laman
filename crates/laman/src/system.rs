@@ -90,7 +90,13 @@ pub(crate) struct Evaluation {
 
 impl<'a> System<'a> {
     pub fn new(sketch: &'a Sketch) -> Self {
-        let policy = Tolerances::new(sketch);
+        Self::under(sketch, &Tolerances::new(sketch))
+    }
+
+    /// The system of `sketch` whose components are `policy`'s, which must be
+    /// [`Tolerances::new`] of `sketch` (the frame shares one, ARCHITECTURE.md
+    /// §Frame budget): what [`Self::new`] makes, without measuring again.
+    pub fn under(sketch: &'a Sketch, policy: &Tolerances) -> Self {
         let mut equations = Vec::new();
         for (id, e) in sketch.entities() {
             if matches!(e, Entity::Arc { .. }) {
@@ -143,7 +149,7 @@ impl<'a> System<'a> {
         }
         Self {
             sketch,
-            components: policy.components,
+            components: policy.components.clone(),
             equations,
             goals: vec![],
             decompositions: None,
@@ -157,7 +163,12 @@ impl<'a> System<'a> {
     /// no free parameter and is dropped: a point with one fixed coordinate is
     /// pursued along the other.
     pub fn with_goals(sketch: &'a Sketch, goals: &[Goal]) -> Self {
-        let mut system = Self::new(sketch);
+        Self::with_goals_under(sketch, goals, &Tolerances::new(sketch))
+    }
+
+    /// [`Self::with_goals`] under `policy`, as [`Self::under`] takes it.
+    pub fn with_goals_under(sketch: &'a Sketch, goals: &[Goal], policy: &Tolerances) -> Self {
+        let mut system = Self::under(sketch, policy);
         system.goals = goals
             .iter()
             .filter(|g| {

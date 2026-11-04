@@ -81,7 +81,7 @@ careful, **[3]** unproven.
   redundant sets are bit-equal to the three-pass code (kept under
   `cfg(test)` as the reference) on the C1 fixtures and every generated
   family and size, plus a proptest over the corpus strategies.
-- [ ] Step 3 **[2]** — One `Tolerances::at` per frame, as in the deltas.
+- [x] Step 3 **[2]** — One `Tolerances::at` per frame, as in the deltas.
   Test: the existing solve, diagnose and drag suites pass and the digests
   are unchanged.
 - [ ] Step 4 **[2]** — Extent split, as in the deltas. Test: the joined

@@ -19,7 +19,7 @@
 //! Intrinsic equations and ground are part of their entities: never removed,
 //! never named.
 use super::{Freedom, StagedRanks, dof_only, freedom_on, head_constraints};
-use crate::model::tolerance::{Component, STATIONARY, Source, Tolerances};
+use crate::model::tolerance::{Component, FrameTolerances, STATIONARY, Source, Tolerances};
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
 use crate::solve::{Algorithm, Options, Outcome, Path, satisfied, solve};
 use crate::system::System;
@@ -126,14 +126,28 @@ pub(crate) fn analyse(sketch: &Sketch, outcome: &Outcome, options: &Options) -> 
 
 /// [`analyse`] with the decompositions a caller kept for the sketch's
 /// structure (`DragSession`).
+#[cfg(test)]
 pub(crate) fn analyse_kept(
     sketch: &Sketch,
     outcome: &Outcome,
     options: &Options,
     kept: Option<&crate::stage::Decompositions>,
 ) -> Diagnosis {
+    let tolerances = FrameTolerances::of(sketch, &outcome.coordinates);
+    analyse_under(sketch, outcome, options, kept, &tolerances)
+}
+
+/// [`analyse_kept`] under the frame's tolerances, which must be
+/// [`FrameTolerances::of`] `sketch` and the outcome's coordinates.
+pub(crate) fn analyse_under(
+    sketch: &Sketch,
+    outcome: &Outcome,
+    options: &Options,
+    kept: Option<&crate::stage::Decompositions>,
+    tolerances: &FrameTolerances,
+) -> Diagnosis {
     let values = &outcome.coordinates;
-    let mut system = System::new(sketch);
+    let mut system = System::under(sketch, &tolerances.frozen);
     system.decompositions = kept;
     let mut solves = 0;
     let mut conflicts = Vec::new();
@@ -178,7 +192,7 @@ pub(crate) fn analyse_kept(
         options.path,
         &outcome.staged,
     );
-    let (degenerate, ill_conditioned) = degeneracy(sketch, &system, values);
+    let (degenerate, ill_conditioned) = degeneracy(sketch, &system, values, &tolerances.reached);
     Diagnosis {
         status,
         freedom,
@@ -408,8 +422,8 @@ fn degeneracy(
     sketch: &Sketch,
     system: &System<'_>,
     values: &Coordinates,
+    tolerances: &Tolerances,
 ) -> (Vec<Degenerate>, Vec<Source>) {
-    let tolerances = Tolerances::at(sketch, values);
     let xy = |id: EntityId| {
         let get = |c| values.get(&(id, c)).copied().unwrap_or(f64::NAN);
         [get(Coordinate::X), get(Coordinate::Y)]

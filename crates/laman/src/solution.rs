@@ -21,7 +21,7 @@
 
 use crate::branch::{self, Observations};
 use crate::diagnose::{self, Diagnosis};
-use crate::model::tolerance::Source;
+use crate::model::tolerance::{FrameTolerances, Source, Tolerances};
 use crate::model::{
     ConstraintId, ConstraintKind, Coordinate, Coordinates, EntityId, EntityKind, ModelError, Sketch,
 };
@@ -328,6 +328,10 @@ pub(crate) struct Attempt {
     pub(crate) flips: Vec<branch::Flip>,
     /// How it is diagnosed.
     path: Path,
+    /// The sketch's tolerances at its stored coordinates and at the
+    /// outcome's, measured once for the solve, the observation and the
+    /// diagnosis.
+    tolerances: FrameTolerances,
 }
 
 /// One solve of `sketch` toward `goals`, its branches observed after
@@ -341,14 +345,17 @@ pub(crate) fn attempt(
     path: Path,
     kept: Option<&Decompositions>,
 ) -> Attempt {
-    let outcome = solve::solve_kept(sketch, goals, options.internal_on(path), kept);
-    let observed = before.next(sketch, &outcome.coordinates);
+    let frozen = Tolerances::new(sketch);
+    let outcome = solve::solve_under(sketch, goals, options.internal_on(path), kept, &frozen);
+    let reached = Tolerances::at(sketch, &outcome.coordinates);
+    let observed = before.next_under(sketch, &outcome.coordinates, &reached);
     let flips = before.flips(&observed);
     Attempt {
         outcome,
         observed,
         flips,
         path,
+        tolerances: FrameTolerances { frozen, reached },
     }
 }
 
@@ -361,11 +368,12 @@ pub(crate) fn conclude(
     source: Provenance,
     kept: Option<&Decompositions>,
 ) -> (Solution, Observations) {
-    let diagnosis = diagnose::analyse_kept(
+    let diagnosis = diagnose::analyse_under(
         sketch,
         &attempt.outcome,
         &options.internal_on(attempt.path),
         kept,
+        &attempt.tolerances,
     );
     let solution = Solution {
         coordinates: attempt.outcome.coordinates,
@@ -406,13 +414,15 @@ pub(crate) fn diagnose_on(
 ) -> Solution {
     let before = Observations::at(sketch, &sketch.coordinates());
     let outcome = Outcome::start(coordinates.clone());
-    let observed = before.next(sketch, &outcome.coordinates);
+    let tolerances = FrameTolerances::of(sketch, &outcome.coordinates);
+    let observed = before.next_under(sketch, &outcome.coordinates, &tolerances.reached);
     let flips = before.flips(&observed);
     let attempt = Attempt {
         outcome,
         observed,
         flips,
         path,
+        tolerances,
     };
     conclude(sketch, options, attempt, sketch.provenance(), None).0
 }
