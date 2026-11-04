@@ -67,7 +67,7 @@ pub(crate) fn support(system: &System<'_>, eq: &Equation) -> Vec<Param> {
 }
 
 /// [`support`] with the sketch's coordinates read once by the caller.
-fn support_at(system: &System<'_>, eq: &Equation, own: &Coordinates) -> Vec<Param> {
+pub(crate) fn support_at(system: &System<'_>, eq: &Equation, own: &Coordinates) -> Vec<Param> {
     let sk = system.sketch;
     if let Some(contact) = &eq.contact {
         let mut out = Vec::new();

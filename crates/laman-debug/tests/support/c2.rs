@@ -9,6 +9,38 @@ use laman_debug::dump;
 // Semicircle sweep is dimensionless; coordinate acceptance scales with size.
 const SWEEP_TOLERANCE: f64 = 1e-9;
 
+// The whole-component analysis a staged one is compared with tests every
+// constraint for redundancy by a whole factorization, O(n⁴) in the sketch's
+// size: 8 s in release at 501 entities. Up to the 100-entity cases it fits
+// the 10 s debug bound; the small cases and every property case cover each
+// family's edit and drag.
+const REFERENCE_ENTITIES: usize = 50;
+
+/// The staged diagnosis of `solution` equals the whole-component one at the
+/// same coordinates on DoF, redundant and conflicting sets (plans/m6-stages
+/// step 7), for a sketch small enough to analyse whole.
+fn assert_reference(
+    name: &str,
+    sketch: &laman::model::Sketch,
+    solution: &laman::solution::Solution,
+    options: &SolverOptions,
+) {
+    if sketch.entities().count() > REFERENCE_ENTITIES {
+        return;
+    }
+    let whole = laman::reference::diagnose(sketch, &solution.coordinates, options);
+    let (staged, whole) = (&solution.diagnostics, &whole.diagnostics);
+    assert_eq!(staged.dof, whole.dof, "{name}: DoF against the reference");
+    assert_eq!(
+        staged.redundant, whole.redundant,
+        "{name}: redundant against the reference"
+    );
+    assert_eq!(
+        staged.conflicts, whole.conflicts,
+        "{name}: conflicts against the reference"
+    );
+}
+
 fn assert_solution(
     name: &str,
     sketch: &laman::model::Sketch,
@@ -127,13 +159,23 @@ pub(crate) fn run_case(name: &str, case: &Case) {
             &solution,
             &case.edit.expected,
         );
+        assert_reference(&format!("{label}-edit"), &edited, &solution, &options);
+        // Locality (plans/m6-stages): an edit moves only its stage and the
+        // parts that read it. The construction's upstream entities and every
+        // parameter outside that closure keep their bits.
+        let reached = laman::reference::downstream(&edited, id);
+        for key in &reached {
+            assert!(
+                !case.edit.unmoved.contains(&key.0),
+                "{label} edit: {key:?} is upstream by construction, downstream by structure"
+            );
+        }
         for (key, before) in &initial.coordinates {
-            if case.edit.unmoved.contains(&key.0) {
-                // M5 checks geometric preservation. Exact bits remain the
-                // desired assertion in regression/upstream-edit-drift (M6).
-                assert!(
-                    (solution.coordinates[key] - before).abs() <= case.edit.expected.tolerance,
-                    "{label} edit: upstream {key:?}: {} vs {before}",
+            if case.edit.unmoved.contains(&key.0) || !reached.contains(key) {
+                assert_eq!(
+                    solution.coordinates[key].to_bits(),
+                    before.to_bits(),
+                    "{label} edit: outside the edit's reach {key:?}: {} vs {before}",
                     solution.coordinates[key]
                 );
             }
@@ -161,6 +203,12 @@ pub(crate) fn run_case(name: &str, case: &Case) {
                     &drag.sketch,
                     &solution,
                     &expected,
+                );
+                assert_reference(
+                    &format!("{label}-drag-{}", after.step),
+                    &drag.sketch,
+                    &solution,
+                    &options,
                 );
             }
         }

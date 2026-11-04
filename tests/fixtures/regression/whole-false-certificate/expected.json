@@ -1,0 +1,20 @@
+{
+  "status": "Unsatisfiable",
+  "dof": 0,
+  "coordinates": [
+    {"id": 2, "coordinate": "x", "value": 100.3320814608812},
+    {"id": 2, "coordinate": "y", "value": 84.68937249409544},
+    {"id": 3, "coordinate": "x", "value": 3.051400114046218e-11},
+    {"id": 3, "coordinate": "y", "value": -77.004649321968},
+    {"id": 4, "coordinate": "x", "value": -35.39833672844871},
+    {"id": 4, "coordinate": "y", "value": 27.50182886389486},
+    {"id": 5, "coordinate": "x", "value": -8.304393121832298},
+    {"id": 5, "coordinate": "y", "value": -0.4490938600976757},
+    {"id": 6, "coordinate": "x", "value": 63.998072149679395},
+    {"id": 6, "coordinate": "y", "value": 75.97730101201377}
+  ],
+  "tolerance": 1e-9,
+  "redundant": [],
+  "conflicts": [],
+  "flips": []
+}

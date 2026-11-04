@@ -246,3 +246,48 @@ fn satisfied_status_degenerate_tangent() {
         }
     }
 }
+
+/// `whole-false-certificate`: the conflict sets of `path` each contain
+/// `spared` and `stretched`, and the witness, where everything but `spared`
+/// holds by the checker, proves no conflict can leave `spared` out.
+fn assert_spared_in_every_conflict(
+    path: fn(&laman::model::Sketch, &SolverOptions) -> laman::solution::Solution,
+) {
+    let f = load("whole-false-certificate");
+    let tagged = |tag: &str| {
+        f.sketch
+            .constraints()
+            .find(|(id, _)| f.sketch.constraint_tag_of(*id) == Some(tag))
+            .map(|(id, _)| id)
+            .unwrap()
+    };
+    let mut without = f.sketch.clone();
+    without.remove_constraint(tagged("spared")).unwrap();
+    let mut witness = without.coordinates();
+    witness.extend(f.expected.coordinates.iter().map(|(k, v)| (*k, *v)));
+    assert!(check(&without, &witness).is_clean());
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = path(&f.sketch, &options);
+        for set in &solution.diagnostics.conflicts {
+            for tag in ["spared", "stretched"] {
+                assert!(
+                    set.iter().any(|c| c.tag.as_deref() == Some(tag)),
+                    "{algorithm:?}: {set:?} leaves out {tag}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn whole_false_certificate_staged() {
+    assert_spared_in_every_conflict(|sketch, options| sketch.solve(options));
+}
+
+#[test]
+#[ignore = "the whole path certifies a stationary point of a satisfiable subset and names a conflict that holds together"]
+fn whole_false_certificate() {
+    assert_spared_in_every_conflict(laman::reference::solve);
+}

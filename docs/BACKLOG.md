@@ -105,6 +105,14 @@ A defect a run measured, one block each:
 - Measured: three points, two distances, second edited 20 → 22; upstream x moves by 248 ULP (LM) or 1 ULP (DogLeg); FullyConstrained, DoF 0 and checker clean before/after
 - State: fixed (plans/m6-stages step 4: the staged solve leaves a satisfied stage's bits); regression/upstream-edit-drift
 
+### whole-false-certificate
+- What: the whole path names a conflict set that holds together: its conflict filter drops a true distance (`spared`) on a certified stationary point of a satisfiable subset (ADR-0005's certificate is local); the staged path solves that subset and keeps `spared`, so staged and whole conflict sets differ (the plan's "staged = reference on conflict sets" fails here)
+- Where: `laman::diagnose::analysis` (`test`, `certified`) on `Path::Whole`: `laman::reference::solve`, and the fallback of a failed component
+- Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `aa67e2f4…`, plans/m6-stages step 7, 2026-11-04; also red at 3495a4b (step 5)
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored whole_false_certificate`
+- Measured: LM whole names {1, 3–9, `stretched`}, staged {`spared`, 1, 3–9, `stretched`}; a checker-clean witness of everything but `spared` is in the fixture; DogLeg ends `NotConverged` on both paths
+- State: regression/whole-false-certificate
+
 ## Rejected
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)

@@ -59,7 +59,9 @@ step is measured, and that number decides M8.
   exposing `#[doc(hidden)] laman::reference::solve(&Sketch,
   &SolverOptions) -> Solution`, the whole-component path, outside the
   stability promise and the binding; laman-debug's tests enable it to
-  compare. The public API is unchanged.
+  compare. The public API is unchanged. Step 7 adds
+  `reference::downstream(&Sketch, ConstraintId) -> Vec<(EntityId,
+  Coordinate)>`: the parameters a change of one constraint can move.
 - **Scale**: `System` indexes equations by source and parameters by column
   (`BTreeMap`), contact recognition is one pass, and evaluating a part
   reads only its rows.
@@ -149,10 +151,17 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   part's evaluation measures the whole component's extent (O(n²) a solve)
   and redundancy compiles and cuts the placed sketch again; step 9 decides.
   The slot grid converges under DogLeg, 30 ms static.)
-- [ ] Step 7 **[2]** — Locality held by tests: `c2.rs` and `c2_props.rs`
+- [x] Step 7 **[2]** — Locality held by tests: `c2.rs` and `c2_props.rs`
   compare `unmoved`, and every parameter outside the edited stage's
   downstream closure, by bits instead of tolerance; staged equals
   reference (DoF, redundant, conflicts) on every corpus edit and drag.
+  (*Settled* at step 7: the closure is the structure's,
+  `laman::reference::downstream`, and never reaches the construction's
+  `unmoved`; on rectangles it adds the later cells' y. The reference is
+  compared up to 50 entities: the whole analysis is O(n⁴), 19 s in debug
+  on the 98-entity slots; the small named cases and every property case
+  cover each family's edit and drag, the properties 8 → 34 s in debug.
+  A seed found `whole-false-certificate`, red since step 4: see below.)
 - [ ] Step 8 **[1, tier 3]** — ADR-0009: stages, part rank and its proof
   sketch, the fallback and its budget, the per-part normalization
   amending ADR-0003's rank, the re-bless reasons.
@@ -199,6 +208,15 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
 - *Settled* at step 4: the fallback grain is the whole component, from
   its start with the counters restored; it keeps every failure's bits, and
   failures are outside the frame budget.
+- ⚠ OPEN (acceptance, the human's): "staged = reference on conflict sets"
+  fails on `whole-false-certificate`, and the reference is the wrong one:
+  its filter certifies a stationary point of a satisfiable subset
+  (ADR-0005's local certificate) and names a set that holds together; the
+  staged set keeps the constraint it drops. The property that found it
+  may find such a seed again. Options: hold staged sets to the reference
+  only where the reference's sets are unsatisfiable, or fix the whole
+  path's filter first (M7's conflict work). Until decided the fixture is
+  ignored and the seed is not kept in `solved.proptest-regressions`.
 - ⚠ OPEN: if a 500-entity drag misses 4 ms, which M8 option (A, S2, or a
   driver split of the remainder)? Agent writes it up as an idea after
   step 9; the human decides there.

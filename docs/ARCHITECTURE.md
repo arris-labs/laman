@@ -170,7 +170,8 @@ The pipeline, each stage deterministic:
    column-deficient, is factorized whole. Both give the same DoF and
    direction span; the non-default `reference` feature exposes the whole
    path (`laman::reference::solve`, and `diagnose` at given coordinates;
-   hidden, unbound) for the tests to compare.
+   hidden, unbound) for the tests to compare, and `downstream`, the
+   parameters a change of one constraint can move.
 
 **Priorities**: two levels, kept in two lists. Every constraint's
 equations are required, compiled into `System::equations`; a drag target
@@ -596,8 +597,12 @@ three targets. These generated cases do not replace the committed C1 fixtures.
 empty redundant/conflict/flip diagnostics, semicircle sweeps and checker
 results under both algorithms. Coordinate acceptance is `1e-9` times the
 maximum x/y extent of the constructed answers; sweep acceptance is
-dimensionless `1e-9`. Upstream geometry is checked within that
-coordinate tolerance; exact bits are `upstream-edit-drift`'s. Every size
+dimensionless `1e-9`. An edit keeps the bits of every parameter
+outside its reach: the construction's upstream entities and whatever the
+structure puts outside the edited stage's downstream closure
+(`laman::reference::downstream`). Up to 50 entities each edit and drag frame
+is also diagnosed whole and held to the staged DoF, redundant and conflict
+sets. Every size
 runs un-ignored, each under 10 s in debug (the 500-entity rectangles,
 slowest, 7 s with their drag), the 498-entity slot grid under DogLeg
 included.
