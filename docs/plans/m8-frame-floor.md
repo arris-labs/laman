@@ -104,7 +104,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
 - [x] Step 3 **[1]** — Satisfaction without a Jacobian, as in the deltas.
   Test: equal to the dense `evaluate(..).satisfied` on the same inputs,
   non-finite and degenerate rows included; digests unchanged.
-- [ ] Step 4 **[2]** — Splitter in O(parts), as in the deltas. Test: the
+- [x] Step 4 **[2]** — Splitter in O(parts), as in the deltas. Test: the
   existing bit-equality property over a sequence of parts moving in turn,
   plus a 500-part case.
 - [ ] Step 5 **[1]** — Per-part set-up once per descent, if step 1 keeps

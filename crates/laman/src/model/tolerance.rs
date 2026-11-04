@@ -272,7 +272,13 @@ pub(crate) struct Splitter {
     fixed_terms: Option<Terms>,
     /// The entities exactly one part moves, by part.
     groups: Vec<Frame>,
-    cached: Vec<Option<Terms>>,
+    /// The groups' terms as the leaves of a binary tree whose nodes are the
+    /// joins of their children, so the join of all groups but one is read in
+    /// O(log parts) and a group is measured again in O(log parts).
+    tree: Vec<Terms>,
+    /// The groups whose leaf is out of date: not yet measured, or moved
+    /// since. Each is measured at the next split of another part.
+    stale: Vec<usize>,
     /// The entities several parts move, with those parts.
     /// Each with its terms, kept until one of its parts has been solved.
     shared: Vec<(Vec<usize>, Frame, Option<Terms>)>,
@@ -340,7 +346,8 @@ impl Splitter {
             fixed,
             before: whole.outside.clone(),
             fixed_terms: None,
-            cached: vec![None; groups.len()],
+            tree: vec![Terms::default(); 2 * groups.len().next_power_of_two().max(1)],
+            stale: (0..groups.len()).collect(),
             groups,
             shared,
         }
@@ -361,10 +368,32 @@ impl Splitter {
                 terms
             })
             .clone();
-        for (j, group) in self.groups.iter().enumerate() {
-            if j != k {
-                kept.join(self.cached[j].get_or_insert_with(|| group.terms(values)));
+        // Every group but `k` is measured now if it has not been since it
+        // moved; the join of the others is the tree read around leaf `k`.
+        let leaves = self.tree.len() / 2;
+        let pending = std::mem::take(&mut self.stale);
+        for j in pending {
+            if j == k {
+                self.stale.push(j);
+            } else if let Some(group) = self.groups.get(j) {
+                let mut i = leaves + j;
+                self.tree[i] = group.terms(values);
+                while i > 1 {
+                    i >>= 1;
+                    let mut node = self.tree[2 * i].clone();
+                    node.join(&self.tree[2 * i + 1]);
+                    self.tree[i] = node;
+                }
             }
+        }
+        if k < self.groups.len() {
+            let mut i = leaves + k;
+            while i > 1 {
+                kept.join(&self.tree[i ^ 1]);
+                i >>= 1;
+            }
+        } else {
+            kept.join(&self.tree[1]);
         }
         let mut inside = self.groups.get(k).cloned().unwrap_or_default();
         for (held, frame, cached) in &mut self.shared {
@@ -383,8 +412,8 @@ impl Splitter {
     /// Part `k` has been solved: what it moved is measured again when next
     /// needed.
     pub(crate) fn moved(&mut self, k: usize) {
-        if let Some(cached) = self.cached.get_mut(k) {
-            *cached = None;
+        if k < self.groups.len() && !self.stale.contains(&k) {
+            self.stale.push(k);
         }
         for (held, _, cached) in &mut self.shared {
             if held.contains(&k) {
@@ -1043,6 +1072,19 @@ mod tests {
                 assert_split_measures_whole(&sk, every, 0.75, 1e300);
                 assert_splitter_measures_whole(&sk, every + 1, 0.75, 1e300);
             }
+        }
+    }
+
+    /// Hundreds of parts moving in turn, the tree's depth and padding
+    /// included: the joined measure stays the whole's.
+    #[test]
+    fn splitter_measures_the_whole_over_500_parts() {
+        use laman_debug::corpus::rect_chain;
+        let case = rect_chain(125).unwrap();
+        let sk: Sketch =
+            serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
+        for parts in [499, 500] {
+            assert_splitter_measures_whole(&sk, parts, 0.75, 1e300);
         }
     }
 }
