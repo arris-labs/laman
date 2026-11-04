@@ -926,3 +926,75 @@ fn a_stage_moved_by_its_parents_keeps_its_branch() {
         );
     }
 }
+
+/// A staged part continued from where it was solved is held to the whole
+/// component's acceptance at that start, not to a mixed measure (its own
+/// entities at the start, everything outside it where the earlier parts have
+/// moved). Here the head's far corner falls from 1000 to 1: the start's
+/// residual of 1e-9 meets the acceptance of a 1000 extent and not that of a
+/// unit one (plans/m8-frame-budget review).
+#[test]
+fn a_continued_part_is_held_to_the_acceptance_of_the_whole_at_its_start() {
+    let mut sk = Sketch::new();
+    let a = sk.point_fixed(0.0, 0.0).unwrap();
+    let d = sk.point(1000.0, 0.0).unwrap();
+    let c = sk.point(0.5, 0.0).unwrap();
+    let h = sk.line(a, d).unwrap();
+    sk.horizontal(h).unwrap();
+    let l = sk.line(c, d).unwrap();
+    sk.horizontal(l).unwrap();
+    sk.distance(a, c, 0.5 + 1e-9).unwrap();
+    let c_id = c.id();
+    let system = System::new(&sk);
+    let component = system
+        .components
+        .iter()
+        .find(|c| c.params.contains(&(c_id, Coordinate::X)))
+        .unwrap();
+    let parts = parts_of(&system, component).expect("a head and a stage");
+    let k = parts
+        .iter()
+        .position(|p| p.params.contains(&(c.id(), Coordinate::X)))
+        .unwrap();
+    assert!(k > 0);
+    let start = sk.coordinates();
+    let mut moved = start.clone();
+    moved.insert((d.id(), Coordinate::X), 1.0);
+    moved.insert((d.id(), Coordinate::Y), 0.1);
+    moved.insert((c.id(), Coordinate::Y), 0.1);
+    let fresh = || Outcome::start(moved.clone());
+    let mut splitter = Splitter::new(
+        &component.frame,
+        &parts.iter().map(|p| &p.params[..]).collect::<Vec<_>>(),
+    );
+    // As `solve_staged`: each earlier part split before its own move.
+    for j in 0..k {
+        let _ = splitter.split(j, if j == 0 { &start } else { &moved });
+        splitter.moved(j);
+    }
+    let accepts = Scope::measured(component, splitter.split(k, &moved));
+    let split = Scope {
+        part: &parts[k],
+        whole: component,
+        accepts: &accepts,
+        solved: Some(&start),
+    };
+    let whole = Scope {
+        accepts: component,
+        ..split
+    };
+    for algorithm in ALGORITHMS {
+        let options = with(algorithm);
+        let want = continued(&system, whole, &start, &options, &mut fresh());
+        let got = continued(&system, split, &start, &options, &mut fresh());
+        assert!(
+            want.is_some(),
+            "{algorithm:?}: the whole's acceptance holds the start"
+        );
+        let bits = |v: &Option<Coordinates>| -> Option<Vec<u64>> {
+            v.as_ref()
+                .map(|v| v.values().map(|x| x.to_bits()).collect())
+        };
+        assert_eq!(bits(&got), bits(&want), "{algorithm:?}");
+    }
+}

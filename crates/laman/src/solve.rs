@@ -627,8 +627,16 @@ fn continued(
         return None;
     }
     out.spend_evaluation(scope.weight());
-    let (rows, satisfied, _) = system.rows(part, scope.accepts, solved, 1.0);
-    if !satisfied || !vector_acceptance(system, scope, solved, 1.0) {
+    // At `solved`, the component's start: `scope.accepts` was split at the
+    // coordinates the earlier parts have moved to, so it would measure the
+    // part's own entities at `solved` and everything outside them elsewhere.
+    // The whole frame measured at `solved` is one set, once per part.
+    let at_start = Scope {
+        accepts: scope.whole,
+        ..scope
+    };
+    let (rows, satisfied, _) = system.rows(part, at_start.accepts, solved, 1.0);
+    if !satisfied || !vector_acceptance(system, at_start, solved, 1.0) {
         return None;
     }
     let scale = part.scale.max(LENGTH_FLOOR);

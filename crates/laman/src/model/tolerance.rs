@@ -260,12 +260,15 @@ impl Frame {
 /// each entity about once and not once per part. Every term is a maximum, a
 /// minimum or a box, so what is joined is what the whole frame measures at
 /// the same coordinates, bit for bit (`split_frame_measures_what_the_whole_does`).
+/// What a split joins is the whole's only at the coordinates it was made at:
+/// a measure at other coordinates (a part's start, after earlier parts
+/// moved) is the whole frame's, not a split's.
 pub(crate) struct Splitter {
     /// Constants: no part moves them. Measured at the first split.
     fixed: Frame,
-    /// What the whole frame was itself split from, then the constants'
-    /// terms, joined, once measured.
+    /// What the whole frame was itself split from.
     before: Option<Terms>,
+    /// The constants' terms joined with `before`, once measured.
     fixed_terms: Option<Terms>,
     /// The entities exactly one part moves, by part.
     groups: Vec<Frame>,
@@ -906,10 +909,12 @@ mod tests {
             let split = component.frame.split(&own, &base);
             let mut moved = base.clone();
             for (k, p) in own.iter().enumerate() {
-                let v = match k % 4 {
+                let v = match k % 6 {
                     0 => shift * (k as f64 + 1.0),
                     1 => big,
                     2 => -big,
+                    3 => 0.0,
+                    4 => -0.0,
                     _ => base[p] + shift,
                 };
                 moved.insert(*p, v);
@@ -957,10 +962,12 @@ mod tests {
             for (j, own) in held.iter().enumerate() {
                 let split = splitter.split(j, &values);
                 for (k, p) in own.iter().enumerate() {
-                    let v = match (j + k) % 4 {
+                    let v = match (j + k) % 6 {
                         0 => shift * (k as f64 + 1.0),
                         1 => big,
                         2 => -big,
+                        3 => 0.0,
+                        4 => -0.0,
                         _ => base[p] + shift,
                     };
                     values.insert(*p, v);
