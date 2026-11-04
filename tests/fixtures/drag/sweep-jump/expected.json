@@ -1,0 +1,8 @@
+{
+  "status": "UnderConstrained",
+  "dof": 1,
+  "coordinates": [
+    {"id": 2, "coordinate": "x", "value": 0.955336489125606},
+    {"id": 2, "coordinate": "y", "value": 0.29552020666133955}
+  ]
+}

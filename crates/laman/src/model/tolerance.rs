@@ -39,6 +39,23 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const LENGTH_FLOOR: f64 = 1e-12;
 /// Relative length acceptance, measured across scale in ADR-0003.
 pub const LENGTH_RELATIVE: f64 = 1e-11;
+/// The most an arc's tracked sweep may move in one drag frame, in radians
+/// (an eighth of a turn), before the frame is bisected as a flip is
+/// (ADR-0006).
+///
+/// A sweep is tracked as the nearest representative of its reading, which
+/// tells moves apart only up to half a turn: a true move of `f` turns
+/// reads as `f` for `f < 1/2` and as `f - 1` beyond. A bound of `m` turns
+/// catches every true move in `(m, 1 - m)` turns and misses the rest, so
+/// the smaller the better; a frame that really moves a sweep by an eighth
+/// of a turn or more, in the rare drag fast enough, costs a halving or two.
+///
+/// ```
+/// use laman::model::tolerance;
+/// assert!(tolerance::MAX_SWEEP_STEP < std::f64::consts::PI);
+/// ```
+pub const MAX_SWEEP_STEP: f64 = std::f64::consts::FRAC_PI_4;
+
 /// Dimensionless independence threshold for unit-normalized Jacobians.
 pub const RANK: f64 = 1e-10;
 

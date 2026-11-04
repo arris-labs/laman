@@ -92,7 +92,7 @@ established here.
 - [x] Step 6 **[2]** — Fundamental-circuit oracle in test support; the
   conflict property asserts every set named equals it, under both
   algorithms; the C1 twins' sets checked minimum by their analysis.
-- [ ] Step 7 **[2]** — Sweep-jump bisection, `MAX_SWEEP_STEP`, ADR-0006
+- [x] Step 7 **[2]** — Sweep-jump bisection, `MAX_SWEEP_STEP`, ADR-0006
   amendment; fixture `tests/fixtures/drag/sweep-jump` (ADR-0006's 0.3 →
   −3.2 frame: bisected, lands on the short side, no flip).
 - [ ] Step 8 **[1]** — `Diagnostics::bisection` and `Bisection`, rustdoc
@@ -179,9 +179,11 @@ established here.
   Found: `solved.rs`'s older staged = whole check fails at 2000 cases on
   `framework-conflict-inconclusive`'s case (whole `[]`, staged names a
   set); untouched, that finding stands.
-- ⚠ OPEN: `MAX_SWEEP_STEP`'s value. A move of `f` turns is read
-  correctly up to half a turn, so any `f < ½` catches true moves in
-  `(f, 1 − f)` turns and misses the rest; the agent picks it in step 7
-  with that bound and the bisection's cost measured.
-- ⚠ OPEN: does a frame bisected only for a sweep jump move the session's
-  `reached`? The agent, step 7; default yes, as a flip's bisection does.
+- *Settled* (step 7, ADR-0006 amendment): `MAX_SWEEP_STEP` is π/4 (an
+  eighth of a turn): a move of `f` turns reads correctly up to half a turn,
+  so `f` catches true moves in `(f, 1 − f)` turns; the smaller the better,
+  and an eighth costs a needless halving only for a frame that really moves
+  a sweep by 45 degrees. The C1 and C2 drag corpora and their digests are
+  unchanged.
+- *Settled* (step 7): a frame bisected only for a sweep jump moves the
+  session's `reached`, as a flip's bisection does.

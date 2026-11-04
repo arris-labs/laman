@@ -143,8 +143,10 @@ impl DragSession {
     ///
     /// Always returns a solution. A step that would change a branch no
     /// equation holds (an arc turning the other way round, a line pair
-    /// swapping orientation, a radius changing sign; ADR-0006) is halved
-    /// toward the last target, at most `max_bisections` times, and the first
+    /// swapping orientation, a radius changing sign; ADR-0006), or that moves
+    /// an arc's tracked sweep by more than
+    /// [`MAX_SWEEP_STEP`](crate::model::tolerance::MAX_SWEEP_STEP) (a sweep
+    /// jump, which names no flip), is halved toward the last target, at most `max_bisections` times, and the first
     /// halving that keeps every branch is the frame. If every halving
     /// flips, the frame is the last solution unchanged, its `flips` naming
     /// what the nearest halving would have changed; the session stays on
@@ -194,9 +196,13 @@ impl DragSession {
                 Path::Staged,
                 Some(&self.parts),
             );
-            if !tried.flips.is_empty() {
+            let jumped = tried.observed.jumped();
+            if !tried.flips.is_empty() || jumped {
                 // Keep the flips of the nearest halving tried, then halve.
-                refused = Some(flips_of(&self.sketch, &tried.flips));
+                // A sweep jump is no flip and names none: it halves the same.
+                if !tried.flips.is_empty() {
+                    refused = Some(flips_of(&self.sketch, &tried.flips));
+                }
                 if halvings > 0 && here == from {
                     break; // no nearer target exists in f64
                 }

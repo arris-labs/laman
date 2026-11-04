@@ -4,6 +4,7 @@
 //! every step.
 #![allow(clippy::unwrap_used, clippy::panic)]
 
+use laman::model::Coordinate;
 use laman::solution::{Algorithm, FlipSubject, SolverOptions};
 use laman_check::check;
 use laman_debug::fixture::Fixture;
@@ -73,4 +74,27 @@ fn a_flipping_step_is_halved_to_the_first_target_that_keeps_the_branch() {
 #[test]
 fn a_step_that_flips_at_every_halving_stays_put_and_names_the_flip() {
     run("bisect-stuck");
+}
+
+/// A frame that moves an arc's sweep past `MAX_SWEEP_STEP` is bisected
+/// without naming a flip (ADR-0006): the end lands at the second halving,
+/// sweep 0.465, not at the target's own 3.09 that the tracking would have
+/// read as a short move.
+#[test]
+fn a_sweep_jump_is_bisected_without_a_flip() {
+    run("sweep-jump");
+    let fixture = load("sweep-jump");
+    let drag = fixture.drag.as_ref().unwrap();
+    for algorithm in ALGORITHMS {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let mut session = fixture.sketch.drag(drag.dragged, &options).unwrap();
+        let step = session.to(drag.targets[0]);
+        let at = |c| step.coordinates[&(drag.dragged, c)];
+        let sweep = libm::atan2(at(Coordinate::Y), at(Coordinate::X));
+        assert!(
+            sweep > 0.3 && sweep - 0.3 <= laman::model::tolerance::MAX_SWEEP_STEP,
+            "{algorithm:?}: sweep {sweep}"
+        );
+    }
 }

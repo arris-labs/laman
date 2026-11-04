@@ -113,9 +113,9 @@ named.
   frame: bisection runs only once a flip is seen, so a frame that carries
   an arc's end more than half a turn (sweep 0.3 to −3.2) reads it the
   short way round (+3.08), neither flips nor bisects, and lands where many
-  smaller frames along the same path would have been refused. Bisecting
-  a frame whose sweep moves more than a fraction of a turn is in the
-  backlog. (Corrected in the M3 retirement review, before any release: the
+  smaller frames along the same path would have been refused. (A drag
+  frame is now bisected past `MAX_SWEEP_STEP`: see the amendment below; a
+  static solve is not.) (Corrected in the M3 retirement review, before any release: the
   first text said a drag keeps its steps under half a turn by bisection.)
 - A sketch below the length floor (ADR-0003) has no known branch, so
   nothing in it can flip; that is the floor's meaning, not a hole.
@@ -141,3 +141,29 @@ named.
 - **Encode branches as signed equations** (as senses do). Would forbid a
   deliberate flip in a static solve and turn the arc's intrinsic equation
   into an inequality; rejected for observation.
+
+## Amendment 2026-11-04: a sweep jump bisects a frame
+
+A drag frame whose tracked sweep of any arc, read beyond its margin both
+times, moves by more than `tolerance::MAX_SWEEP_STEP` is bisected as a flip
+is (toward the last target, at most `max_bisections` halvings) and names no
+flip: it is not a change of branch the tracking reads, but a move too large
+for the half turn the tracking tells apart. The sweep 0.3 to -3.2 frame of
+the Consequences above now bisects, to the first halving whose move is
+small (`tests/fixtures/drag/sweep-jump`).
+
+The bound is an eighth of a turn (π/4). A true move of `m` turns reads
+correctly below half a turn and as `m - 1` beyond; a bound `f` catches
+every true move in `(f, 1 - f)` turns and misses the rest, so the smaller
+the better, and what limits it is cost: a frame that really moves a sweep
+by `f` turns is halved needlessly. An eighth of a turn is a quarter of a
+right angle per frame on the arc, far above a frame at pointer rate and
+well under the flip it guards against; a move of seven eighths of a turn
+or more in one frame still reads as a small one (the bound's price, as is
+the static solve's: both stay in the backlog). The halving costs what a
+refused flip does (ADR-0006's measure, ARCHITECTURE.md §Drag sessions).
+
+A frame bisected only for a jump moves the session's reference target as a
+flip's bisection does: the frame landed there, and the next halving starts
+from it. A frame whose every try jumps is the last solution unchanged, with
+no flip named.

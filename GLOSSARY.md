@@ -226,7 +226,8 @@ whose branch differs from the last solution's (the guesses', for a
 static solve). Named in diagnostics with the quantity before and after.
 
 **Bisection**:
-Halving a flipping drag step toward the last good target, at most
+Halving a drag step that flips, or moves an arc's tracked sweep past
+`MAX_SWEEP_STEP` (a sweep jump), toward the last good target, at most
 `max_bisections` times, so the step keeps its branch (ADR-0006).
 _Avoid_: backtracking, line search
 

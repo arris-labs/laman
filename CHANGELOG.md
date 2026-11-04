@@ -26,6 +26,12 @@ release by release. Written in the commit that makes the change, under
   that fails is solved again whole, so a failing sketch can spend up to
   twice the caps.
 
+- A drag frame that would move an arc's sweep by more than an eighth of a
+  turn is bisected toward the last target, as a flip is, without naming a
+  flip: a frame that carried an arc's end past half a turn used to be read
+  the short way round and land where many small frames would have been
+  refused. A static solve is unchanged.
+
 ## 0.1.0 — 2026-11-03
 
 - Python: abi3 wheels for Linux x86_64 and aarch64 (glibc ≥ 2.17),

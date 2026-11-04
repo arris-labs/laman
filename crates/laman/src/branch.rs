@@ -8,7 +8,7 @@
 //! known branch is carried, so a crossing spread over two solves is still a
 //! [`Flip`].
 
-use crate::model::tolerance::{ANGLE, Tolerances};
+use crate::model::tolerance::{ANGLE, MAX_SWEEP_STEP, Tolerances};
 use crate::model::{
     Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Line, Point, Sketch,
 };
@@ -47,6 +47,11 @@ pub(crate) struct Observation {
     /// The branch here if beyond the margin, else the last one known
     /// before; `None` if never known.
     pub known: Option<Known>,
+    /// An arc whose tracked sweep moved more than [`MAX_SWEEP_STEP`] from
+    /// the observation before, read beyond its margin both times. Not a
+    /// flip: a change of branch the tracking could still read, but a move
+    /// too large for the half-turn it can tell apart (ADR-0006).
+    pub jump: bool,
 }
 
 /// A change of branch between two observation sets.
@@ -95,6 +100,13 @@ impl Observations {
             .collect()
     }
 
+    /// Whether any arc's tracked sweep moved by more than
+    /// [`MAX_SWEEP_STEP`] from the earlier set to `self`: a drag frame this
+    /// large is bisected as a flip is, without naming one (ADR-0006).
+    pub(crate) fn jumped(&self) -> bool {
+        self.0.values().any(|o| o.jump)
+    }
+
     /// One subject's observation.
     #[cfg(test)]
     pub(crate) fn get(&self, subject: Subject) -> Option<&Observation> {
@@ -106,6 +118,8 @@ impl Observations {
 struct Reading {
     value: f64,
     branch: Option<i64>,
+    /// See [`Observation::jump`].
+    jump: bool,
 }
 
 fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -> Observations {
@@ -126,6 +140,7 @@ fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -
             Observation {
                 value: reading.value,
                 known,
+                jump: reading.jump,
             },
         );
     };
@@ -178,6 +193,7 @@ fn sign(value: f64, margin: f64) -> Reading {
     Reading {
         value,
         branch: known.then_some(if value > 0.0 { 1 } else { -1 }),
+        jump: false,
     }
 }
 
@@ -213,6 +229,7 @@ fn arc(rd: &Reader<'_>, (c, s, e): (Point, Point, Point), before: f64, margin: f
         value,
         // Saturating, never a panic; a turn count is far inside i64.
         branch: known.then_some((value / TAU).floor() as i64),
+        jump: known && before.is_finite() && (value - before).abs() > MAX_SWEEP_STEP,
     }
 }
 

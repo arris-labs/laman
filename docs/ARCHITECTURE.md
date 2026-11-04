@@ -479,10 +479,11 @@ there (SEED.md §4, differentiator 2).
   still flipping returns the solution at the farthest target that kept
   every branch, with the flip named; the session stays on its branch.
 
-Tracking assumes a solve moves a sweep by less than half a turn; nothing
-enforces it. A drag frame bisects only once it sees a flip, so a frame
-that carries an arc's end more than half a turn is read the short way
-round and neither flips nor bisects (ADR-0006, Consequences). Below the
+Tracking assumes a solve moves a sweep by less than half a turn. A drag
+frame enforces a tighter bound: one that moves an arc's tracked sweep by
+more than `tolerance::MAX_SWEEP_STEP` (an eighth of a turn) is bisected as a
+flip is, naming none (ADR-0006, amendment). A static solve does not: it
+reads the sweep the short way round from the guesses. Below the
 length floor (ADR-0003) no branch is known and nothing flips.
 
 ## Drag sessions
@@ -533,7 +534,8 @@ drag step takes 20 ms, over C2's 4 ms: the step pays every part's extent
 measurement and the diagnosis's recompile and re-cut of the placed sketch
 (§Frame budget).
 
-**Bisection.** A step whose solve flips a branch (§Branches) is retried
+**Bisection.** A step whose solve flips a branch, or moves an arc's sweep
+past `MAX_SWEEP_STEP` (§Branches), is retried
 toward the last good target: the full step, then half of it, a quarter, and
 so on, each solved from the last solution (never from the failed try), at
 most `SolverOptions::max_bisections` halvings. The first try that keeps
