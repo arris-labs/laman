@@ -615,17 +615,18 @@ solve and warm-started edit against construction under both algorithms.
 
 ### Frame budget
 
-Measured by the bench (release, median of 200 runs, AMD Ryzen 9 7950X): the
-static bases and redundant twins take 0.05 ms (triangle), 0.3 ms (belt) and
-0.8–0.9 ms (slotted plate), under Levenberg–Marquardt and DogLeg alike; each
-of the drag's ten steps takes 0.98–0.99 ms under both. The conflicting twins
-run the conflict analysis and are timed, not budgeted: 1.1–1.6 ms
-(triangle), 8–11 ms (belt), 39–52 ms (plate).
+Measured by the bench (release, median of 200 runs, AMD Ryzen 9 7950X,
+re-run after M6, 2026-11-04): the static bases and redundant twins take
+0.05–0.07 ms (triangle), 0.15–0.22 ms (belt) and 0.33–0.46 ms (slotted
+plate), under Levenberg–Marquardt and DogLeg alike; each of the drag's ten
+steps takes 0.39–0.40 ms under both. The conflicting twins run the conflict
+analysis and are timed, not budgeted: 0.8–1.0 ms (triangle), 10–12 ms
+(belt), 40–44 ms (plate). C1 keeps its 1 ms budget.
 
-C2 baseline (2026-11-04), measured with
+C2 baseline (M5, 2026-11-04, before stages), measured with
 `cargo run --release -p laman-debug --example bench_c2` on AMD Ryzen 9
 7950X 16-Core Processor, Linux x86_64 (32 logical CPUs), rustc 1.99.0.
-The solver still solves whole components. The budget is 4 ms per operation,
+The solver then solved whole components. The budget is 4 ms per operation,
 including diagnostics. Static solves start from displaced guesses; edits
 start from the initial solved coordinates after replacing one dimension;
 drags measure the first target in a newly opened session. Construction,
@@ -666,6 +667,48 @@ lower bounds are **over** 4 ms; setup timeouts remain unmeasured.
 | triangles | 249 | DogLeg | 526.255 / 526.255 (1) | 532.407 / 532.407 (1) | N/A |
 | triangles | 501 | LM | T ≥ 4998.992 | S | N/A |
 | triangles | 501 | DogLeg | T ≥ 4999.145 | S | N/A |
+
+C2 after M6 (stages, 2026-11-04), same command, machine and cell
+conventions (median / worst in ms, five samples; every position now
+finishes inside its limit). **Under 4 ms: the 98- and 99-entity cells and
+one 249-entity cell (triangles edit, LM, 3.992, a hair under; DogLeg 4.001
+is over). Every other cell is over, and none of the 500-entity acceptance
+cells (edit ≤ 4 ms) is met.**
+
+| Family | Actual entities | Algorithm | Static | Edit | First drag step |
+|---|---:|---|---:|---:|---:|
+| rectangles | 98 | LM | 1.795 / 2.020 | 1.486 / 1.516 | 1.397 / 1.460 |
+| rectangles | 98 | DogLeg | 1.577 / 1.793 | 1.452 / 1.621 | 1.389 / 1.462 |
+| rectangles | 248 | LM | 6.765 / 6.933 | 5.040 / 5.155 | 5.684 / 5.723 |
+| rectangles | 248 | DogLeg | 5.653 / 5.909 | 4.720 / 5.110 | 5.005 / 5.089 |
+| rectangles | 498 | LM | 17.483 / 18.851 | 11.783 / 11.926 | 20.135 / 20.379 |
+| rectangles | 498 | DogLeg | 14.035 / 14.524 | 11.436 / 11.650 | 20.144 / 20.275 |
+| slots | 98 | LM | 2.771 / 3.013 | 2.277 / 2.326 | 2.018 / 2.164 |
+| slots | 98 | DogLeg | 2.737 / 2.957 | 2.282 / 2.306 | 2.012 / 2.164 |
+| slots | 248 | LM | 11.265 / 11.693 | 7.858 / 7.928 | 7.064 / 7.203 |
+| slots | 248 | DogLeg | 9.737 / 10.296 | 7.951 / 8.092 | 7.275 / 7.791 |
+| slots | 498 | LM | 33.213 / 33.805 | 22.535 / 24.668 | 19.857 / 20.623 |
+| slots | 498 | DogLeg | 29.544 / 30.915 | 22.534 / 23.197 | 20.280 / 21.244 |
+| triangles | 99 | LM | 1.243 / 1.400 | 1.134 / 1.359 | N/A |
+| triangles | 99 | DogLeg | 1.236 / 1.605 | 1.140 / 1.172 | N/A |
+| triangles | 249 | LM | 4.535 / 5.112 | 3.992 / 4.074 | N/A |
+| triangles | 249 | DogLeg | 4.413 / 4.537 | 4.001 / 4.342 | N/A |
+| triangles | 501 | LM | 12.147 / 12.592 | 11.664 / 11.986 | N/A |
+| triangles | 501 | DogLeg | 12.605 / 13.197 | 10.816 / 11.091 | N/A |
+
+The 98- and 99-entity cells are 11–15 times faster than the baseline and
+under 4 ms; the 498-entity cells went from not finishing in 5 s to 11–34 ms.
+The 4 ms target is missed at 500 entities by 2.8× (triangles edit) to 5.6×
+(slots edit), and the 500-entity drag step by 5× (20 ms) on both families
+that have one. The time is not in the solve of the edited stage. Two
+measured sources (step 6) account for it: every part's evaluation measures
+the whole component's extent for its acceptance (O(n²) a solve), and the
+redundancy pass compiles and cuts the placed sketch again (5–13 ms). The
+scaling from 248 to 498 entities (edit 5.0 → 11.8, 7.9 → 22.5, 4.0 → 11.7)
+is 2.3–2.9× for 2× the size, consistent with a quadratic term on top of
+a linear one. The drag step is the same cost as an edit: a drag opens its
+decomposition once, but each frame still pays the per-part extent and the
+frame's diagnostics.
 
 ## wasm32
 

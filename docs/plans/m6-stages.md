@@ -165,8 +165,11 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
 - [x] Step 8 **[1, tier 3]** — ADR-0009: stages, part rank and its proof
   sketch, the fallback and its budget, the per-part normalization
   amending ADR-0003's rank, the re-bless reasons.
-- [ ] Step 9 **[2]** — Re-run `bench_c2` and `bench`; record the table
+- [x] Step 9 **[2]** — Re-run `bench_c2` and `bench`; record the table
   (ARCHITECTURE.md §Frame budget); state in the idea whether M8 runs.
+  (*Settled* at step 9: the 500-entity acceptance is missed, edits 10.8-22.5
+  ms and drags 20 ms; the idea recommends removing the two measured cost
+  sources before A or S2; the human decides.)
 
 ## Acceptance
 - `bench_c2`, release, reference machine: the one-dimension edit ≤ 4 ms

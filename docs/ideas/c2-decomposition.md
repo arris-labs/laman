@@ -1,6 +1,6 @@
 # Idea: c2-decomposition
 
-- Status: Accepted (C, S1); M5 done; M6 absorbed by plans/m6-stages; M7, M8 to follow
+- Status: Accepted (C, S1); M5 done; M6 absorbed by plans/m6-stages; M7 to follow; M8 per the section below (decision for the human)
 - Raised: 2026-11-04
 - Prompt (verbatim from the human): "c2 (or you can directly plan first thing from it?)"
 
@@ -135,8 +135,9 @@ Milestones (continuing C1's numbering):
   the observed subject in the drag property, radius ≥ 0 (lifts
   `negative-radius-solve`, `drag-negative-radius`); conflict sets against
   the exact minimum on the corpus. Independent of M6; can run beside it.
-- **M8 — only if M6's bench misses**: rigid bodies in the remainder (A) or
-  a cache (S2).
+- **M8 — M6's bench missed (step 9)**: see the section at the end; the
+  recommendation is to remove the two measured cost sources first, A or S2
+  only if that misses.
 
 What would change my mind: a consumer whose sketches are mostly
 ungrounded (A first), or M5's baseline showing the remainder, not the
@@ -196,3 +197,51 @@ the corpus's exact shapes and counts are M5's plan.
 - Q4: *Stage* and *Remainder* added to GLOSSARY.md, *Rigid cluster*
   re-scoped to option A. ROADMAP.md §C2's *In* line is reworded by M6's
   plan (design docs change with the behaviour).
+
+## After M6's bench (step 9, 2026-11-04): does M8 run?
+
+*Decision for the human.* The numbers are in ARCHITECTURE.md §Frame budget
+(release, Ryzen 9 7950X). Stages took the 498-entity cells from not
+finishing in 5 s to 11-34 ms, and the 98-entity cells to 1.1-2.8 ms, but
+the acceptance is **missed**: one-dimension edit medians at 500 entities are
+11.8 / 22.5 / 11.7 ms (rectangles / slots / triangles, LM; DogLeg 11.4 /
+22.5 / 10.8), 2.8-5.6 times the 4 ms target; the first drag step is 20 ms on
+both families that have one (5 times the target). The 249-entity cells are
+5.0 / 7.9 / 4.0 ms. C1 holds its 1 ms budget (plate 0.33-0.46 ms, drag steps
+0.39 ms).
+
+**What the numbers say about the options.**
+
+- **A (rigid bodies in the remainder)** attacks the remainder's dense
+  solve. Nothing measured shows the remainder dominating: the edit, which
+  moves a stage and what depends on it, costs as much as the drag step,
+  which moves the remainder. Step 6 attributed the edit's time to two
+  things that are not a remainder solve: every part's evaluation measures
+  the whole component's extent for acceptance (O(n^2) a solve), and
+  redundancy compiles and cuts the placed sketch again (5-13 ms). The
+  248 to 498 scaling (2.3-2.9x for 2x) fits a quadratic term over a linear one.
+- **S2 (a cache)** would hide the recompile and re-cut on re-diagnosis, at
+  the price of a public type and a second path that can disagree with the
+  first, and does not touch the extent term. A drag step already reuses its
+  decomposition (step 5), and still costs 20 ms.
+- **A driver split of the remainder** helps only when the remainder is
+  large; these corpora's remainders are small next to their stages.
+  Not indicated by anything measured.
+- **Removing the two measured cost sources first** (the extent computed
+  once per component and carried, not per part evaluation; redundancy
+  reusing the compile and cut of the placed sketch instead of making
+  them again) costs no public type, keeps one path and S1, and names the
+  term the data points at.
+
+**Recommendation.** M8 runs, but not as A, S2 or the driver split: as a
+**profile-then-remove step** on the two named sources, with the bench as its
+acceptance, and A, S2 or the driver split reconsidered only if the cells
+still miss after it. Caveat, stated plainly: step 9 re-ran the benches and
+did not re-profile; the attribution to the two sources is step 6's, and the
+first step of M8 should confirm it with a profile before cutting. The
+acceptance as written (≤ 4 ms at 498/498/501 entities, both algorithms) is
+unedited in the plan.
+
+Questions for the human: (1) does M8 run in the form above? (2) is the
+4 ms target held for the drag step at 500 entities or only for the edit,
+should the removal reach 5-10 ms and stop there?
