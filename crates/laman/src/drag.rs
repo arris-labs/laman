@@ -202,6 +202,9 @@ impl DragSession {
         let from = self.reached;
         let mut refused = None;
         let mut last_try = (from, 0);
+        // The sketch changes only on the try that succeeds, and that returns:
+        // every halving measures the same one.
+        let tolerances = Tolerances::new(&self.sketch);
         for halvings in 0..=self.options.max_bisections {
             let here = toward(from, target, halvings);
             last_try = (here, halvings);
@@ -222,7 +225,7 @@ impl DragSession {
                 &self.observed,
                 Path::Staged,
                 Some(&self.parts),
-                Tolerances::new(&self.sketch),
+                tolerances.clone(),
             );
             let jumped = tried.observed.jumped();
             if !tried.flips.is_empty() || jumped {

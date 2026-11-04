@@ -704,15 +704,15 @@ impl Tolerances {
             lone: Vec::new(),
         };
         tolerances.measure(coords);
+        let in_a_component: BTreeSet<EntityId> = tolerances
+            .members
+            .iter()
+            .flat_map(|m| m.iter().copied())
+            .collect();
         tolerances.lone = sk
             .entities()
             .map(|(id, _)| id)
-            .filter(|id| {
-                !tolerances
-                    .members
-                    .iter()
-                    .any(|m| m.binary_search(id).is_ok())
-            })
+            .filter(|id| !in_a_component.contains(id))
             .collect();
         tolerances.measure_lone(sk, coords);
         tolerances
@@ -935,6 +935,38 @@ fn extent(
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    /// Many independent components: the entities in none are the same as a
+    /// scan of every component's members finds, and every entity has a
+    /// threshold.
+    #[test]
+    fn many_components_find_the_same_lone_entities() {
+        let mut sk = Sketch::new();
+        let mut loose = vec![];
+        for i in 0..500 {
+            let x = i as f64 * 10.0;
+            let a = sk.point(x, 0.0).unwrap();
+            let b = sk.point(x + 3.0, 1.0).unwrap();
+            sk.distance(a, b, 3.0 + (i % 5) as f64).unwrap();
+            if i % 7 == 0 {
+                loose.push(sk.point_fixed(x, 50.0).unwrap().id());
+            }
+        }
+        let t = Tolerances::new(&sk);
+        assert!(t.components.len() >= 500);
+        let want: Vec<EntityId> = sk
+            .entities()
+            .map(|(id, _)| id)
+            .filter(|id| !t.members.iter().any(|m| m.binary_search(id).is_ok()))
+            .collect();
+        assert_eq!(t.lone, want);
+        for id in &loose {
+            assert!(t.lone.contains(id));
+        }
+        for (id, _) in sk.entities() {
+            assert!(t.entity(id) > 0.0);
+        }
+    }
 
     /// The frame measures a component as [`extent`] does, bit for bit, at the
     /// sketch's coordinates, at moved ones, at a partial map and with a
