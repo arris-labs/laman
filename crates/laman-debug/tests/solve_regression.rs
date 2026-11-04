@@ -307,6 +307,42 @@ fn assert_spared_in_every_conflict(
     }
 }
 
+/// `staged-conflict-inconclusive`: the staged solve and the whole path
+/// both name the triangle-inequality conflict by hand, under both algorithms.
+#[test]
+#[ignore = "the staged DogLeg conflict analysis ends NotConverged where the whole path proves the set"]
+fn staged_conflict_inconclusive() {
+    let f = load("staged-conflict-inconclusive");
+    type Path = fn(&laman::model::Sketch, &SolverOptions) -> laman::solution::Solution;
+    let paths: [Path; 2] = [
+        |sketch, options| sketch.solve(options),
+        laman::reference::solve,
+    ];
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        for path in paths {
+            let solution = path(&f.sketch, &options);
+            assert_eq!(
+                solution.status.to_string(),
+                f.expected.status,
+                "{algorithm:?}"
+            );
+            let named: Vec<Vec<String>> = solution
+                .diagnostics
+                .conflicts
+                .iter()
+                .map(|set| {
+                    let mut tags: Vec<String> = set.iter().filter_map(|c| c.tag.clone()).collect();
+                    tags.sort();
+                    tags
+                })
+                .collect();
+            assert_eq!(named, vec![vec!["leg-a", "leg-b", "span"]], "{algorithm:?}");
+        }
+    }
+}
+
 #[test]
 fn whole_false_certificate_staged() {
     assert_spared_in_every_conflict(|sketch, options| sketch.solve(options));

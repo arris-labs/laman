@@ -119,7 +119,7 @@ A defect a run measured, one block each:
 - Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `4ca64a2b…` (kept in `solved.proptest-regressions`), M6 retirement, 2026-11-04
 - Reproduce: `PROPTEST_CASES=1 cargo test -p laman-debug --test solved an_extra` with a strict staged = whole comparison
 - Measured: 6 construction steps, `false_by` 2.03; whole DogLeg names {5, 11, 12}, staged DogLeg names nothing; the property exempts an inconclusive side from the staged = whole comparison until this is shrunk to a fixture and fixed (M7's conflict work)
-- State: unshrunk; seed only
+- State: regression/staged-conflict-inconclusive (shrunk to 7 points, 9 distances; the set is the triangle inequality {leg-a, leg-b, span})
 
 ## Rejected
 

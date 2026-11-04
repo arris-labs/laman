@@ -81,7 +81,7 @@ established here.
 - [x] Step 2 **[2]** — Property: every solution any solve and drag
   property draws (extremes included) has every radius `≥ 0` and applies
   back; drop `drag_props.rs`'s `DimensionOutOfRange` exemption.
-- [ ] Step 3 **[2]** — Shrink seed `4ca64a2b…` to
+- [x] Step 3 **[2]** — Shrink seed `4ca64a2b…` to
   `regression/staged-conflict-inconclusive` (inspect skill), ignored,
   desired: staged DogLeg names whole DogLeg's set; finding updated.
 - [ ] Step 4 **[3]** — Fix the whole path's false certificate, ADR-0005
