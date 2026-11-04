@@ -777,8 +777,9 @@ diagnosis 7–21 % (triangles the most), the per-part components that
 `parts_of` builds 6–12 % (a linear `find` over the component's parameters and
 sources per part, so quadratic in the parts), `Frame::terms` 8–9 %,
 `Splitter::split` 4–6 %, `Tolerances::new` 6–7 %, `axis_aligned` 5–6 %.
-No source above 12 % but the allocator; the next cuts are `stage::cut`'s
-graph build and `parts_of`'s lookups, both set-up and not the solve.
+No source above 21 % (`stage::cut` on the triangle edit) and, after it, the
+allocator and `parts_of`; the next cuts are `stage::cut`'s graph build and
+`parts_of`'s lookups, both set-up and not the solve.
 
 **A's reach, measured (descent and pursuit split).** Rigid bodies in the
 remainder cannot reach the edits (DoF 0, no remainder) and reach a drag or
@@ -786,51 +787,49 @@ bisect cell only through its descent and pursuit:
 
 | Cell (LM) | ms | pursuit | descent (head, stages, remainder) | diagnosis | `parts_of` |
 |---|---:|---:|---:|---:|---:|
-| rectangles 498 drag | 15.0 | 63 % (hessian 41 %: `Qr::new` 29 %, null basis 20 %) | 4 % | 13 % | 4 % |
+| rectangles 498 drag | 15.0 | 63 % (hessian 41 %: `Qr::new` 29 %, null basis 20 %; inclusive) | 4 % | 13 % | 4 % |
 | slots 498 drag | 6.0 | 5 % | 11 % | 33 % | 16 % |
 | slots 498 bisect | 15.0 | 20 % | 13 % | 18 % | 16 % |
 
-So A's ceiling, were the remainder free, is about 5.6 ms on the rectangle
-drag (the edit's own 4.6 and a little), about 5.0 ms on the slot drag and
-about 12 ms on the bisect. A alone closes none of the three at 4 ms: the slot
-drag and the bisect are dominated by the diagnosis and the per-part set-up,
-the same sources as the edits.
+The shares are inclusive (a function and everything it calls), so the
+hessian's `Qr::new` and null basis overlap and do not sum to its 41 %; the
+null basis's 20 % is inclusive of the pursuit, where step 1's 0.1 % is the
+self time of the null-basis routine alone. A's ceiling is one method for all
+three: the time left were the pursuit free, which is all A can reach in
+principle (its descent shares are small beside it and A does not remove them).
+That is 15.0 x 0.37 = 5.6 ms on the rectangle drag, 6.0 x 0.95 = 5.7 ms on
+the slot drag and 15.0 x 0.80 = 12.0 ms on the bisect. A alone closes none of
+the three at 4 ms: the slot drag and the bisect are dominated by the
+diagnosis and the per-part set-up, the same sources as the edits, and the
+edits (4.6-6.4 ms worst) are out of its reach.
 
 **Profile and the choice (M8 step 5; self time, `perf report
---no-children`, the 500-entity cells, LM and DogLeg).** Steps 2–4 removed the
+--no-children`, the 500-entity cells, LM and DogLeg).** Steps 2-4 removed the
 costs step 1 measured: the staged rank computed three times per frame
-(`staged_checked`, 30–55 % of a frame), the per-part extent measure
-(`scale_at`, 12–24 %) and the tolerances made six or seven times per frame
-(`Tolerances::at`, 15–28 %). Step 5 removed the one source it found above
-10 %, the per-part split of the frame (12 % of the slot edit). What is left has no
-single source above 9 %. Most of it is the solver's per-iteration work:
-`unit_row` 7–8 %, `evaluate_within` 6 %, `entity_params` 3–5 %, `BTreeMap`
-lookups about 6 %, `malloc`/`free` about 8 %. Two more are the staged solve's
-`Splitter::split` (the joins of each part's frame, 8.5 % on the rectangle
-edit; it is called only from the solve) and the diagnosis's cut of the
-placed sketch into parts, `stage::cut` (6 %). Of the three options the plan named, the choice is:
+(`staged_checked`, 30-55 % of a frame), the per-part extent measure
+(`scale_at`, 12-24 %) and the tolerances made six or seven times per frame
+(`Tolerances::at`, 15-28 %). Step 5 removed the one source it found above
+10 %, the per-part split of the frame (12 % of the slot edit). Of the three
+options the plan named, the choice was:
 
-- **Rigid bodies in the remainder (A)** was the next M8 plan. It shrinks the
-  rows and parameters of the remainder's descent and pursuit, so it reaches
-  only the drag and bisect cells: every edit and static sketch of the
-  families is DoF 0 with nothing redundant, its matching is perfect and it
-  has no remainder. (An earlier version of this text said it reached all four
-  cell kinds; that was wrong.) Its measured ceiling is in the table above.
+- **Rigid bodies in the remainder (A)** shrinks the rows and parameters of
+  the remainder's descent and pursuit, so it reaches only the drag and
+  bisect cells: every edit and static sketch of the families is DoF 0 with
+  nothing redundant, its matching is perfect and it has no remainder. Its
+  ceiling is in the table above; it does not close M8 alone, and the next
+  M8 plan is the set-up costs the frame floor left (`parts_of`, `stage::cut`,
+  the allocator, `Frame::terms`), A to follow when the drag cells need it.
 - A **diagnosis cache (S2)** is not chosen. It reaches only the diagnosis's
-  own share, the cut and the recompile (`stage::cut` is 6 % on the rectangle
-  edit; the split is solve cost and a cache of the diagnosis leaves it), and
-  not the bisected frame at all:
-  its tries carry no diagnostics, so the solve is most of that cell (30 ms
-  against the 12 ms plain drag it extends).
+  own share, the cut and the recompile (`stage::cut` is 7-21 % of the
+  edits; the split is solve cost and a cache of the diagnosis leaves it), and
+  not the bisected frame at all: its tries carry no diagnostics, so the
+  solve is most of that cell (15 ms against the 6 ms plain drag it extends).
 - A **driver split of the remainder** is not chosen. It moves the solve of
-  the rest out of a drag frame only; the edits (6–11 ms) and each bisect try
-  of the edited stage keep the full per-iteration cost.
-
-The gain of A is not measured; its plan's own profile measures it before any
-cut. (`docs/plans/m8-frame-budget.md`, Open questions: settled by the agent.)
+  the rest out of a drag frame only; the edits (4.6-6.4 ms) and each bisect
+  try of the edited stage keep the full per-iteration cost.
 
 The 98- and 99-entity cells are 11–15 times faster than the M5 baseline and
-under 4 ms; the 498-entity cells went from not finishing in 5 s to 6–30 ms.
+under 4 ms; the 498-entity cells went from not finishing in 5 s to 4–16 ms.
 After M6, the 500-entity cells were attributed to the per-part extent
 measure, the diagnosis's recompile and re-cut of the placed sketch, and the
 repeated linear scans; M8's step-1 profile confirmed the first and the

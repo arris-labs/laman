@@ -171,10 +171,12 @@ ceiling of about 5.6, 5.0 and 12 ms; they do not close M8 alone.
   measurement, the diagnosis's recompile and re-cut of the placed sketch,
   repeated linear scans), one path, no public type. Accept: every
   500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
-  *Accept*). They still miss after the first plan: the profile in
-  ARCHITECTURE.md §Frame budget chooses rigid bodies in the remainder
-  (option A) over a diagnosis cache and a driver split; that is the next
-  M8 plan, whose profile measures its gain before any cut.
+  *Accept*). They still miss after two plans: the frame floor is done (edits
+  4.6-6.4 ms worst, first drag step 6.0 and 15-16 ms, bisected frame 15 ms).
+  Rigid bodies in the remainder (option A, ARCHITECTURE.md §Frame budget)
+  reach only the drag and bisect cells and cannot close M8 alone; a third M8
+  plan is next, on the set-up costs the profile names (`parts_of`'s
+  quadratic lookups, `stage::cut`, the allocator, `Frame::terms`).
 
 The risk this cycle retires is locality: that a decomposition into stages
 makes a local edit cost a local solve, without changing a diagnostic or a
