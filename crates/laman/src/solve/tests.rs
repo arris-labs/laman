@@ -897,3 +897,32 @@ fn kept_decompositions_change_no_bit_of_a_solve_or_its_analysis() {
         );
     }
 }
+
+/// A stage that held before its parents moved is continued with them
+/// (`continued`): two pinned parents carried 100 above a point on both their
+/// circles leave it below the line through them, where a descent from where
+/// it stood finds the mirror root; the continuation translates it with them,
+/// the construction's answer. The parents' bits are their own stages'.
+#[test]
+fn a_stage_moved_by_its_parents_keeps_its_branch() {
+    let rise = 100.0;
+    let height = 5.0 * 3.0_f64.sqrt();
+    let mut sk = Sketch::new();
+    let a = sk.point(0.0, 0.0).unwrap();
+    let b = sk.point(10.0, 0.0).unwrap();
+    let c = sk.point(5.0, height).unwrap();
+    sk.distance(a, c, 10.0).unwrap();
+    sk.distance(b, c, 10.0).unwrap();
+    sk.fix(a, 0.0, rise).unwrap();
+    sk.fix(b, 10.0, rise).unwrap();
+    for algorithm in ALGORITHMS {
+        let out = solve(&sk, with(algorithm));
+        assert!(out.converged, "{algorithm:?}");
+        let at = |p: crate::model::Point, axis| out.coordinates[&(p.id(), axis)];
+        let (x, y) = (at(c, Coordinate::X), at(c, Coordinate::Y));
+        assert!(
+            (x - 5.0).abs() <= COORDINATE_ERROR && (y - (rise + height)).abs() <= COORDINATE_ERROR,
+            "{algorithm:?}: {x} {y}"
+        );
+    }
+}

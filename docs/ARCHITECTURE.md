@@ -141,7 +141,16 @@ The pipeline, each stage deterministic:
    head, stages, remainder, each with the earlier parts' parameters as
    constants and the component's frozen scale, origin and acceptance;
    a satisfied part takes no step, so an edit leaves the parts it does not
-   reach bit for bit. Goals are pursued in the last part only. A part that
+   reach bit for bit. A part that held at the component's start and is
+   moved only by its earlier parts starts from its first-order
+   continuation, `−J_x⁺ (F + J_u Δu)` at the start: exact under a
+   translation, so a stage carried far by its parents keeps its branch
+   where a descent from where it stood can take the mirror root (a long
+   triangle strip's rotated tail). A part's step or evaluation spends the
+   share of the component's parameters it moves of the caps, a whole
+   component exactly one, and no one descent takes more steps than the
+   cap: hundreds of small parts fit a budget sized for one component.
+   Goals are pursued in the last part only. A part that
    does not converge, or a result the diagnosis would not stage, sends the
    component back to the whole solve from its start, the budget counters
    restored: a failed component keeps the whole path's bits and best effort,
@@ -278,7 +287,7 @@ The numerical defaults, exercised by `laman`'s `solve::tests`, are:
 | Accepted-step damping | divide dimensionless damping by 3 | Reduces damping after strict objective decrease |
 | Rejected-step damping | multiply by 10 | Shortens the next attempted step |
 | Damping floor | 1e-15 | Keeps regularization representable near unit Jacobians |
-| Iterations / evaluations | 128 / 256, across all components | Hard bounds, including rejected and non-finite trials |
+| Iterations / evaluations | 128 / 256, across all components, in whole-component units (a part's step spends its share of the parameters) | Hard bounds, including rejected and non-finite trials |
 | New-iterate target | 0.1 times geometric tolerance | Resolves coordinate-error accumulation in coupled geometry |
 
 A satisfied input takes no step. A newly converged iterate must meet the
@@ -587,12 +596,11 @@ three targets. These generated cases do not replace the committed C1 fixtures.
 empty redundant/conflict/flip diagnostics, semicircle sweeps and checker
 results under both algorithms. Coordinate acceptance is `1e-9` times the
 maximum x/y extent of the constructed answers; sweep acceptance is
-dimensionless `1e-9`. M5 checks upstream geometry within that coordinate
-tolerance; exact bits remain the ignored `upstream-edit-drift` regression
-for M6. Seven large tests exceed the 10 s debug threshold and remain
-ignored with measured lower bounds. Six passed in release; the 498-entity
-slot grid reached a 600 s bound after all LM checks passed, without a
-DogLeg verdict. M6 must lift these ignores and the bit-preservation regression.
+dimensionless `1e-9`. Upstream geometry is checked within that
+coordinate tolerance; exact bits are `upstream-edit-drift`'s. Every size
+runs un-ignored, each under 10 s in debug (the 500-entity rectangles,
+slowest, 7 s with their drag), the 498-entity slot grid under DogLeg
+included.
 
 `tests/c2_props.rs` uses proptest's default case count and
 `PROPTEST_CASES`: rectangles draw 1–6 cells, widths 10–40 and heights

@@ -69,9 +69,8 @@ fn triangle_strip_six_and_its_rigid_tail_edit() {
 // Nominal entity sizes use the closest construction counts: 5n+3,
 // 10rc+8, and 3n+3 cannot all equal 100, 250, or 500 exactly.
 macro_rules! large_case {
-    ($name:ident, $case:expr, $entities:expr $(, $reason:literal)?) => {
+    ($name:ident, $case:expr, $entities:expr) => {
         #[test]
-        $(#[ignore = $reason])?
         fn $name() {
             let case = $case.unwrap();
             assert_eq!(case.sketch.entities().count(), $entities);
@@ -81,46 +80,11 @@ macro_rules! large_case {
 }
 
 large_case!(rect_chain_100, rect_chain(19), 98);
-large_case!(
-    rect_chain_250,
-    rect_chain(49),
-    248,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
-large_case!(
-    rect_chain_500,
-    rect_chain(99),
-    498,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
-large_case!(
-    slot_grid_100,
-    slot_grid(3, 3),
-    98,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
-large_case!(
-    slot_grid_250,
-    slot_grid(4, 6),
-    248,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
-large_case!(
-    slot_grid_500,
-    slot_grid(7, 7),
-    498,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
+large_case!(rect_chain_250, rect_chain(49), 248);
+large_case!(rect_chain_500, rect_chain(99), 498);
+large_case!(slot_grid_100, slot_grid(3, 3), 98);
+large_case!(slot_grid_250, slot_grid(4, 6), 248);
+large_case!(slot_grid_500, slot_grid(7, 7), 498);
 large_case!(triangle_strip_100, triangle_strip(32), 99);
-large_case!(
-    triangle_strip_250,
-    triangle_strip(82),
-    249,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
-large_case!(
-    triangle_strip_500,
-    triangle_strip(166),
-    501,
-    "C2 M6: whole-component solve; debug >11 s (timed out)"
-);
+large_case!(triangle_strip_250, triangle_strip(82), 249);
+large_case!(triangle_strip_500, triangle_strip(166), 501);

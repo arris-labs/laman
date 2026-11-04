@@ -142,6 +142,46 @@ pub(crate) struct Outcome {
     pub iterations: usize,
     pub evaluations: usize,
     pub rejected: usize,
+    /// The caps are spent in these, in whole-component iterations and
+    /// evaluations: one for a step or evaluation of a whole component, the
+    /// share of its parameters for one of a part of it (`Scope::weight`). A
+    /// component solved whole spends one each, so the caps mean what they
+    /// did; a staged one spends what its parts' work comes to, so 400 small
+    /// parts do not exhaust a cap sized for one component.
+    pub iteration_work: f64,
+    pub evaluation_work: f64,
+}
+
+impl Outcome {
+    pub(crate) fn start(coordinates: Coordinates) -> Self {
+        Self {
+            coordinates,
+            converged: true,
+            iterations: 0,
+            evaluations: 0,
+            rejected: 0,
+            iteration_work: 0.0,
+            evaluation_work: 0.0,
+        }
+    }
+
+    fn iterations_left(&self, options: &Options) -> bool {
+        self.iteration_work < options.max_iterations as f64
+    }
+
+    fn evaluations_left(&self, options: &Options) -> bool {
+        self.evaluation_work < options.max_evaluations as f64
+    }
+
+    fn spend_iteration(&mut self, weight: f64) {
+        self.iterations += 1;
+        self.iteration_work += weight;
+    }
+
+    fn spend_evaluation(&mut self, weight: f64) {
+        self.evaluations += 1;
+        self.evaluation_work += weight;
+    }
 }
 
 /// An algorithm's per-component step control: LM's damping or DogLeg's radius.
@@ -232,13 +272,7 @@ pub(crate) fn solve_kept(
 ) -> Outcome {
     let mut system = System::with_goals(sketch, goals);
     system.decompositions = kept;
-    let mut out = Outcome {
-        coordinates: sketch.coordinates(),
-        converged: true,
-        iterations: 0,
-        evaluations: 0,
-        rejected: 0,
-    };
+    let mut out = Outcome::start(sketch.coordinates());
     for component in &system.components {
         let goals = system.goals_of(component);
         if component.sources.is_empty() && goals.is_empty() {
@@ -268,6 +302,9 @@ pub(crate) fn solve_kept(
 struct Scope<'c> {
     part: &'c Component,
     whole: &'c Component,
+    /// Where a staged part was last solved: the component's start, from which
+    /// a stage moved only by its earlier parts is continued ([`continued`]).
+    solved: Option<&'c Coordinates>,
 }
 
 impl<'c> Scope<'c> {
@@ -275,6 +312,19 @@ impl<'c> Scope<'c> {
         Self {
             part: component,
             whole: component,
+            solved: None,
+        }
+    }
+
+    /// The share of the component's parameters this scope moves: what one
+    /// of its steps or evaluations spends of a cap, in whole-component ones.
+    /// Exactly one for a component solved whole.
+    fn weight(&self) -> f64 {
+        let (part, whole) = (self.part.params.len(), self.whole.params.len());
+        if part >= whole {
+            1.0
+        } else {
+            part as f64 / whole as f64
         }
     }
 }
@@ -309,6 +359,8 @@ fn solve_staged(
         out.iterations,
         out.evaluations,
         out.rejected,
+        out.iteration_work,
+        out.evaluation_work,
     );
     let descended = parts.iter().all(|part| {
         part.sources.is_empty()
@@ -317,6 +369,7 @@ fn solve_staged(
                 Scope {
                     part,
                     whole: component,
+                    solved: Some(&start.0),
                 },
                 options,
                 out,
@@ -328,6 +381,8 @@ fn solve_staged(
             out.iterations,
             out.evaluations,
             out.rejected,
+            out.iteration_work,
+            out.evaluation_work,
         ) = start;
         return None;
     }
@@ -342,6 +397,7 @@ fn solve_staged(
     let scope = Scope {
         part: last,
         whole: component,
+        solved: None,
     };
     Some(pursue(system, scope, &goals, options, out))
 }
@@ -381,6 +437,7 @@ fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>
                     .collect(),
                 scale: component.scale,
                 origin: component.origin,
+                frame: component.frame.clone(),
             }
         })
         .collect();
@@ -392,14 +449,33 @@ fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>
 /// satisfied start takes no step and keeps every bit, signed zeros included.
 fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut Outcome) -> bool {
     let component = scope.part;
-    if out.evaluations == options.max_evaluations {
+    let weight = scope.weight();
+    if !out.evaluations_left(options) {
         return false;
     }
-    out.evaluations += 1;
+    out.spend_evaluation(weight);
     let mut current = system.evaluate_part(component, scope.whole, &out.coordinates, 1.0);
     current.satisfied &= vector_acceptance(system, scope, &out.coordinates, 1.0);
     if current.satisfied {
         return true;
+    }
+    if let Some(next) = scope
+        .solved
+        .and_then(|solved| continued(system, scope, solved, options, out))
+    {
+        if !out.evaluations_left(options) {
+            return false;
+        }
+        out.spend_evaluation(weight);
+        let mut moved = system.evaluate_part(component, scope.whole, &next, SOLVE_TARGET);
+        moved.satisfied &= vector_acceptance(system, scope, &next, SOLVE_TARGET);
+        if moved.valid && objective(&moved).is_finite() {
+            out.coordinates = next;
+            current = moved;
+            if current.satisfied {
+                return true;
+            }
+        }
     }
     let Some(mut position) = normalized(component, &out.coordinates) else {
         return false;
@@ -411,15 +487,22 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
     let Some(mut control) = Control::new(options).filter(|_| cost.is_finite()) else {
         return false;
     };
-    while out.iterations < options.max_iterations && out.evaluations < options.max_evaluations {
-        out.iterations += 1;
+    // A part spends a share of a cap, so it is also held to the cap alone:
+    // no descent takes more steps than a whole component may.
+    let mut steps = 0;
+    while steps < options.max_iterations
+        && out.iterations_left(options)
+        && out.evaluations_left(options)
+    {
+        steps += 1;
+        out.spend_iteration(weight);
         let proposal = control.propose(&current);
         let candidate = proposal
             .as_ref()
             .and_then(|p| trial(component, &out.coordinates, &position, &p.step));
         // An attempted trial, including a non-finite one, consumes one
         // evaluation allowance. Linear factorization failures consume both.
-        out.evaluations += 1;
+        out.spend_evaluation(weight);
         if let (Some((coordinates, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
             let mut next = system.evaluate_part(component, scope.whole, &coordinates, SOLVE_TARGET);
             next.satisfied &= vector_acceptance(system, scope, &coordinates, SOLVE_TARGET);
@@ -452,6 +535,77 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
         }
     }
     current.satisfied
+}
+
+/// The first-order continuation of a part that held at `solved` and is moved
+/// only by its earlier parts: with `x` its parameters and `u` the earlier
+/// ones, the Gauss–Newton step of its equations linearized at `solved` with
+/// `u` at its new value, `δ = −J_x⁺ (F + J_u Δu)` (the implicit function
+/// theorem's tangent; Allgower & Georg, *Introduction to Numerical
+/// Continuation Methods*, 1990, the Euler predictor). A geometric equation
+/// does not change under a translation of all it reads, so a translated
+/// parent carries the part exactly, and a rotation by `θ` errs by `θ²` times the part's reach: the
+/// part stays on the branch it held, where a descent from where it stood,
+/// left behind by a parent that moved further than the part's own size,
+/// can cross to the mirror root (an edit rotating a long tail,
+/// `triangle_strip_250`). `None` when the part did not hold at `solved`
+/// (a fresh solve or an edited part, descended as it stands), when no
+/// earlier parameter it reads moved, or when the step is not finite. One
+/// evaluation of the shared budget.
+fn continued(
+    system: &System<'_>,
+    scope: Scope<'_>,
+    solved: &Coordinates,
+    options: &Options,
+    out: &mut Outcome,
+) -> Option<Coordinates> {
+    let part = scope.part;
+    if !out.evaluations_left(options) {
+        return None;
+    }
+    out.spend_evaluation(scope.weight());
+    let (rows, satisfied, _) = system.rows(part, scope.whole, solved, 1.0);
+    if !satisfied || !vector_acceptance(system, scope, solved, 1.0) {
+        return None;
+    }
+    let scale = part.scale.max(LENGTH_FLOOR);
+    let mut shifted = false;
+    let mut values = Vec::with_capacity(rows.len());
+    let mut jacobian = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let mut value = row.value;
+        for (p, term) in &row.terms {
+            if part.params.contains(p) {
+                continue;
+            }
+            let (Some(now), Some(then)) = (out.coordinates.get(p), solved.get(p)) else {
+                continue;
+            };
+            if now.to_bits() != then.to_bits() {
+                value += term * row.factor * ((now - then) / scale);
+                shifted = true;
+            }
+        }
+        values.push(value);
+        jacobian.push(
+            part.params
+                .iter()
+                .map(|p| row.terms.get(p).copied().unwrap_or(0.0) * row.factor)
+                .collect(),
+        );
+    }
+    if !shifted {
+        return None;
+    }
+    let linear = Evaluation {
+        values,
+        jacobian,
+        satisfied: false,
+        valid: true,
+    };
+    let step = gauss_newton(&linear, GN_CUTOFF)?;
+    let position = normalized(part, &out.coordinates)?;
+    trial(part, &out.coordinates, &position, &step).map(|(coordinates, _)| coordinates)
 }
 
 /// The goal phase of one component whose required equations hold at
@@ -726,10 +880,10 @@ impl Pursuit<'_, '_> {
         let lambda = gauss_newton(&transposed, GN_CUTOFF)?;
         let mut curvature = Vec::with_capacity(basis.len());
         for v in basis {
-            if out.evaluations >= self.options.max_evaluations {
+            if !out.evaluations_left(self.options) {
                 return None;
             }
-            out.evaluations += 1;
+            out.spend_evaluation(self.scope.weight());
             let probe: Vec<f64> = v.iter().map(|x| x * CURVATURE_STEP).collect();
             let (moved, _) = trial(self.component, &out.coordinates, position, &probe)?;
             let jm = self.system.evaluate(self.component, &moved);
@@ -763,13 +917,11 @@ impl Pursuit<'_, '_> {
         position: &[f64],
         step: &[f64],
     ) -> Option<Option<Coordinates>> {
-        if out.iterations >= self.options.max_iterations
-            || out.evaluations >= self.options.max_evaluations
-        {
+        if !out.iterations_left(self.options) || !out.evaluations_left(self.options) {
             return None;
         }
-        out.iterations += 1;
-        out.evaluations += 1;
+        out.spend_iteration(self.scope.weight());
+        out.spend_evaluation(self.scope.weight());
         let mut reached = None;
         if let Some((coordinates, _)) = trial(self.component, start, position, step) {
             out.coordinates = coordinates;
@@ -832,7 +984,9 @@ fn vector_acceptance(
     target: f64,
 ) -> bool {
     let sketch = system.sketch;
-    let acceptance = system.acceptance(scope.whole, values);
+    // Measured only for a two-equation constraint: the measure reads the
+    // whole component, and most parts have none.
+    let mut acceptance = None;
     scope.part.sources.iter().all(|source| {
         let Source::Constraint(id) = source else {
             return true;
@@ -848,6 +1002,7 @@ fn vector_acceptance(
         } else {
             1.0
         };
+        let acceptance = *acceptance.get_or_insert_with(|| system.acceptance(scope.whole, values));
         libm::hypot(weight * a.value(), b.value()) <= target * acceptance
     })
 }

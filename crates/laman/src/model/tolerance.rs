@@ -77,6 +77,148 @@ pub(crate) struct Component {
     pub sources: Vec<Source>,
     pub scale: f64,
     pub origin: [f64; 2],
+    /// What the component's scale is measured over, found once so that
+    /// measuring it again at other coordinates reads the component alone.
+    pub frame: std::sync::Arc<Frame>,
+}
+
+/// The structure [`extent`] measures a component over: its points, circle
+/// radii, the constants its constraints add and its arcs. The measure is a
+/// maximum over them and an extent of the points, so their order is free; it
+/// is the same number [`extent`] gives at the same coordinates
+/// (`frame_measures_what_extent_does`).
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Frame {
+    /// The component's points by id, with the sketch's own coordinates.
+    points: Vec<(EntityId, [f64; 2])>,
+    /// Its circles' radii by id, with the sketch's own.
+    radii: Vec<(EntityId, f64)>,
+    /// The largest dimension its constraints state.
+    stated: f64,
+    /// Where its `Fix` constraints put points.
+    pinned: Vec<[f64; 2]>,
+    /// Its arcs' centre and start points, with the sketch's own coordinates.
+    arcs: Vec<([EntityId; 2], [[f64; 2]; 2])>,
+}
+
+impl Frame {
+    fn of(sk: &Sketch, base: &Coordinates, ids: &BTreeSet<EntityId>, sources: &[Source]) -> Self {
+        let get = |id, c| base.get(&(id, c)).copied().unwrap_or(f64::NAN);
+        let xy = |id| [get(id, Coordinate::X), get(id, Coordinate::Y)];
+        let mut points = BTreeSet::new();
+        let mut radii = Vec::new();
+        for id in ids {
+            for (id, c) in entity_params(sk, *id) {
+                match c {
+                    Coordinate::X | Coordinate::Y => {
+                        points.insert(id);
+                    }
+                    Coordinate::R => radii.push((id, get(id, c))),
+                }
+            }
+        }
+        let mut stated: f64 = 0.0;
+        let mut pinned = Vec::new();
+        for s in sources {
+            if let Source::Constraint(id) = s {
+                match sk.constraint(*id) {
+                    Some(
+                        Constraint::Distance { value, .. }
+                        | Constraint::PointLineDistance { value, .. }
+                        | Constraint::Radius { value, .. },
+                    ) => stated = stated.max(*value),
+                    Some(Constraint::Fix { x, y, .. }) => pinned.push([*x, *y]),
+                    Some(
+                        Constraint::Coincident { .. }
+                        | Constraint::PointOnLine { .. }
+                        | Constraint::PointOnCircle { .. }
+                        | Constraint::Horizontal(_)
+                        | Constraint::Vertical(_)
+                        | Constraint::Parallel { .. }
+                        | Constraint::Perpendicular { .. }
+                        | Constraint::EqualLength { .. }
+                        | Constraint::EqualRadius { .. }
+                        | Constraint::TangentLineCircle { .. }
+                        | Constraint::TangentCircles { .. }
+                        | Constraint::Midpoint { .. }
+                        | Constraint::Symmetric { .. }
+                        | Constraint::Angle { .. },
+                    )
+                    | None => {}
+                }
+            }
+        }
+        let arcs = ids
+            .iter()
+            .filter_map(|id| match sk.entity(*id) {
+                Some(Entity::Arc { c, s, .. }) => {
+                    Some(([c.id(), s.id()], [xy(c.id()), xy(s.id())]))
+                }
+                _ => None,
+            })
+            .collect();
+        Self {
+            points: points.into_iter().map(|id| (id, xy(id))).collect(),
+            radii,
+            stated,
+            pinned,
+            arcs,
+        }
+    }
+
+    /// The scale and origin at `values`, a coordinate it lacks read from the
+    /// sketch the frame was made from.
+    pub(crate) fn measure(&self, values: &Coordinates) -> (f64, [f64; 2]) {
+        let xy = |id: EntityId, own: [f64; 2]| {
+            let at = |c, own| values.get(&(id, c)).copied().unwrap_or(own);
+            [at(Coordinate::X, own[0]), at(Coordinate::Y, own[1])]
+        };
+        let mut scale: f64 = 0.0;
+        for (id, own) in &self.radii {
+            let r = values
+                .get(&(*id, Coordinate::R))
+                .copied()
+                .unwrap_or(*own)
+                .abs();
+            if r.is_finite() {
+                scale = scale.max(r);
+            }
+        }
+        let origin = self
+            .points
+            .first()
+            .map(|(id, own)| xy(*id, *own))
+            .unwrap_or([0.0; 2]);
+        let mut positions: Vec<[f64; 2]> = self
+            .points
+            .iter()
+            .map(|(id, own)| xy(*id, *own))
+            .filter(|p| p.iter().all(|v| v.is_finite()))
+            .collect();
+        scale = scale.max(self.stated);
+        positions.extend(&self.pinned);
+        for ([c, s], [c_own, s_own]) in &self.arcs {
+            let a = xy(*c, *c_own);
+            let b = xy(*s, *s_own);
+            if a.iter().chain(&b).all(|v| v.is_finite()) {
+                scale = scale.max(libm::hypot(b[0] - a[0], b[1] - a[1]).min(f64::MAX));
+            }
+        }
+        for axis in 0..2 {
+            let min = positions
+                .iter()
+                .map(|p| p[axis])
+                .fold(f64::INFINITY, f64::min);
+            let max = positions
+                .iter()
+                .map(|p| p[axis])
+                .fold(f64::NEG_INFINITY, f64::max);
+            if !positions.is_empty() {
+                scale = scale.max((max - min).min(f64::MAX));
+            }
+        }
+        (scale, origin)
+    }
 }
 
 /// Component-relative length tolerances: [`Tolerances::new`] at the sketch's
@@ -254,6 +396,7 @@ impl Tolerances {
                     sources: vec![],
                     scale: 0.0,
                     origin: [0.0; 2],
+                    frame: Default::default(),
                 })
                 .params
                 .push(*p);
@@ -270,11 +413,13 @@ impl Tolerances {
                     sources: vec![],
                     scale: 0.0,
                     origin: [0.0; 2],
+                    frame: Default::default(),
                 })
                 .sources
                 .push(*s);
         }
         let mut components: Vec<_> = grouped.into_values().collect();
+        let own = sk.coordinates();
         let mut constraints = BTreeMap::new();
         let mut entities: BTreeMap<EntityId, f64> = BTreeMap::new();
         for component in &mut components {
@@ -282,6 +427,7 @@ impl Tolerances {
             let (scale, origin) = extent(sk, &coords, &ids, &component.sources);
             component.scale = scale;
             component.origin = origin;
+            component.frame = std::sync::Arc::new(Frame::of(sk, &own, &ids, &component.sources));
             let tol = length(scale);
             for id in ids {
                 entities
@@ -340,15 +486,8 @@ fn merged(sk: &Sketch, values: &Coordinates) -> Coordinates {
 }
 
 /// The scale of `component` at `values`, measured as [`Tolerances::at`] does.
-pub(crate) fn scale_at(sk: &Sketch, component: &Component, values: &Coordinates) -> f64 {
-    let coords = merged(sk, values);
-    extent(
-        sk,
-        &coords,
-        &component_entities(sk, component),
-        &component.sources,
-    )
-    .0
+pub(crate) fn scale_at(component: &Component, values: &Coordinates) -> f64 {
+    component.frame.measure(values).0
 }
 
 fn component_entities(sk: &Sketch, component: &Component) -> BTreeSet<EntityId> {
@@ -443,4 +582,49 @@ fn extent(
         }
     }
     (scale, origin)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    /// The frame measures a component as [`extent`] does, bit for bit, at the
+    /// sketch's coordinates, at moved ones, at a partial map and with a
+    /// non-finite value.
+    #[test]
+    fn frame_measures_what_extent_does() {
+        let mut sk = Sketch::new();
+        let o = sk.point_fixed(1.0, -2.0).unwrap();
+        let c = sk.point(3.0, 4.0).unwrap();
+        let s = sk.point(8.0, 4.5).unwrap();
+        let e = sk.point(3.0, 9.0).unwrap();
+        let arc = sk.arc(c, s, e).unwrap();
+        let q = sk.point(-6.0, 7.0).unwrap();
+        let circle = sk.circle(q, 2.5).unwrap();
+        sk.distance(o, c, 12.0).unwrap();
+        sk.radius(circle, 3.5).unwrap();
+        sk.fix(e, 20.0, 1.0).unwrap();
+        sk.distance(q, s, 4.0).unwrap();
+        sk.point(100.0, 100.0).unwrap();
+        let _ = arc;
+        let base = sk.coordinates();
+        let mut moved = base.clone();
+        for (i, v) in moved.values_mut().enumerate() {
+            *v += i as f64 * 0.37 - 1.0;
+        }
+        let mut partial = Coordinates::new();
+        partial.insert((s.id(), Coordinate::X), -40.0);
+        let mut broken = base.clone();
+        broken.insert((c.id(), Coordinate::Y), f64::NAN);
+        for component in Tolerances::new(&sk).components {
+            for values in [&base, &moved, &partial, &broken] {
+                let ids = component_entities(&sk, &component);
+                let want = extent(&sk, &merged(&sk, values), &ids, &component.sources);
+                let got = component.frame.measure(values);
+                assert_eq!(got.0.to_bits(), want.0.to_bits());
+                assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits));
+            }
+        }
+    }
 }

@@ -54,9 +54,12 @@ pub use crate::solve::Algorithm;
 pub struct SolverOptions {
     /// The step each iteration proposes.
     pub algorithm: Algorithm,
-    /// Accepted and rejected steps in all, across components.
+    /// Accepted and rejected steps in all, across components. A component
+    /// solved by stages spends the share of its parameters a step moves, so
+    /// the cap bounds its work as a whole component's steps would.
     pub max_iterations: usize,
-    /// Residual and Jacobian evaluations in all, across components.
+    /// Residual and Jacobian evaluations in all, across components, spent
+    /// the same way.
     pub max_evaluations: usize,
     /// Re-solves the conflict analysis may spend in all; running out names
     /// no conflict and leaves the status `NotConverged`.
@@ -348,13 +351,7 @@ pub(crate) fn diagnose_on(
     path: Path,
 ) -> Solution {
     let before = Observations::at(sketch, &sketch.coordinates());
-    let outcome = Outcome {
-        coordinates: coordinates.clone(),
-        converged: true,
-        iterations: 0,
-        evaluations: 0,
-        rejected: 0,
-    };
+    let outcome = Outcome::start(coordinates.clone());
     let observed = before.next(sketch, &outcome.coordinates);
     let flips = before.flips(&observed);
     let attempt = Attempt {

@@ -58,6 +58,26 @@ pub(crate) struct System<'a> {
     /// The components' decompositions when a caller kept them
     /// (`DragSession`); `None` cuts them as asked.
     pub decompositions: Option<&'a crate::stage::Decompositions>,
+    /// Every equation's index in [`Self::equations`] by its source, so
+    /// reading a part's rows does not scan the others.
+    by_source: BTreeMap<Source, Vec<usize>>,
+    /// The components cut once, on first ask, when no kept cut is given:
+    /// the solve, its acceptance of a staged result and the analysis then
+    /// share one.
+    pub cut: std::cell::OnceCell<crate::stage::Decompositions>,
+}
+
+/// One equation read sparsely ([`System::rows`]).
+#[derive(Debug)]
+pub(crate) struct Row {
+    /// Its index in [`System::equations`].
+    pub index: usize,
+    /// Its residual, normalized.
+    pub value: f64,
+    /// Its gradient by parameter, unnormalized.
+    pub terms: BTreeMap<Param, f64>,
+    /// What a term is multiplied by to be a normalized Jacobian entry.
+    pub factor: f64,
 }
 
 #[derive(Debug)]
@@ -79,6 +99,13 @@ impl<'a> System<'a> {
                     index: 0,
                     contact: None,
                 });
+            }
+        }
+        // Each point's first explicit membership of each round, read once.
+        let mut on_round: BTreeMap<(EntityId, EntityId), ConstraintId> = BTreeMap::new();
+        for (id, c) in sketch.constraints() {
+            if let Constraint::PointOnCircle { p, on } = c {
+                on_round.entry((p.id(), on.id())).or_insert(id);
             }
         }
         for (id, c) in sketch.constraints() {
@@ -106,9 +133,13 @@ impl<'a> System<'a> {
                 equations.push(Equation {
                     source: Source::Constraint(id),
                     index,
-                    contact: recognize(sketch, c),
+                    contact: recognize(sketch, c, &on_round),
                 });
             }
+        }
+        let mut by_source: BTreeMap<Source, Vec<usize>> = BTreeMap::new();
+        for (index, eq) in equations.iter().enumerate() {
+            by_source.entry(eq.source).or_default().push(index);
         }
         Self {
             sketch,
@@ -116,6 +147,8 @@ impl<'a> System<'a> {
             equations,
             goals: vec![],
             decompositions: None,
+            by_source,
+            cut: std::cell::OnceCell::new(),
         }
     }
 
@@ -147,11 +180,26 @@ impl<'a> System<'a> {
             .collect()
     }
 
+    /// The indices in [`Self::equations`] of `component`'s equations,
+    /// ascending: compiled order.
+    pub fn rows_of(&self, component: &Component) -> Vec<usize> {
+        let mut rows: Vec<usize> = component
+            .sources
+            .iter()
+            .filter_map(|s| self.by_source.get(s))
+            .flatten()
+            .copied()
+            .collect();
+        rows.sort_unstable();
+        rows.dedup();
+        rows
+    }
+
     /// Length acceptance at `coordinates`: the frozen input tolerance, tightened
     /// to the one the checker measures there (ADR-0004). It never loosens, so a
     /// solve cannot shrink or grow its way past the checker.
     pub fn acceptance(&self, component: &Component, coordinates: &Coordinates) -> f64 {
-        let here = tolerance::scale_at(self.sketch, component, coordinates);
+        let here = tolerance::scale_at(component, coordinates);
         tolerance::length(component.scale).min(tolerance::length(here))
     }
 
@@ -201,29 +249,69 @@ impl<'a> System<'a> {
         coordinates: &Coordinates,
         target: f64,
     ) -> (Evaluation, Vec<usize>) {
-        let scale = component.scale.max(tolerance::LENGTH_FLOOR);
-        let acceptance = self.acceptance(whole, coordinates);
+        let (rows, satisfied, valid) = self.rows(component, whole, coordinates, target);
         let mut out = Evaluation {
             values: vec![],
             jacobian: vec![],
-            satisfied: true,
-            valid: true,
+            satisfied,
+            valid,
         };
         let mut indices = Vec::new();
-        for (index, eq) in self
-            .equations
+        let column: BTreeMap<Param, usize> = component
+            .params
             .iter()
             .enumerate()
-            .filter(|(_, e)| component.sources.contains(&e.source))
-        {
+            .map(|(j, p)| (*p, j))
+            .collect();
+        for row in rows {
+            // A column the row does not read is `0 × factor`: +0, the factor
+            // being a positive finite scale.
+            let mut dense = vec![0.0; component.params.len()];
+            for (p, term) in &row.terms {
+                if let Some(j) = column.get(p) {
+                    if let Some(x) = dense.get_mut(*j) {
+                        *x = term * row.factor;
+                    }
+                }
+            }
+            out.valid &= row.value.is_finite() && dense.iter().all(|x| x.is_finite());
+            out.values.push(row.value);
+            out.jacobian.push(dense);
+            indices.push(row.index);
+        }
+        out.satisfied &= out.valid;
+        (out, indices)
+    }
+
+    /// `component`'s equations at `coordinates` as sparse rows over every
+    /// parameter they read, normalized as [`Self::evaluate_part`]'s: a row's
+    /// Jacobian entry for a parameter is its term times the row's factor.
+    /// Also whether every row meets `whole`'s acceptance times `target`, and
+    /// whether every row could be read and is not degenerate; finiteness is
+    /// the caller's to check.
+    pub fn rows(
+        &self,
+        component: &Component,
+        whole: &Component,
+        coordinates: &Coordinates,
+        target: f64,
+    ) -> (Vec<Row>, bool, bool) {
+        let scale = component.scale.max(tolerance::LENGTH_FLOOR);
+        let acceptance = self.acceptance(whole, coordinates);
+        let (mut satisfied, mut valid) = (true, true);
+        let mut rows = Vec::new();
+        for index in self.rows_of(component) {
+            let Some(eq) = self.equations.get(index) else {
+                continue;
+            };
             let original = match eq.source {
                 Source::Arc(id) => residual::intrinsic(self.sketch, coordinates, id),
                 Source::Constraint(id) => residual::equations(self.sketch, coordinates, id)
                     .and_then(|e| e.as_slice().get(eq.index).copied()),
             };
             let Some(original) = original else {
-                out.valid = false;
-                out.satisfied = false;
+                valid = false;
+                satisfied = false;
                 continue;
             };
             let divisor = match original.unit() {
@@ -234,9 +322,8 @@ impl<'a> System<'a> {
                 Unit::Length => acceptance,
                 Unit::Ratio => tolerance::ANGLE,
             };
-            out.satisfied &=
-                !original.is_degenerate() && original.value().abs() <= target * threshold;
-            out.valid &= !original.is_degenerate();
+            satisfied &= !original.is_degenerate() && original.value().abs() <= target * threshold;
+            valid &= !original.is_degenerate();
             let (value, terms, domain) = if let Some(contact) = &eq.contact {
                 contact.evaluate(coordinates, tolerance::length(component.scale))
             } else {
@@ -246,25 +333,27 @@ impl<'a> System<'a> {
                     true,
                 )
             };
-            out.valid &= domain;
-            out.satisfied &= domain && value.abs() <= target * threshold;
-            let value = value / divisor;
-            let row: Vec<_> = component
-                .params
-                .iter()
-                .map(|p| terms.get(p).copied().unwrap_or(0.0) * (scale / divisor))
-                .collect();
-            out.valid &= value.is_finite() && row.iter().all(|x| x.is_finite());
-            out.values.push(value);
-            out.jacobian.push(row);
-            indices.push(index);
+            valid &= domain;
+            satisfied &= domain && value.abs() <= target * threshold;
+            rows.push(Row {
+                index,
+                value: value / divisor,
+                terms,
+                factor: scale / divisor,
+            });
         }
-        out.satisfied &= out.valid;
-        (out, indices)
+        (rows, satisfied && valid, valid)
     }
 }
 
-fn recognize(sk: &Sketch, c: &Constraint) -> Option<Contact> {
+/// A tangency's contact, its point found among the line's ends: an arc's
+/// own end, else a point with an explicit membership of the round, the
+/// first in constraint order (`on_round`).
+fn recognize(
+    sk: &Sketch,
+    c: &Constraint,
+    on_round: &BTreeMap<(EntityId, EntityId), ConstraintId>,
+) -> Option<Contact> {
     let Constraint::TangentLineCircle { line, round, sense } = *c else {
         return None;
     };
@@ -286,11 +375,9 @@ fn recognize(sk: &Sketch, c: &Constraint) -> Option<Contact> {
             | Entity::Circle { .. }
             | Entity::Arc { .. } => None,
         };
-        let explicit = sk.constraints().find_map(|(id, c)| {
-            matches!(c,
-            Constraint::PointOnCircle { p,on } if *p==point && *on==round)
-            .then_some(Membership::Explicit(id))
-        });
+        let explicit = on_round
+            .get(&(point.id(), round.id()))
+            .map(|id| Membership::Explicit(*id));
         if let Some(membership) = implicit.or(explicit) {
             return Some(Contact {
                 point,

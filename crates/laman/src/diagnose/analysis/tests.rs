@@ -473,11 +473,8 @@ fn degenerate_entities_agree_with_the_checker() {
     let empty = sk.arc(o, s, e).unwrap();
     let values = sk.coordinates();
     let out = Outcome {
-        coordinates: values.clone(),
         converged: false,
-        iterations: 0,
-        evaluations: 0,
-        rejected: 0,
+        ..Outcome::start(values.clone())
     };
     let d = analyse(&sk, &out, &Options::default());
     let report = check(&sk, &values);

@@ -8,7 +8,6 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 [Findings](#findings) below, in the fixed shape.
 
 - Run SolveSpace and PlaneGCS through `tools/oracle/` for the Python column of COMPARISON.md (GPL/LGPL Python bindings; out of the Rust-field comparison)
-- C2 corpus: record why DogLeg returns no static answer on the 498-entity slot grid within 600 s in release (iterations and time under a bounded run); M6 needs a before-number for the 498/501-entity edit and drag cells, which the baseline table shows as setup timeouts
 - C2 corpus: share the edit replacement of `examples/bench_c2.rs` and `tests/support/c2.rs` as an exhaustive `Edit::apply`, and keep the inspect dumps out of the timed tests
 - Ask a consumer whether dimension edits need `Sketch::set_dimension` beyond remove/re-add with the same constraint id; M5 uses the existing API
 - Validate C2's interpretation of nested constraints with a consumer: triangle strips cover deep dependencies and slot grids cover profiles inside a profile; dimension references or other nested shapes may need additional corpus families

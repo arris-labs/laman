@@ -61,7 +61,13 @@ pub(crate) struct Decomposition {
 }
 
 /// The parameters of `component` that equation `eq` reads, in order.
+#[cfg(test)]
 pub(crate) fn support(system: &System<'_>, eq: &Equation) -> Vec<Param> {
+    support_at(system, eq, &system.sketch.coordinates())
+}
+
+/// [`support`] with the sketch's coordinates read once by the caller.
+fn support_at(system: &System<'_>, eq: &Equation, own: &Coordinates) -> Vec<Param> {
     let sk = system.sketch;
     if let Some(contact) = &eq.contact {
         let mut out = Vec::new();
@@ -84,7 +90,7 @@ pub(crate) fn support(system: &System<'_>, eq: &Equation) -> Vec<Param> {
     // A degenerate equation (coincident ends) has no gradient where it
     // stands: read its structure at a fixed generic position instead, and
     // failing that, all it could read.
-    let mut keys = keys_at(&sk.coordinates())
+    let mut keys = keys_at(own)
         .or_else(|| {
             let mut generic = sk.coordinates();
             for (i, value) in generic.values_mut().enumerate() {
@@ -137,19 +143,18 @@ impl Decompositions {
 pub(crate) fn decompose(system: &System<'_>, component: &Component) -> Decomposition {
     match system.decompositions.and_then(|d| d.get(component)) {
         Some(kept) => kept.clone(),
-        None => cut(system, component),
+        None => system
+            .cut
+            .get_or_init(|| Decompositions::of(system))
+            .get(component)
+            .cloned()
+            .unwrap_or_else(|| cut(system, component)),
     }
 }
 
 fn cut(system: &System<'_>, component: &Component) -> Decomposition {
-    let sources: BTreeSet<Source> = component.sources.iter().copied().collect();
-    let rows: Vec<usize> = system
-        .equations
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| sources.contains(&e.source))
-        .map(|(i, _)| i)
-        .collect();
+    let rows = system.rows_of(component);
+    let own = system.sketch.coordinates();
     let mut cols: Vec<Param> = component.params.clone();
     cols.sort();
     cols.dedup();
@@ -161,7 +166,7 @@ fn cut(system: &System<'_>, component: &Component) -> Decomposition {
             let mut a: Vec<usize> = system
                 .equations
                 .get(r)
-                .map(|e| support(system, e))
+                .map(|e| support_at(system, e, &own))
                 .unwrap_or_default()
                 .iter()
                 .filter_map(|p| col_of.get(p).copied())

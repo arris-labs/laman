@@ -130,9 +130,25 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   used only for the component whose parameters and sources it was cut
   from. "Outside the remainder" is tested as the entities with no freedom
   at the first step.)
-- [ ] Step 6 **[2]** — Compile and evaluate at scale (the indexing delta).
+- [x] Step 6 **[2]** — Compile and evaluate at scale (the indexing delta).
   Lift the seven `large_case` ignores in `tests/c2.rs` (each under 10 s in
-  debug); the 498 slot grid gets a DogLeg verdict.
+  debug); the 498 slot grid gets a DogLeg verdict. (*Settled* at step 6:
+  the caps are spent in whole-component units, a part's step or evaluation
+  its share of the parameters, a whole component one, each descent also
+  held to the cap: 147 parts had spent the shared 128 and fallen back
+  whole. Staged, the 250/500 strips' edits took a mirror root where an
+  edit carried a stage's parents further than its size (point 70 of 84:
+  32.9 from the answer, side 20, the exact mirror to 4e-8). So a part that
+  held at the component's start and is moved only by earlier parts starts
+  from its first-order continuation `−J_x⁺ (F + J_u Δu)`: exact under
+  translation, one evaluation, a fresh solve untouched, no digest moved.
+  Not a joint solve of the downstream closure (the whole tail's cost),
+  nor a branch check with fallback (the whole solve's cost where edits
+  are). Edit medians, release, diagnostics included: rectangles 12.4 ms,
+  slots 23.0, triangles 10.9 (LM; DogLeg alike), over 4 ms because every
+  part's evaluation measures the whole component's extent (O(n²) a solve)
+  and redundancy compiles and cuts the placed sketch again; step 9 decides.
+  The slot grid converges under DogLeg, 30 ms static.)
 - [ ] Step 7 **[2]** — Locality held by tests: `c2.rs` and `c2_props.rs`
   compare `unmoved`, and every parameter outside the edited stage's
   downstream closure, by bits instead of tolerance; staged equals
@@ -162,11 +178,14 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   status line M6 done.
 - `GLOSSARY.md` — *Head* new, *Stage* sharpened.
 - `docs/adr/README.md` — ADR-0009 row.
-- `docs/BACKLOG.md` — `upstream-edit-drift` State: fixed; drop the 498
-  DogLeg line once step 6 answers it.
+- `docs/BACKLOG.md` — `upstream-edit-drift` State: fixed (the 498 DogLeg
+  line dropped at step 6).
 - `docs/ideas/c2-decomposition.md` — cut to M7/M8 (M8 per step 9).
 - `CHANGELOG.md` Unreleased — large sketches solve by stages; edits keep
-  unrelated geometry's bits; solutions may differ from 0.1.0 in last bits.
+  unrelated geometry's bits; solutions may differ from 0.1.0 in last bits;
+  `max_iterations`/`max_evaluations` count a staged component's work in
+  whole-component steps (step 6; `laman-py`'s docstrings say "in all,
+  across components", still true, untouched).
 - `AGENTS.md` current state.
 
 ## Open questions
