@@ -372,7 +372,7 @@ it collapses. Contradictory fixes reach their analytic midpoint in 2
 iterations. A trust region of 1e3 started near the line of two distance
 centres rejects 11 overshooting Gauss–Newton steps, then solves on the
 guess's branch. A stationary singular start (`Jᵀf = 0`, `JJᵀ` singular)
-returns its own bits, not converged. An inconsistent subset with as many
+returns its own bits, not converged. An unsatisfiable subset with as many
 equations as parameters has its least-squares point where `J` is
 singular: the Gauss–Newton step is unbounded there, each step is cut to
 the radius in the span of `Jᵀf` and that step, and the descent converges

@@ -15,6 +15,20 @@
 //! the minimum one.
 #![allow(dead_code)]
 
+/// Jacobi sweeps at most; the matrices are a dozen square at most and the
+/// cyclic sweeps converge quadratically, so the cap is never what stops it.
+const MAX_SWEEPS: usize = 50;
+
+/// The sum of squared off-diagonal entries below which `J Jᵀ` counts as
+/// diagonal: eigenvalues are then right to 1e-12 of the largest (a unit-row
+/// matrix has eigenvalues of order 1), far below the `MARGIN` they are
+/// compared with.
+const OFF_DIAGONAL_SQUARED: f64 = 1e-24;
+
+/// An off-diagonal entry smaller than this is already zero for a rotation
+/// (the rotation angle would underflow); skipped to avoid dividing by it.
+const NEGLIGIBLE_ENTRY: f64 = 1e-300;
+
 /// The pebble game: each point holds two pebbles, an accepted edge is
 /// covered by one pebble of an end and directed out of it.
 struct Game {
@@ -181,19 +195,19 @@ pub fn margin(at: &[(f64, f64)], edges: &[(usize, usize)], fixed: &[usize]) -> f
         }
     }
     // Cyclic Jacobi eigenvalues; the sizes are a dozen at most.
-    for _ in 0..50 {
+    for _ in 0..MAX_SWEEPS {
         let mut off = 0.0;
         for i in 0..m {
             for j in 0..i {
                 off += g[i][j] * g[i][j];
             }
         }
-        if off < 1e-24 {
+        if off < OFF_DIAGONAL_SQUARED {
             break;
         }
         for p in 0..m {
             for q in 0..p {
-                if g[p][q].abs() < 1e-300 {
+                if g[p][q].abs() < NEGLIGIBLE_ENTRY {
                     continue;
                 }
                 let theta = (g[q][q] - g[p][p]) / (2.0 * g[p][q]);

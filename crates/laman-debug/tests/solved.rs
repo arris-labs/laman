@@ -16,6 +16,7 @@ use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::{Source, check};
 use laman_debug::strategy::sketch;
 use proptest::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Magnitude up to which the checker's products stay finite (well under
 /// sqrt(f64::MAX), about 1.3e154). Past it the checker itself overflows: that
@@ -27,6 +28,22 @@ const CHECKABLE: f64 = 1e100;
 /// that a subset of the circuit is feasible at a length a part in ten
 /// thousand off the truth.
 const MARGIN: f64 = 0.02;
+
+/// Cap on the draws the properties may reject (proptest's default is 1024,
+/// which a run of 20000 cases passes: the circuit property rejects about
+/// one draw in three as a repeated point or an alignment).
+const MAX_REJECTS: u32 = 1_000_000;
+
+/// The circuit property's stretched solves, and those among them that ended
+/// `NotConverged` naming nothing (the open finding
+/// `framework-conflict-inconclusive-circuit`).
+static CIRCUIT_SOLVES: AtomicUsize = AtomicUsize::new(0);
+static CIRCUIT_INCONCLUSIVE: AtomicUsize = AtomicUsize::new(0);
+
+/// One inconclusive stretched solve in this many is tolerated (plus two):
+/// measured about one in six thousand, so the bound is a tripwire for a
+/// regression, not a cover for the finding.
+const INCONCLUSIVE_ONE_IN: usize = 50;
 
 const ALGORITHMS: [Algorithm; 2] = [Algorithm::LevenbergMarquardt, Algorithm::DogLeg];
 
@@ -171,7 +188,13 @@ fn generic(steps: &[Step]) -> Vec<Step> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    // The case count is proptest's default and `PROPTEST_CASES` (256 unset).
+    // The circuit property rejects many draws by design (`prop_assume!`
+    // on the margin), so its cap on rejects is raised with the count.
+    #![proptest_config(ProptestConfig {
+        max_global_rejects: MAX_REJECTS,
+        ..ProptestConfig::default()
+    })]
 
     /// The count of a construction is the solve's DoF; the answer is
     /// satisfied by the checker's measure; a count of 0 is fully constrained
@@ -299,8 +322,8 @@ proptest! {
     /// true length (a triangle whose third side passes the sum of the other
     /// two is a conflict of three), so a large stretch can name a smaller
     /// set that is just as true. An analysis that does not conclude
-    /// (regression `framework-conflict-inconclusive`) names nothing and is
-    /// not asserted here.
+    /// (regression `framework-conflict-inconclusive-circuit`) names nothing;
+    /// it is counted and bounded, not skipped.
     #[test]
     fn the_conflict_of_a_stretched_distance_is_its_fundamental_circuit(
         steps in proptest::collection::vec(step(), 3..8),
@@ -332,9 +355,27 @@ proptest! {
                 .distance(built.points[i], built.points[j], d * false_by)
                 .unwrap();
             let solution = sk.solve(&options(algorithm));
-            if solution.status != Status::Unsatisfiable {
+            CIRCUIT_SOLVES.fetch_add(1, Ordering::Relaxed);
+            // The checker judges this solve, whatever its status: a
+            // stretched framework has no coordinates that satisfy it.
+            let report = check(&sk, &solution.coordinates);
+            prop_assert!(!report.violations.is_empty(), "{algorithm:?}: checker finds no violation");
+            // A genuine stretch of a rigid framework, with every
+            // leave-one-out subset clear of an alignment, is a conflict.
+            // The one admitted miss is the analysis ending `NotConverged`
+            // with nothing named (regression
+            // `framework-conflict-inconclusive-circuit`); it is counted and
+            // bounded, not skipped.
+            if solution.status == Status::NotConverged && solution.diagnostics.conflicts.is_empty() {
+                let misses = CIRCUIT_INCONCLUSIVE.fetch_add(1, Ordering::Relaxed) + 1;
+                let solves = CIRCUIT_SOLVES.load(Ordering::Relaxed);
+                prop_assert!(
+                    misses <= 2 + solves / INCONCLUSIVE_ONE_IN,
+                    "{algorithm:?}: {misses} of {solves} stretched solves inconclusive"
+                );
                 continue;
             }
+            prop_assert_eq!(solution.status, Status::Unsatisfiable, "{:?}", algorithm);
             let mut want: Vec<_> = members.iter().map(|&k| built.edges[k].2).collect();
             want.push(stretched);
             want.sort_unstable();

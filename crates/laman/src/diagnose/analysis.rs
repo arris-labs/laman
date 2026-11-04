@@ -289,7 +289,7 @@ fn conflict_sets(
 /// and ends at the whole re-solve's coordinates where neither converges. A
 /// whole-path analysis then certifies nothing the staged re-solve disproves
 /// (`regression/whole-false-certificate`). By Levenberg–Marquardt (third
-/// amendment): an inconsistent subset with as many equations as it reads
+/// amendment): an unsatisfiable subset with as many equations as it reads
 /// parameters has its least-squares point where the Jacobian is singular,
 /// and there the dog leg's steps, in the span of the gradient and the
 /// Gauss–Newton step, crawl and end above the certificate at the caps

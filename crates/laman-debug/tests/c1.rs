@@ -227,10 +227,20 @@ fn the_conflicting_twins_sets_are_the_minimum_ones() {
                     sketch.remove_constraint(*id).unwrap();
                 }
                 let solution = sketch.solve(&SolverOptions::default());
-                assert_ne!(
-                    solution.status,
-                    Status::Unsatisfiable,
-                    "{name}: {keep:?} is a conflict of {size} < {named}"
+                // A subset is no conflict only if it is conclusively
+                // satisfied: `NotConverged` proves nothing, so it fails.
+                assert!(
+                    matches!(
+                        solution.status,
+                        Status::FullyConstrained | Status::UnderConstrained
+                    ),
+                    "{name}: {keep:?} (of {size} < {named}) is {:?}, not satisfied",
+                    solution.status
+                );
+                let report = check(&sketch, &solution.coordinates);
+                assert!(
+                    report.violations.is_empty(),
+                    "{name}: {keep:?}: the checker disagrees: {report:?}"
                 );
             }
         }

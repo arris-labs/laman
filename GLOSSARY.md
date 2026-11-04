@@ -162,7 +162,7 @@ In a rigid distance framework with one extra distance, the extra edge and
 every edge whose removal leaves the rest independent: the smallest
 over-braced set holding the extra edge. Generically the only minimal
 conflict set when that distance is stretched a little (Laman 1970; pebble
-game, Jacobs and Hendrickson 1997). A test oracle computed from the graph
+game, Jacobs and Hendrickson 1997). A reference computed from the graph
 alone (`laman-debug` test support), never a solver output.
 
 **Component**:

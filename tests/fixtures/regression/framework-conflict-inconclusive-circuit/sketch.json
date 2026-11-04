@@ -1,0 +1,17 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {"id": 0, "kind": "point", "x": 0.0, "y": 0.0, "fixed": ["x", "y"]},
+    {"id": 1, "kind": "point", "x": 70.0, "y": 0.0, "fixed": ["x", "y"]},
+    {"id": 2, "kind": "point", "x": -47.79162870748236, "y": 39.56202450270743},
+    {"id": 3, "kind": "point", "x": 45.230873714935335, "y": 69.91608384392917}
+  ],
+  "constraints": [
+    {"id": 0, "kind": "distance", "a": 0, "b": 2, "value": 61.94328687234868, "tag": "o2"},
+    {"id": 1, "kind": "distance", "a": 1, "b": 2, "value": 124.15753562936638, "tag": "a2"},
+    {"id": 2, "kind": "distance", "a": 0, "b": 3, "value": 83.1831639013456, "tag": "o3"},
+    {"id": 3, "kind": "distance", "a": 1, "b": 3, "value": 74.14629260087499, "tag": "a3"},
+    {"id": 4, "kind": "distance", "a": 3, "b": 2, "value": 97.69014681737521, "tag": "stretched"}
+  ]
+}

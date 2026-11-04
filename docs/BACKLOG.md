@@ -71,7 +71,16 @@ A defect a run measured, one block each:
 - Seen: same property, M2 step 8
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored framework_conflict_inconclusive`
 - Measured: rigid distance framework plus one stretched distance. The whole path (`laman::reference::solve`) shows it under LM too where the staged analysis proves the set (property seed `58eab082…`, kept in `solved.proptest-regressions`)
+- Also at `PROPTEST_CASES=20000` (plans/m7-drag-conflicts review): (a) a five-distance case, regression/framework-conflict-inconclusive-circuit (two fixed points, two free points each tied to both, the fifth distance between them stretched by 1.00002): the staged solve ends `NotConverged` under LM, about 1 stretched solve in 6000 of the circuit property (`solved.rs` counts and bounds it); (b) `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false` (staged = whole check, `support/staged.rs:60`) about 1 case in 10000: staged `[]`, whole names {7, 12, 14}; input `steps = [(0,62.362974614242034), (-69.0403764012459,0; nudge (0,0.09744215601998288); ties [1]), (0,-43.29504348460387), (-7.86902799208324,-54.77203232424581; nudge (0.031051381421328888,0)), (26.879996666022468,94.77420170446021; nudge (0,-0.030821528787309888)), (39.890714266668866,0; nudge (0,-0.03248348545513495); ties [35,3]), (48.67845169294814,85.52985789506866; nudge (-0.06595306681022901,-0.06009572363438356); ties [30,51])]`, `pick = (8, 23)`, `false_by = 2.5944183626117723`. Not shrunk; its seed is not kept in `solved.proptest-regressions` (it would fail the gate every run)
 - State: regression/framework-conflict-inconclusive
+
+### symmetric-subnormal-axis
+- What: a satisfied `symmetric` about a line whose extent is subnormal (7.7e-309): the checker measures NaN
+- Where: `laman-check` (the symmetric measure) and the solve's status at a collapsed axis
+- Seen: property `any_well_formed_sketch_solves_to_a_complete_answer` at `PROPTEST_CASES=20000`, about 1 case in 16000 (plans/m7-drag-conflicts review)
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored symmetric_subnormal_axis`
+- Measured: status `UnderConstrained` (as expected), checker violation `Symmetric` measured NaN, the axis degenerate `ZeroLengthLine`; same family as `extreme-point-on-line`
+- State: regression/symmetric-subnormal-axis
 
 ### negative-radius-solve
 - What: a solve returns a circle radius below zero (-7.6e90) that `Sketch::apply` refuses; no flip is named

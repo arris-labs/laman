@@ -348,3 +348,39 @@ fn whole_false_certificate_staged() {
 fn whole_false_certificate() {
     assert_spared_in_every_conflict(laman::reference::solve);
 }
+
+#[test]
+#[ignore = "the checker returns NaN for a satisfied symmetric about a line with a subnormal extent"]
+fn symmetric_subnormal_axis() {
+    let f = load("symmetric-subnormal-axis");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(
+            solution.status.to_string(),
+            f.expected.status,
+            "{algorithm:?}"
+        );
+        let report = check(&f.sketch, &solution.coordinates);
+        assert!(report.violations.is_empty(), "{algorithm:?}: {report:?}");
+    }
+}
+
+#[test]
+#[ignore = "a stretched two-point framework ends NotConverged with no conflict named"]
+fn framework_conflict_inconclusive_circuit() {
+    let f = load("framework-conflict-inconclusive-circuit");
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(
+            solution.status.to_string(),
+            f.expected.status,
+            "{algorithm:?}"
+        );
+        assert_eq!(solution.diagnostics.conflicts.len(), 1, "{algorithm:?}");
+        assert_eq!(solution.diagnostics.conflicts[0].len(), 5, "{algorithm:?}");
+    }
+}

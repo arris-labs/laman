@@ -113,6 +113,9 @@ established here.
 - `solved.rs`'s conflict property at `PROPTEST_CASES=20000`: under both
   algorithms every set named equals the fundamental circuit; staged =
   whole wherever either concludes; no exemption left in the property.
+  Met for the circuit equality (inconclusive stretched solves counted and
+  bounded, `framework-conflict-inconclusive-circuit`); staged = whole
+  still fails about once in 10000 cases (`framework-conflict-inconclusive`).
 - Every solve and drag property: radius `≥ 0`, `apply` accepts every
   `finish`, at sketch scales and at 1e±300.
 - `tests/fixtures/drag/sweep-jump`: bisected (`bisection` set,
@@ -179,6 +182,18 @@ established here.
   Found: `solved.rs`'s older staged = whole check fails at 2000 cases on
   `framework-conflict-inconclusive`'s case (whole `[]`, staged names a
   set); untouched, that finding stands.
+  Review: the conflict properties now read `PROPTEST_CASES` (and allow the
+  rejects it implies) and ran at 20000 cases. The exact-circuit property
+  held its circuit equality on every solve that concluded, with the
+  checker on each; about one stretched solve in 6000 ends `NotConverged`
+  naming nothing (`regression/framework-conflict-inconclusive-circuit`,
+  ignored), counted and bounded in the property, not skipped. The staged =
+  whole check of `an_extra_distance_…` fails about once in 10000 cases (the
+  `framework-conflict-inconclusive` family, here whole names a set where
+  staged names none) and `any_well_formed_…` once on a symmetric about a
+  subnormal axis (`regression/symmetric-subnormal-axis`): both open in
+  `BACKLOG.md`, so the acceptance below is met for the circuit property
+  only, not for staged = whole at 20000 cases.
 - *Settled* (step 7, ADR-0006 amendment): `MAX_SWEEP_STEP` is π/4 (an
   eighth of a turn): a move of `f` turns reads correctly up to half a turn,
   so `f` catches true moves in `(f, 1 − f)` turns; the smaller the better,
