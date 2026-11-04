@@ -92,7 +92,9 @@ fn disproved(
 /// (`regression/whole-false-certificate`, ignored until M7). The two may
 /// differ only where every whole set staging lacks is `disproved` by a
 /// checker-clean witness: the reference is the wrong side there, and
-/// equality would assert a known-false answer. Nothing staged is excused by it: the
+/// equality would assert a known-false answer. A whole analysis that is
+/// inconclusive, `NotConverged` with no set, has no set to hold staging
+/// to. Nothing staged is excused by either: the
 /// staged sets keep their own guarantees, which the callers' properties
 /// hold (each set names the contradiction, a member violated).
 fn assert_same_conflicts(
@@ -105,6 +107,13 @@ fn assert_same_conflicts(
 ) {
     let (s, w) = (&staged.diagnostics.conflicts, &whole.diagnostics.conflicts);
     if s == w {
+        return;
+    }
+    if w.is_empty() && whole.status == Status::NotConverged {
+        // The whole analysis was inconclusive and names nothing
+        // (`framework-conflict-inconclusive`'s family): it holds no
+        // unsatisfiable set to compare with, and equality would ask the
+        // staged path to be as inconclusive.
         return;
     }
     let missing: Vec<_> = w.iter().filter(|set| !s.contains(set)).collect();
@@ -133,7 +142,14 @@ pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions)
         options,
     );
     let whole = laman::reference::diagnose(sketch, &staged.coordinates, options);
-    assert_eq!(staged.status, whole.status, "{name}: status");
+    // A whole analysis that is inconclusive where staging proves a set
+    // reports `NotConverged` for it (`assert_same_conflicts`).
+    let proved_where_whole_is_inconclusive = staged.status == Status::Unsatisfiable
+        && whole.status == Status::NotConverged
+        && whole.diagnostics.conflicts.is_empty();
+    if !proved_where_whole_is_inconclusive {
+        assert_eq!(staged.status, whole.status, "{name}: status");
+    }
     assert_eq!(staged.diagnostics.dof, whole.diagnostics.dof, "{name}: DoF");
     let per_entity = |s: &Solution| -> Vec<(EntityId, usize)> {
         s.diagnostics
