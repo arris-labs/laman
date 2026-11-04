@@ -148,15 +148,16 @@ impl Frame {
                 }
             }
         }
-        let arcs = ids
-            .iter()
-            .filter_map(|id| match sk.entity(*id) {
-                Some(Entity::Arc { c, s, .. }) => {
-                    Some(([c.id(), s.id()], [xy(c.id()), xy(s.id())]))
-                }
-                _ => None,
-            })
-            .collect();
+        let arcs =
+            ids.iter()
+                .filter_map(|id| match sk.entity(*id) {
+                    Some(Entity::Arc { c, s, .. }) => {
+                        Some(([c.id(), s.id()], [xy(c.id()), xy(s.id())]))
+                    }
+                    Some(Entity::Point { .. } | Entity::Line { .. } | Entity::Circle { .. })
+                    | None => None,
+                })
+                .collect();
         Self {
             points: points.into_iter().map(|id| (id, xy(id))).collect(),
             radii,

@@ -27,6 +27,19 @@ use crate::residual::{self, Param};
 use crate::system::{Equation, System};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Stride, period and spacing of the generic position (`support_at`): they
+/// place every parameter at a fixed, deterministic, non-symmetric position
+/// so that a degenerate equation (coincident ends) gets a nonzero gradient
+/// whose term keys give its structure. They are not tolerances: nothing is
+/// compared against them. The pattern repeats every `GENERIC_PERIOD`
+/// parameters, so two points can coincide there on a large sketch; then
+/// `keys_at` still finds the equation degenerate and the code falls back to
+/// `tolerance::dependencies`, a superset of what it reads: the cut is
+/// coarser, never wrong.
+const GENERIC_STRIDE: usize = 37;
+const GENERIC_PERIOD: usize = 101;
+const GENERIC_SPACING: f64 = 0.37;
+
 /// What a part is, by its place in the decomposition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Kind {
@@ -94,7 +107,7 @@ pub(crate) fn support_at(system: &System<'_>, eq: &Equation, own: &Coordinates) 
         .or_else(|| {
             let mut generic = sk.coordinates();
             for (i, value) in generic.values_mut().enumerate() {
-                *value = 1.0 + (i * 37 % 101) as f64 * 0.37;
+                *value = 1.0 + (i * GENERIC_STRIDE % GENERIC_PERIOD) as f64 * GENERIC_SPACING;
             }
             keys_at(&generic)
         })

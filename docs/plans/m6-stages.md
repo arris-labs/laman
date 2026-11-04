@@ -175,10 +175,14 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
 - `bench_c2`, release, reference machine: the one-dimension edit ≤ 4 ms
   median at 498/498/501 entities under both algorithms, diagnostics
   included; the drag step recorded per cell; `bench` keeps C1 at ≤ 1 ms.
+  **Missed** (*Settled* at retirement): edits 10.8–22.5 ms, first drag
+  step 20 ms; C1 held (0.05–0.46 ms, drag steps 0.39–0.40 ms).
 - `upstream_edit_drift_{lm,dogleg}` and all `large_case` tests pass
   un-ignored; edits keep upstream bits exactly.
 - Staged = reference on C1, the corpus and the properties: DoF, per-entity
-  DoF, direction span, redundant sets, conflict sets.
+  DoF, direction span, redundant sets, and conflict sets where the
+  reference's are unsatisfiable (a reference set a checker-clean witness
+  disproves is the reference's error; *Settled* at retirement).
 - C1 fixtures' numbers as ROADMAP.md lists them; checker green; the
   re-blessed digests equal natively, on wasm32-wasip1 and from pytest.
 
@@ -218,10 +222,28 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   converged, checker-clean re-solve disproves, `whole-false-certificate`),
   the staged set is right there, and the filter's fix is M7's conflict
   work (a non-goal here). The fixture stays ignored until M7.
-  ⚠ OPEN (acceptance wording, the human's): the acceptance's "conflict
-  sets" would read "conflict sets where the reference's are
-  unsatisfiable"; until decided it is unedited, and the seed is not kept
-  in `solved.proptest-regressions`.
-- ⚠ OPEN: if a 500-entity drag misses 4 ms, which M8 option (A, S2, or a
-  driver split of the remainder)? Agent writes it up as an idea after
-  step 9; the human decides there.
+  *Settled* at retirement (the human ruled it technical, the agent's):
+  the acceptance reads "conflict sets where the reference's are
+  unsatisfiable", and the property applies the same narrowing
+  (`support/staged.rs` `assert_same_conflicts`): staged and whole sets
+  may differ only where every whole set the staged path lacks has a
+  checker-clean witness (the set alone, or the sketch without one
+  constraint outside it, from the guesses or the best effort). Not a
+  weakening: the witness is the independent checker's, so the reference
+  is the wrong side there and equality would assert a known-false answer;
+  the staged sets keep the properties' own checks. The seed's full hash
+  was never kept, so the gate meets the case deterministically through
+  its fixture (`staged.rs`
+  `a_whole_conflict_that_holds_together_is_not_the_staged_answer`, seen
+  failing under strict equality).
+- *Settled* at retirement: the 4 ms acceptance is recorded as missed with
+  its numbers (ROADMAP.md §C2, ARCHITECTURE.md §Frame budget). M8 runs as
+  profile-then-remove (the per-part extent, the recompile and re-cut, the
+  repeated linear scans the review found), not A, S2 or a driver split:
+  both measured sources lie outside the remainder's solve. The target
+  holds for the 500-entity drag step too, as ROADMAP's *Accept* states;
+  only a profile after that removal chooses among A, S2 and the split.
+- *Settled* at retirement (review): the cut reads coordinates where an
+  equation is degenerate, at a fixed generic position, else its full
+  dependencies; coarser, never wrong. ADR-0009's "reads no coordinates"
+  corrected; the constants named.
