@@ -116,6 +116,8 @@ pub(crate) struct Frame {
     pinned: Vec<[f64; 2]>,
     /// Its arcs' centre and start points, with the sketch's own coordinates.
     arcs: Vec<([EntityId; 2], [[f64; 2]; 2])>,
+    /// What a part solve measured once outside the part ([`Frame::split`]).
+    outside: Option<Terms>,
 }
 
 impl Frame {
@@ -181,17 +183,76 @@ impl Frame {
             stated,
             pinned,
             arcs,
+            outside: None,
         }
     }
 
     /// The scale and origin at `values`, a coordinate it lacks read from the
     /// sketch the frame was made from.
     pub(crate) fn measure(&self, values: &Coordinates) -> (f64, [f64; 2]) {
+        let mut terms = self.terms(values);
+        if let Some(outside) = &self.outside {
+            terms.join(outside);
+        }
+        terms.finish()
+    }
+
+    /// The frame of a part solve: what `self` measures, with everything that
+    /// is not the part's own measured once at `values` and kept. The part's
+    /// own entities are the points with a coordinate in `own`, the circles
+    /// with their radius in it and the arcs on such points; the part moves
+    /// no other parameter, so [`Self::measure`] of the result is
+    /// `self.measure` at any coordinates that differ from `values` only in
+    /// `own`, bit for bit (`split_frame_measures_what_the_whole_does`).
+    pub(crate) fn split(&self, own: &[Param], values: &Coordinates) -> Frame {
+        let own: BTreeSet<Param> = own.iter().copied().collect();
+        let moves = |id| own.contains(&(id, Coordinate::X)) || own.contains(&(id, Coordinate::Y));
+        let mut inside = Frame::default();
+        let mut outside = Frame {
+            stated: self.stated,
+            pinned: self.pinned.clone(),
+            ..Frame::default()
+        };
+        for point in &self.points {
+            let side = if moves(point.0) {
+                &mut inside
+            } else {
+                &mut outside
+            };
+            side.points.push(*point);
+        }
+        for radius in &self.radii {
+            let side = if own.contains(&(radius.0, Coordinate::R)) {
+                &mut inside
+            } else {
+                &mut outside
+            };
+            side.radii.push(*radius);
+        }
+        for arc in &self.arcs {
+            let side = if moves(arc.0[0]) || moves(arc.0[1]) {
+                &mut inside
+            } else {
+                &mut outside
+            };
+            side.arcs.push(*arc);
+        }
+        let mut kept = outside.terms(values);
+        if let Some(before) = &self.outside {
+            kept.join(before);
+        }
+        inside.outside = Some(kept);
+        inside
+    }
+
+    /// Everything a measure takes a maximum or an extent of, before the
+    /// extent is turned into a length.
+    fn terms(&self, values: &Coordinates) -> Terms {
         let xy = |id: EntityId, own: [f64; 2]| {
             let at = |c, own| values.get(&(id, c)).copied().unwrap_or(own);
             [at(Coordinate::X, own[0]), at(Coordinate::Y, own[1])]
         };
-        let mut scale: f64 = 0.0;
+        let mut terms = Terms::default();
         for (id, own) in &self.radii {
             let r = values
                 .get(&(*id, Coordinate::R))
@@ -199,43 +260,86 @@ impl Frame {
                 .unwrap_or(*own)
                 .abs();
             if r.is_finite() {
-                scale = scale.max(r);
+                terms.scale = terms.scale.max(r);
             }
         }
-        let origin = self
-            .points
-            .first()
-            .map(|(id, own)| xy(*id, *own))
-            .unwrap_or([0.0; 2]);
-        let mut positions: Vec<[f64; 2]> = self
-            .points
-            .iter()
-            .map(|(id, own)| xy(*id, *own))
-            .filter(|p| p.iter().all(|v| v.is_finite()))
-            .collect();
-        scale = scale.max(self.stated);
-        positions.extend(&self.pinned);
+        terms.origin = self.points.first().map(|(id, own)| (*id, xy(*id, *own)));
+        for (id, own) in &self.points {
+            let p = xy(*id, *own);
+            if p.iter().all(|v| v.is_finite()) {
+                terms.include(p);
+            }
+        }
+        terms.scale = terms.scale.max(self.stated);
+        for p in &self.pinned {
+            terms.include(*p);
+        }
         for ([c, s], [c_own, s_own]) in &self.arcs {
             let a = xy(*c, *c_own);
             let b = xy(*s, *s_own);
             if a.iter().chain(&b).all(|v| v.is_finite()) {
-                scale = scale.max(libm::hypot(b[0] - a[0], b[1] - a[1]).min(f64::MAX));
+                terms.scale = terms
+                    .scale
+                    .max(libm::hypot(b[0] - a[0], b[1] - a[1]).min(f64::MAX));
             }
         }
-        for axis in 0..2 {
-            let min = positions
-                .iter()
-                .map(|p| p[axis])
-                .fold(f64::INFINITY, f64::min);
-            let max = positions
-                .iter()
-                .map(|p| p[axis])
-                .fold(f64::NEG_INFINITY, f64::max);
-            if !positions.is_empty() {
-                scale = scale.max((max - min).min(f64::MAX));
+        terms
+    }
+}
+
+/// A frame's measure before its extent is read: the largest radius,
+/// dimension and arc length, the bounding box of its positions and its
+/// first point by id. Joining two is joining their maxima, minima and
+/// first points, so the order of the parts does not reach the result.
+#[derive(Clone, Debug)]
+pub(crate) struct Terms {
+    scale: f64,
+    /// The first point by id and where it is, finite or not.
+    origin: Option<(EntityId, [f64; 2])>,
+    min: [f64; 2],
+    max: [f64; 2],
+    /// Whether any position entered the box.
+    any: bool,
+}
+
+impl Default for Terms {
+    fn default() -> Self {
+        Self {
+            scale: 0.0,
+            origin: None,
+            min: [f64::INFINITY; 2],
+            max: [f64::NEG_INFINITY; 2],
+            any: false,
+        }
+    }
+}
+
+impl Terms {
+    fn include(&mut self, p: [f64; 2]) {
+        self.any = true;
+        self.min = [self.min[0].min(p[0]), self.min[1].min(p[1])];
+        self.max = [self.max[0].max(p[0]), self.max[1].max(p[1])];
+    }
+
+    fn join(&mut self, other: &Terms) {
+        self.scale = self.scale.max(other.scale);
+        self.any |= other.any;
+        self.min = [self.min[0].min(other.min[0]), self.min[1].min(other.min[1])];
+        self.max = [self.max[0].max(other.max[0]), self.max[1].max(other.max[1])];
+        self.origin = match (self.origin, other.origin) {
+            (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
+            (a, b) => a.or(b),
+        };
+    }
+
+    fn finish(self) -> (f64, [f64; 2]) {
+        let mut scale = self.scale;
+        if self.any {
+            for axis in 0..2 {
+                scale = scale.max((self.max[axis] - self.min[axis]).min(f64::MAX));
             }
         }
-        (scale, origin)
+        (scale, self.origin.map_or([0.0; 2], |(_, p)| p))
     }
 }
 
@@ -506,6 +610,7 @@ pub(crate) struct FrameTolerances {
 }
 
 impl FrameTolerances {
+    #[cfg(any(test, feature = "reference"))]
     pub(crate) fn of(sk: &Sketch, reached: &Coordinates) -> Self {
         Self {
             frozen: Tolerances::new(sk),
@@ -676,6 +781,111 @@ mod tests {
                 let got = component.frame.measure(values);
                 assert_eq!(got.0.to_bits(), want.0.to_bits());
                 assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits));
+            }
+        }
+    }
+
+    /// A split frame measures what the whole frame does at any coordinates
+    /// that differ from the split's only in the part's own parameters: bit
+    /// for bit, for one sketch built to have every kind of term.
+    fn assert_split_measures_whole(sk: &Sketch, own_every: usize, shift: f64, big: f64) {
+        let base = sk.coordinates();
+        for component in Tolerances::new(sk).components {
+            let own: Vec<Param> = component
+                .params
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(i, _)| i % own_every == 0)
+                .map(|(_, p)| p)
+                .collect();
+            let split = component.frame.split(&own, &base);
+            let mut moved = base.clone();
+            for (k, p) in own.iter().enumerate() {
+                let v = match k % 4 {
+                    0 => shift * (k as f64 + 1.0),
+                    1 => big,
+                    2 => -big,
+                    _ => base[p] + shift,
+                };
+                moved.insert(*p, v);
+            }
+            let mut broken = moved.clone();
+            if let Some(p) = own.first() {
+                broken.insert(*p, f64::NAN);
+            }
+            let mut partial = Coordinates::new();
+            for p in &own {
+                partial.insert(*p, shift);
+            }
+            for values in [&base, &moved, &broken, &partial] {
+                let want = component.frame.measure(values);
+                let got = split.measure(values);
+                assert_eq!(got.0.to_bits(), want.0.to_bits(), "scale");
+                assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits), "origin");
+            }
+        }
+    }
+
+    fn constructed(steps: &[(f64, f64, u8, usize)]) -> Option<Sketch> {
+        let mut sk = Sketch::new();
+        let mut points = vec![sk.point_fixed(1.0, -2.0).ok()?];
+        for (x, y, kind, link) in steps {
+            let q = sk.point(*x, *y).ok()?;
+            let other = points[link % points.len()];
+            match kind % 7 {
+                0 => {
+                    sk.distance(other, q, x.abs() + 0.5).ok()?;
+                }
+                1 => {
+                    let c = sk.circle(q, y.abs() + 0.5).ok()?;
+                    sk.radius(c, x.abs() + 1.0).ok()?;
+                }
+                2 => {
+                    sk.fix(q, *y, *x).ok()?;
+                }
+                3 if points.len() >= 2 => {
+                    let e = points[(link + 1) % points.len()];
+                    if other.id() != e.id() {
+                        sk.arc(q, other, e).ok()?;
+                    }
+                }
+                4 => {
+                    sk.coincident(other, q).ok()?;
+                }
+                _ => {}
+            }
+            points.push(q);
+        }
+        Some(sk)
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn split_frame_measures_what_the_whole_does(
+            steps in proptest::collection::vec(
+                (-1e3..1e3_f64, -1e3..1e3_f64, 0..7_u8, 0..64_usize),
+                1..24,
+            ),
+            own_every in 1..6_usize,
+            shift in -1e3..1e3_f64,
+            extreme in proptest::sample::select(vec![1e-300, 1e-150, 1.0, 1e150, 1e300, 1.7e308]),
+        ) {
+            let Some(sk) = constructed(&steps) else { return Ok(()); };
+            assert_split_measures_whole(&sk, own_every, shift, extreme);
+        }
+    }
+
+    /// The same on the C2 corpus, whose components the staged solve splits.
+    #[test]
+    fn split_frame_measures_what_the_whole_does_on_the_corpus() {
+        use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+        for case in [rect_chain(8), slot_grid(2, 3), triangle_strip(9)] {
+            let case = case.unwrap();
+            let sk: Sketch =
+                serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
+            for every in [1, 2, 5] {
+                assert_split_measures_whole(&sk, every, 0.75, 1e300);
             }
         }
     }

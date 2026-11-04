@@ -84,7 +84,7 @@ careful, **[3]** unproven.
 - [x] Step 3 **[2]** — One `Tolerances::at` per frame, as in the deltas.
   Test: the existing solve, diagnose and drag suites pass and the digests
   are unchanged.
-- [ ] Step 4 **[2]** — Extent split, as in the deltas. Test: the joined
+- [x] Step 4 **[2]** — Extent split, as in the deltas. Test: the joined
   measure equals `Frame::measure` bit for bit (proptest over the corpus
   strategies, plus f64's extremes near 1e±300 per `solver.md`).
 - [ ] Step 5 **[2]** — Re-profile the 500-entity cells. If any of them

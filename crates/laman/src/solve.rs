@@ -332,6 +332,10 @@ pub(crate) fn solve_under(
 struct Scope<'c> {
     part: &'c Component,
     whole: &'c Component,
+    /// What the acceptance is measured by: `whole`, or for a staged part a
+    /// component with `whole`'s scale and origin whose frame measured
+    /// everything outside the part once ([`Scope::measured`]).
+    accepts: &'c Component,
     /// Where a staged part was last solved: the component's start, from which
     /// a stage moved only by its earlier parts is continued ([`continued`]).
     solved: Option<&'c Coordinates>,
@@ -342,7 +346,23 @@ impl<'c> Scope<'c> {
         Self {
             part: component,
             whole: component,
+            accepts: component,
             solved: None,
+        }
+    }
+
+    /// The component that measures `whole`'s acceptance during a solve of
+    /// `part` from `values`: the part moves no parameter outside itself, so
+    /// the rest of the frame is measured once here and not at every
+    /// evaluation. It holds no parameters or sources, only the scale, origin
+    /// and frame the acceptance reads.
+    fn measured(part: &Component, whole: &Component, values: &Coordinates) -> Component {
+        Component {
+            params: vec![],
+            sources: vec![],
+            scale: whole.scale,
+            origin: whole.origin,
+            frame: std::sync::Arc::new(whole.frame.split(&part.params, values)),
         }
     }
 
@@ -393,17 +413,16 @@ fn solve_staged(
         out.evaluation_work,
     );
     let descended = parts.iter().all(|part| {
-        part.sources.is_empty()
-            || descend(
-                system,
-                Scope {
-                    part,
-                    whole: component,
-                    solved: Some(&start.0),
-                },
-                options,
-                out,
-            )
+        part.sources.is_empty() || {
+            let accepts = Scope::measured(part, component, &out.coordinates);
+            let scope = Scope {
+                part,
+                whole: component,
+                accepts: &accepts,
+                solved: Some(&start.0),
+            };
+            descend(system, scope, options, out)
+        }
     });
     if !descended || !crate::diagnose::stageable(system, component, &out.coordinates, &out.staged) {
         (
@@ -424,9 +443,11 @@ fn solve_staged(
     if goals.is_empty() {
         return Some(true);
     }
+    let accepts = Scope::measured(last, component, &out.coordinates);
     let scope = Scope {
         part: last,
         whole: component,
+        accepts: &accepts,
         solved: None,
     };
     Some(pursue(system, scope, &goals, options, out))
@@ -484,7 +505,7 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
         return false;
     }
     out.spend_evaluation(weight);
-    let mut current = system.evaluate_part(component, scope.whole, &out.coordinates, 1.0);
+    let mut current = system.evaluate_part(component, scope.accepts, &out.coordinates, 1.0);
     current.satisfied &= vector_acceptance(system, scope, &out.coordinates, 1.0);
     if current.satisfied {
         return true;
@@ -497,7 +518,7 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
             return false;
         }
         out.spend_evaluation(weight);
-        let mut moved = system.evaluate_part(component, scope.whole, &next, SOLVE_TARGET);
+        let mut moved = system.evaluate_part(component, scope.accepts, &next, SOLVE_TARGET);
         moved.satisfied &= vector_acceptance(system, scope, &next, SOLVE_TARGET);
         if moved.valid && objective(&moved).is_finite() {
             out.coordinates = next;
@@ -539,7 +560,8 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
         // evaluation allowance. Linear factorization failures consume both.
         out.spend_evaluation(weight);
         if let (Some((coordinates, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
-            let mut next = system.evaluate_part(component, scope.whole, &coordinates, SOLVE_TARGET);
+            let mut next =
+                system.evaluate_part(component, scope.accepts, &coordinates, SOLVE_TARGET);
             next.satisfied &= vector_acceptance(system, scope, &coordinates, SOLVE_TARGET);
             let next_cost = objective(&next);
             if next.valid && next_cost.is_finite() && (next_cost < cost || next.satisfied) {
@@ -599,7 +621,7 @@ fn continued(
         return None;
     }
     out.spend_evaluation(scope.weight());
-    let (rows, satisfied, _) = system.rows(part, scope.whole, solved, 1.0);
+    let (rows, satisfied, _) = system.rows(part, scope.accepts, solved, 1.0);
     if !satisfied || !vector_acceptance(system, scope, solved, 1.0) {
         return None;
     }
@@ -712,7 +734,8 @@ fn pursue(
         let Some(g) = pursuit.residuals(&out.coordinates) else {
             return false;
         };
-        let acceptance = target * system.acceptance(scope.whole, &out.coordinates) / pursuit.scale;
+        let acceptance =
+            target * system.acceptance(scope.accepts, &out.coordinates) / pursuit.scale;
         target = SOLVE_TARGET;
         if g.iter().all(|r| r.abs() <= acceptance) {
             return true;
@@ -983,7 +1006,7 @@ impl Pursuit<'_, '_> {
     /// stationary point the true decrease is smaller than that; refusing such
     /// a step would stall the reduced Newton iteration short of stationarity.
     fn decreased(&self, start: &Coordinates, g: &[f64], next: &Coordinates) -> Option<bool> {
-        let acceptance = self.system.acceptance(self.scope.whole, next) / self.scale;
+        let acceptance = self.system.acceptance(self.scope.accepts, next) / self.scale;
         let change = self
             .goals
             .iter()
@@ -1037,7 +1060,8 @@ fn vector_acceptance(
         } else {
             1.0
         };
-        let acceptance = *acceptance.get_or_insert_with(|| system.acceptance(scope.whole, values));
+        let acceptance =
+            *acceptance.get_or_insert_with(|| system.acceptance(scope.accepts, values));
         libm::hypot(weight * a.value(), b.value()) <= target * acceptance
     })
 }
