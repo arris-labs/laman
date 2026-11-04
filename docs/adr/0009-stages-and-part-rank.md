@@ -226,9 +226,9 @@ filter test now re-solves by the staged solve on both paths (ADR-0005,
 second amendment), so the whole path's analysis certifies nothing the
 staged re-solve disproves, and `regression/whole-false-certificate`
 passes on both paths. The tests hold staged and whole conflict sets
-equal, with no witness exemption; an analysis inconclusive on one side
-(`staged-conflict-inconclusive`) is still no pair of answers to compare
-until M7 fixes it.
+equal, with no witness exemption; `staged-conflict-inconclusive` is fixed
+(ADR-0005 third amendment). The `framework-conflict-inconclusive` family
+(about 1 case in 10000 of the staged = whole check) is open in the backlog.
 
 ## Amendment 2026-11-04: no inconclusive side
 

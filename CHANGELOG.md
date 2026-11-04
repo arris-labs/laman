@@ -18,13 +18,21 @@ release by release. Written in the commit that makes the change, under
   directions and redundant constraints are unchanged. A conflict set can
   now keep a constraint 0.1.0 wrongly left out of it, where the rest held
   together. On some contradictory sketches the conflict analysis now names
-  a set where 0.1.0's was inconclusive (`NotConverged`), and under DogLeg
-  occasionally the reverse.
+  a set where 0.1.0's was inconclusive (`NotConverged`), under DogLeg too:
+  its analysis finds a conflict set wherever Levenberg-Marquardt's does.
 - `SolverOptions::max_iterations` and `max_evaluations` count a sketch
   solved by stages in whole-solve units: a stage's step spends its share
   of the parameters, so the defaults bound the same work. A staged solve
   that fails is solved again whole, so a failing sketch can spend up to
   twice the caps.
+
+- A circle's radius is never negative: a solve or a drag frame that would
+  need one ends with the radius at 0 (a conflict, or under-constrained),
+  so every solution applies back to its sketch.
+- A conflict set no longer includes a false member or misses a true one
+  where a subset of the constraints held together at a stationary point
+  that was not a solution: each test of the analysis is solved again by the
+  staged solve, falling back to the whole one, so both paths agree.
 
 - A drag frame that would move an arc's sweep by more than an eighth of a
   turn is bisected toward the last target, as a flip is, without naming a
@@ -36,7 +44,7 @@ release by release. Written in the commit that makes the change, under
 
 - `Diagnostics` gains a field, `bisection: Option<Bisection>`, set on a drag
   frame that was halved toward its target (`Bisection { reached, halvings }`)
-  and `None` otherwise. `Diagnostics` is not `#[non_exhaustive]`, so a
+  and `None` otherwise (a frame refused because every try flipped or jumped carries it too, with `halvings` 0 when `max_bisections` is 0). `Diagnostics` is not `#[non_exhaustive]`, so a
   struct literal needs `bisection: None`; the Python `Diagnostics` has a
   `bisection` attribute (`laman.Bisection` or `None`) and `Solution` JSON
   gains an optional `diagnostics.bisection`.

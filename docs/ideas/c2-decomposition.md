@@ -1,6 +1,6 @@
 # Idea: c2-decomposition
 
-- Status: Accepted (C, S1); M5 and M6 done (ADR-0009); M7 absorbed by plans/m7-drag-conflicts; M8 remains
+- Status: Accepted (C, S1); M5 and M6 done (ADR-0009); M7 done; M8 remains
 - Raised: 2026-11-04
 - Prompt (verbatim from the human): "c2 (or you can directly plan first thing from it?)"
 
@@ -8,7 +8,7 @@
 
 M5 (corpus and bench) and M6 (stages, ADR-0009) are done; the options,
 the Round 1 decision (C with S1) and M6's design are in git history,
-ARCHITECTURE.md and ADR-0009. M7 is planned (plans/m7-drag-conflicts);
+ARCHITECTURE.md and ADR-0009. M7 is done (ROADMAP.md);
 one milestone remains (ROADMAP.md §C2):
 
 - **M8 — the frame budget at 500 entities**: decided below.

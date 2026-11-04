@@ -141,7 +141,7 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5 and M6 done; the frame budget missed.** M5: the generated
+**Status: M5, M6 and M7 done; the frame budget missed.** M5: the generated
 corpus, construction properties and bounded release benchmark. M6: every
 component solved and diagnosed by stages (ADR-0009); an edit keeps every
 bit outside its stage's downstream closure (`upstream-edit-drift`
@@ -150,13 +150,12 @@ equal the whole path's, and conflict sets wherever the whole path's are
 unsatisfiable. The 4 ms acceptance is **not met** at 500 entities: edit
 medians 10.8–22.5 ms, first drag step 20 ms, both algorithms; 98/99
 entities 1.1–2.8 ms (ARCHITECTURE.md §Frame budget, with the two measured
-cost sources). Next: M7 and M8, independent.
+cost sources). M7: no radius below 0 in a solve or drag (ADR-0010), conflict
+sets equal on the staged and whole paths and the fundamental circuit where
+the stretch is small (ADR-0005 amendments), a frame that jumps an arc's
+sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). Next: M8.
 
-- **M7 — drag robustness and conflicts**: the drag-robustness and radius
-  items of *In*; conflict sets against the exact minimum, which includes
-  the whole path's false certificate (`regression/whole-false-certificate`,
-  ADR-0009) and the staged DogLeg analysis's inconclusive cases
-  (`staged-conflict-inconclusive`).
+- **M7 — drag robustness and conflicts**: done (status line).
 - **M8 — the frame budget at 500 entities**: profile the 500-entity edit
   and drag step first, then remove what it confirms (the per-part extent
   measurement, the diagnosis's recompile and re-cut of the placed sketch,
