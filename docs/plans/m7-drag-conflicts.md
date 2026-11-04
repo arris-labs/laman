@@ -78,7 +78,7 @@ established here.
 - [x] Step 1 **[3]** — Radius bound in LM and DogLeg, ADR-0010; lift
   `negative-radius-solve` and `drag-negative-radius`; C1 digests
   unchanged or re-blessed with the reason.
-- [ ] Step 2 **[2]** — Property: every solution any solve and drag
+- [x] Step 2 **[2]** — Property: every solution any solve and drag
   property draws (extremes included) has every radius `≥ 0` and applies
   back; drop `drag_props.rs`'s `DimensionOutOfRange` exemption.
 - [ ] Step 3 **[2]** — Shrink seed `4ca64a2b…` to

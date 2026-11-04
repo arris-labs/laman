@@ -10,7 +10,7 @@
 //! included, as the fuzz target does.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
-use laman::model::{Coordinate, EntityId, ModelError, Sketch};
+use laman::model::{Coordinate, EntityId, Sketch};
 use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::check;
 use laman_debug::strategy::sketch;
@@ -169,19 +169,19 @@ proptest! {
                 prop_assert_eq!(step.coordinates.len(), sk.coordinates().len());
                 if x.is_finite() && y.is_finite() {
                     prop_assert!(step.coordinates.values().all(|v| v.is_finite()), "{:?}: {:?}", algorithm, step.coordinates);
+                    for (key, value) in &step.coordinates {
+                        prop_assert!(key.1 != Coordinate::R || *value >= 0.0, "{:?}: radius {:?} = {}", algorithm, key.0, value);
+                    }
                 } else {
                     prop_assert_eq!(step.status, Status::NotConverged);
                 }
             }
             let mut applied = sk.clone();
-            match applied.apply(&session.finish()) {
-                Ok(()) => {}
-                // The known gap of regressions `drag-negative-radius` and
-                // `negative-radius-solve`: a solution whose radius is below
-                // zero, which `apply` refuses. Anything else is a finding.
-                Err(ModelError::DimensionOutOfRange { what: "radius", .. }) => {}
-                Err(other) => prop_assert!(false, "{:?}: {:?}", algorithm, other),
+            let finished = session.finish();
+            for (key, value) in &finished.coordinates {
+                prop_assert!(key.1 != Coordinate::R || *value >= 0.0, "{:?}: radius {:?} = {}", algorithm, key.0, value);
             }
+            prop_assert!(applied.apply(&finished).is_ok(), "{:?}", algorithm);
         }
     }
 }

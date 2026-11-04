@@ -9,7 +9,7 @@
 #[path = "support/staged.rs"]
 mod staged;
 
-use laman::model::{Point, Sketch};
+use laman::model::{Coordinate, Point, Sketch};
 use laman::solution::{Algorithm, SolverOptions, Status};
 use laman_check::{Source, check};
 use laman_debug::strategy::sketch;
@@ -266,6 +266,11 @@ proptest! {
         for algorithm in ALGORITHMS {
             let solution = staged::assert_same_freedom("well-formed", &sk, &options(algorithm));
             prop_assert_eq!(solution.coordinates.len(), sk.coordinates().len());
+            for (key, value) in &solution.coordinates {
+                prop_assert!(key.1 != Coordinate::R || *value >= 0.0, "{algorithm:?}: radius {:?} = {value}", key.0);
+            }
+            let mut applied = sk.clone();
+            prop_assert!(applied.apply(&solution).is_ok(), "{algorithm:?}: apply refused");
             let checkable = sk.coordinates().values().chain(solution.coordinates.values()).all(|v| v.abs() <= CHECKABLE);
             if !checkable {
                 continue;
