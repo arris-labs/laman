@@ -119,3 +119,21 @@ fn c2_corpus_at_constructed_coordinates() {
     corpus("triangle-strip-6", &triangle_strip(6).unwrap());
     corpus("triangle-strip-32", &triangle_strip(32).unwrap());
 }
+
+#[test]
+fn a_whole_conflict_that_holds_together_is_not_the_staged_answer() {
+    // `regression/whole-false-certificate`, the property seed that found it
+    // held here so the gate meets it on every run: the whole path names a
+    // set a checker-clean witness disproves, and `assert_same_freedom`
+    // admits the difference only on that witness.
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/regression/whole-false-certificate");
+    let fixture = Fixture::load(&dir).unwrap();
+    for algorithm in ALGORITHMS {
+        assert_same_freedom(
+            "whole-false-certificate",
+            &fixture.sketch,
+            &options(algorithm),
+        );
+    }
+}

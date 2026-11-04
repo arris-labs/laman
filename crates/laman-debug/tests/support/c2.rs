@@ -11,9 +11,9 @@ const SWEEP_TOLERANCE: f64 = 1e-9;
 
 // The whole-component analysis a staged one is compared with tests every
 // constraint for redundancy by a whole factorization, O(n⁴) in the sketch's
-// size: 8 s in release at 501 entities. Up to the 100-entity cases it fits
-// the 10 s debug bound; the small cases and every property case cover each
-// family's edit and drag.
+// size: 8 s in release at 501 entities, 19 s in debug at the 98-entity
+// slot grid. Up to 50 entities it fits the 10 s debug bound; the small
+// cases and every property case cover each family's edit and drag.
 const REFERENCE_ENTITIES: usize = 50;
 
 /// The staged diagnosis of `solution` equals the whole-component one at the

@@ -5,11 +5,13 @@
 //! coordinates (`laman::reference::diagnose`): status, DoF and per-entity
 //! DoF equal exactly, and so do the redundant and conflict sets; the free
 //! directions span the same space, measured by their orthogonal projectors.
-//! The conflict sets equal the whole solve's too (`laman::reference::solve`).
+//! The conflict sets equal the whole solve's too (`laman::reference::solve`),
+//! where the whole path's sets are unsatisfiable: see `assert_same_conflicts`.
 #![allow(clippy::unwrap_used, dead_code)]
 
 use laman::model::{Coordinate, Coordinates, EntityId, Sketch};
-use laman::solution::{Solution, SolverOptions};
+use laman::solution::{ConstraintRef, Solution, SolverOptions, Status};
+use laman_check::check;
 use std::collections::BTreeMap;
 
 /// How far the staged and whole projectors onto the free directions may
@@ -45,15 +47,90 @@ fn projector_gap(staged: &Solution, whole: &Solution) -> f64 {
         .fold(0.0, f64::max)
 }
 
+/// Whether `set` holds together: a sketch holding every constraint of
+/// `set` solves to coordinates the independent checker accepts, which
+/// then satisfy `set` too. The sketches tried are `set`'s constraints
+/// alone and `sketch` without one constraint outside `set` (the deletion
+/// filter's own tests), each from its guesses and from the best effort
+/// `from`, as the filter starts. Such a set is no conflict, whoever named
+/// it.
+fn disproved(
+    sketch: &Sketch,
+    set: &[ConstraintRef],
+    from: &Solution,
+    options: &SolverOptions,
+) -> bool {
+    let outside: Vec<_> = sketch
+        .constraints()
+        .map(|(id, _)| id)
+        .filter(|id| set.iter().all(|c| c.id != *id))
+        .collect();
+    let mut alone = sketch.clone();
+    for id in &outside {
+        alone.remove_constraint(*id).unwrap();
+    }
+    let holds = |start: &Sketch| {
+        let solution = start.solve(options);
+        matches!(
+            solution.status,
+            Status::FullyConstrained | Status::UnderConstrained
+        ) && check(start, &solution.coordinates).is_clean()
+    };
+    let witnessed = |sk: &Sketch| holds(sk) || holds(&placed(sk, &from.coordinates));
+    witnessed(&alone)
+        || outside.iter().any(|id| {
+            let mut without = sketch.clone();
+            without.remove_constraint(*id).unwrap();
+            witnessed(&without)
+        })
+}
+
+/// Holds the staged conflict sets to the whole path's, where the whole
+/// path's are unsatisfiable. The whole deletion filter can certify a
+/// stationary point of a satisfiable subset (ADR-0005's certificate is
+/// local) and name a set that holds together
+/// (`regression/whole-false-certificate`, ignored until M7). The two may
+/// differ only where every whole set staging lacks is `disproved` by a
+/// checker-clean witness: the reference is the wrong side there, and
+/// equality would assert a known-false answer. Nothing staged is excused by it: the
+/// staged sets keep their own guarantees, which the callers' properties
+/// hold (each set names the contradiction, a member violated).
+fn assert_same_conflicts(
+    name: &str,
+    what: &str,
+    sketch: &Sketch,
+    staged: &Solution,
+    whole: &Solution,
+    options: &SolverOptions,
+) {
+    let (s, w) = (&staged.diagnostics.conflicts, &whole.diagnostics.conflicts);
+    if s == w {
+        return;
+    }
+    let missing: Vec<_> = w.iter().filter(|set| !s.contains(set)).collect();
+    assert!(
+        !missing.is_empty()
+            && missing
+                .iter()
+                .all(|set| disproved(sketch, set, staged, options)),
+        "{name}: {what}: staged {s:?}, whole {w:?}: a whole set staging lacks holds no witness against it"
+    );
+}
+
 /// Solves `sketch` staged, diagnoses its coordinates whole and holds the
-/// two to equality, and the conflict sets to the whole solve's; returns the
+/// two to equality, and the conflict sets to the whole solve's (where the
+/// whole path's are unsatisfiable, `assert_same_conflicts`); returns the
 /// staged solution. A failure names `name`.
 pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions) -> Solution {
     let staged = sketch.solve(options);
     let solved = laman::reference::solve(sketch, options);
-    assert_eq!(
-        staged.diagnostics.conflicts, solved.diagnostics.conflicts,
-        "{name}: conflicts of the whole solve"
+    assert_same_conflicts(
+        name,
+        "conflicts of the whole solve",
+        sketch,
+        &staged,
+        &solved,
+        options,
     );
     let whole = laman::reference::diagnose(sketch, &staged.coordinates, options);
     assert_eq!(staged.status, whole.status, "{name}: status");
@@ -74,10 +151,7 @@ pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions)
         staged.diagnostics.redundant, whole.diagnostics.redundant,
         "{name}: redundant"
     );
-    assert_eq!(
-        staged.diagnostics.conflicts, whole.diagnostics.conflicts,
-        "{name}: conflicts"
-    );
+    assert_same_conflicts(name, "conflicts", sketch, &staged, &whole, options);
     assert_eq!(
         staged.diagnostics.free_directions.len(),
         whole.diagnostics.free_directions.len(),
