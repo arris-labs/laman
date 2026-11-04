@@ -52,7 +52,9 @@ pub use crate::solve::Algorithm;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct SolverOptions {
-    /// The step each iteration proposes.
+    /// The step each iteration proposes. The conflict analysis re-solves
+    /// its tests by Levenberg–Marquardt whatever this is, from this solve's
+    /// best effort and under its caps.
     pub algorithm: Algorithm,
     /// Accepted and rejected steps in all, across components. A component
     /// solved by stages spends the share of its parameters a step moves, so

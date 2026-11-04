@@ -87,7 +87,7 @@ established here.
 - [x] Step 4 **[3]** — Fix the whole path's false certificate, ADR-0005
   amendment; lift `whole-false-certificate`; staged = whole on conflict
   sets in `solved.rs`, the witness exemption deleted.
-- [ ] Step 5 **[3]** — Fix the staged DogLeg inconclusive case; lift its
+- [x] Step 5 **[3]** — Fix the staged DogLeg inconclusive case; lift its
   fixture; the inconclusive-side exemption removed where one side concludes.
 - [ ] Step 6 **[2]** — Fundamental-circuit oracle in test support; the
   conflict property asserts every set named equals it, under both
@@ -156,6 +156,17 @@ established here.
   `solved.rs` seed `267f6820…` (staged named 9 members, whole 7) is kept
   in its regressions file and passes; at 2000 cases staged = whole with
   only the inconclusive-side exemption left (step 5).
+- *Settled* (step 5, ADR-0005 third amendment): neither hypothesis. Every
+  DogLeg test of an inconsistent square subset (least-squares point at a
+  singular `J`) crawls in the span of `Jᵀf` and the Gauss–Newton step and
+  ends 2–5× above `STATIONARY` at the cap; the paths differed only by the
+  budget share an earlier component left. Every filter test re-solves by
+  LM, staged, under the caller's caps; LM's bits and the digests are
+  unchanged. It lifts `dogleg-conflict-inconclusive` and both `*_dogleg`
+  halves too; `framework-conflict-inconclusive` stays. At 2000 cases
+  staged = whole with no exemption. Changelog at retirement: DogLeg's
+  analysis now concludes where LM's does (the 0.1.0 bullet's "under DogLeg
+  occasionally the reverse" goes).
 - ⚠ OPEN: `MAX_SWEEP_STEP`'s value. A move of `f` turns is read
   correctly up to half a turn, so any `f < ½` catches true moves in
   `(f, 1 − f)` turns and misses the rest; the agent picks it in step 7

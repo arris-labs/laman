@@ -63,7 +63,7 @@ A defect a run measured, one block each:
 - Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, M2 step 8
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored dogleg`
 - Measured: 6 points, 8 distances; LM `Unsatisfiable`, DogLeg `NotConverged`. The same holds for DogLeg on `false-conflict-rigid-framework` and `false-conflict-excludes-contradiction`, whose LM halves are fixed (`*_dogleg`, ignored)
-- State: regression/dogleg-conflict-inconclusive
+- State: fixed (plans/m7-drag-conflicts step 5, with `*_dogleg`: every filter test re-solved by Levenberg–Marquardt, ADR-0005 third amendment; the cause is `staged-conflict-inconclusive`'s); regression/dogleg-conflict-inconclusive
 
 ### framework-conflict-inconclusive
 - What: the same family, both algorithms `NotConverged` with no conflict named
@@ -119,7 +119,8 @@ A defect a run measured, one block each:
 - Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `4ca64a2b…` (kept in `solved.proptest-regressions`), M6 retirement, 2026-11-04
 - Reproduce: `PROPTEST_CASES=1 cargo test -p laman-debug --test solved an_extra` with a strict staged = whole comparison
 - Measured: 6 construction steps, `false_by` 2.03; whole DogLeg names {5, 11, 12}, staged DogLeg names nothing; the property exempts an inconclusive side from the staged = whole comparison until this is shrunk to a fixture and fixed (M7's conflict work)
-- State: regression/staged-conflict-inconclusive (shrunk to 7 points, 9 distances; the set is the triangle inequality {leg-a, leg-b, span})
+- Cause: under DogLeg every filter test of the subset {leg-a, leg-b, span} with constraint 10 (as many equations as parameters, inconsistent: its least-squares point is where the Jacobian is singular) ended at the 128-iteration cap 2–5× above `STATIONARY` (ratios 2.2e-6, 4.6e-6; the dog leg needs about 200 iterations there, LM 85). Which path concluded was decided by the budget share an earlier, satisfied component left (2 iterations staged, 4 whole), not by staging
+- State: fixed (plans/m7-drag-conflicts step 5: every filter test re-solved by Levenberg–Marquardt, ADR-0005 third amendment); regression/staged-conflict-inconclusive (shrunk to 7 points, 9 distances; the set is the triangle inequality {leg-a, leg-b, span})
 
 ## Rejected
 

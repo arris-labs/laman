@@ -29,7 +29,6 @@ fn extreme_point_on_line() {
 }
 
 #[test]
-#[ignore = "DogLeg ends NotConverged on a conflict Levenberg-Marquardt proves"]
 fn dogleg_conflict_inconclusive() {
     let f = load("dogleg-conflict-inconclusive");
     for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
@@ -93,7 +92,6 @@ fn false_conflict_rigid_framework() {
 }
 
 #[test]
-#[ignore = "DogLeg ends NotConverged on a conflict Levenberg-Marquardt proves"]
 fn false_conflict_rigid_framework_dogleg() {
     assert_rigid_framework(Algorithm::DogLeg);
 }
@@ -124,7 +122,6 @@ fn false_conflict_excludes_contradiction() {
 }
 
 #[test]
-#[ignore = "DogLeg ends NotConverged on a conflict Levenberg-Marquardt proves"]
 fn false_conflict_excludes_contradiction_dogleg() {
     assert_excludes_contradiction(Algorithm::DogLeg);
 }
@@ -310,7 +307,6 @@ fn assert_spared_in_every_conflict(
 /// `staged-conflict-inconclusive`: the staged solve and the whole path
 /// both name the triangle-inequality conflict by hand, under both algorithms.
 #[test]
-#[ignore = "the staged DogLeg conflict analysis ends NotConverged where the whole path proves the set"]
 fn staged_conflict_inconclusive() {
     let f = load("staged-conflict-inconclusive");
     type Path = fn(&laman::model::Sketch, &SolverOptions) -> laman::solution::Solution;

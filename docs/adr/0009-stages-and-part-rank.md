@@ -229,3 +229,12 @@ passes on both paths. The tests hold staged and whole conflict sets
 equal, with no witness exemption; an analysis inconclusive on one side
 (`staged-conflict-inconclusive`) is still no pair of answers to compare
 until M7 fixes it.
+
+## Amendment 2026-11-04: no inconclusive side
+
+The inconclusive side of `staged-conflict-inconclusive` was the dog leg's
+crawl at a singular least-squares point, not staging; which path
+concluded followed the budget share of an earlier component (§Budgets).
+Every filter test now re-solves by Levenberg–Marquardt (ADR-0005, third
+amendment), and the tests hold staged and whole conflict sets equal
+wherever either names one.

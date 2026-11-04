@@ -372,7 +372,14 @@ it collapses. Contradictory fixes reach their analytic midpoint in 2
 iterations. A trust region of 1e3 started near the line of two distance
 centres rejects 11 overshooting Gauss–Newton steps, then solves on the
 guess's branch. A stationary singular start (`Jᵀf = 0`, `JJᵀ` singular)
-returns its own bits, not converged. LM keeps its own defaults and
+returns its own bits, not converged. An inconsistent subset with as many
+equations as parameters has its least-squares point where `J` is
+singular: the Gauss–Newton step is unbounded there, each step is cut to
+the radius in the span of `Jᵀf` and that step, and the descent converges
+linearly (about 200 iterations on `regression/staged-conflict-inconclusive`'s
+four-distance subset, LM 85), so at the 128-iteration cap it ends above
+`STATIONARY`. The conflict analysis therefore re-solves by LM (§Diagnose).
+LM keeps its own defaults and
 measurements above; both engines run every analytic case in `solve::tests`.
 
 nalgebra's dense `DMatrix` products dispatch to `matrixmultiply` above 5×5,
@@ -404,10 +411,12 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the
-  guesses, by the default staged solve on either path (whose fallback is
+  guesses, by the default solve: staged on either path (whose fallback is
   the whole solve from the same start, so a whole-path test gains its
   witnesses and certifies nothing the whole re-solve would not; ADR-0005,
-  second amendment). It counts as satisfiable when either re-solve converges. It
+  second amendment), and by LM under either algorithm, the caller's caps
+  standing (the dog leg crawls at a singular least-squares point, §DogLeg
+  engine; third amendment). It counts as satisfiable when either re-solve converges. It
   counts as unsatisfiable only when neither converges and one ends at a
   certified stationary least-squares point: `|Jᵀf| ≤ STATIONARY ·
   |(f_i |J_i|)|`, with `STATIONARY = 1e-6`. A certified local minimum of a

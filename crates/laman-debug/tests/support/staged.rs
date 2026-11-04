@@ -5,12 +5,12 @@
 //! coordinates (`laman::reference::diagnose`): status, DoF and per-entity
 //! DoF equal exactly, and so do the redundant and conflict sets; the free
 //! directions span the same space, measured by their orthogonal projectors.
-//! The conflict sets equal the whole solve's too (`laman::reference::solve`),
-//! where the whole path's sets are unsatisfiable: see `assert_same_conflicts`.
+//! The conflict sets equal the whole solve's too (`laman::reference::solve`):
+//! see `assert_same_conflicts`.
 #![allow(clippy::unwrap_used, dead_code)]
 
 use laman::model::{Coordinate, Coordinates, EntityId, Sketch};
-use laman::solution::{Solution, SolverOptions, Status};
+use laman::solution::{Solution, SolverOptions};
 use std::collections::BTreeMap;
 
 /// How far the staged and whole projectors onto the free directions may
@@ -46,33 +46,18 @@ fn projector_gap(staged: &Solution, whole: &Solution) -> f64 {
         .fold(0.0, f64::max)
 }
 
-/// Whether `solution`'s conflict analysis was inconclusive: `NotConverged`
-/// with no conflict set named.
-fn inconclusive(solution: &Solution) -> bool {
-    solution.status == Status::NotConverged && solution.diagnostics.conflicts.is_empty()
-}
-
 /// Holds the staged conflict sets equal to the whole path's. Both
-/// analyses re-solve every filter test by the default staged solve
-/// (ADR-0005, second amendment), so a whole-path set that holds together
-/// (`regression/whole-false-certificate`) is no longer excused. An analysis
-/// that is `inconclusive` on either side gives no answer to compare; the
-/// staged one is a finding (`docs/BACKLOG.md`
-/// `staged-conflict-inconclusive`). Nothing staged is excused by it: the
-/// staged sets keep their own guarantees, which the callers' properties
-/// hold (each set names the contradiction, a member violated).
+/// analyses re-solve every filter test by the default solve, staged and by
+/// Levenberg–Marquardt (ADR-0005, second and third amendments), so the two
+/// differ only by the best effort they start from, and neither side is
+/// excused: a set the whole path names that holds together
+/// (`regression/whole-false-certificate`), or one side naming a set where
+/// the other is inconclusive (`regression/staged-conflict-inconclusive`),
+/// fails. Only both sides inconclusive (`NotConverged`, no set named) gives
+/// no answer to compare, and they are then equal, empty.
 fn assert_same_conflicts(name: &str, what: &str, staged: &Solution, whole: &Solution) {
     let (s, w) = (&staged.diagnostics.conflicts, &whole.diagnostics.conflicts);
-    // One analysis inconclusive names nothing
-    // (`framework-conflict-inconclusive`'s family; the staged DogLeg side
-    // is the finding `staged-conflict-inconclusive`): there is no pair of
-    // answers to compare, and the property's own checks still hold the
-    // inconclusive side to never calling the sketch satisfied.
-    let one_inconclusive = inconclusive(whole) || inconclusive(staged);
-    assert!(
-        s == w || one_inconclusive,
-        "{name}: {what}: staged {s:?}, whole {w:?}"
-    );
+    assert!(s == w, "{name}: {what}: staged {s:?}, whole {w:?}");
 }
 
 /// Solves `sketch` staged, diagnoses its coordinates whole and holds the
@@ -84,13 +69,7 @@ pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions)
     let solved = laman::reference::solve(sketch, options);
     assert_same_conflicts(name, "conflicts of the whole solve", &staged, &solved);
     let whole = laman::reference::diagnose(sketch, &staged.coordinates, options);
-    // An inconclusive analysis on one side reports `NotConverged` where the
-    // other proves a set (`assert_same_conflicts`).
-    let one_inconclusive = (inconclusive(&staged) && whole.status == Status::Unsatisfiable)
-        || (inconclusive(&whole) && staged.status == Status::Unsatisfiable);
-    if !one_inconclusive {
-        assert_eq!(staged.status, whole.status, "{name}: status");
-    }
+    assert_eq!(staged.status, whole.status, "{name}: status");
     assert_eq!(staged.diagnostics.dof, whole.diagnostics.dof, "{name}: DoF");
     let per_entity = |s: &Solution| -> Vec<(EntityId, usize)> {
         s.diagnostics

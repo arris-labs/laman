@@ -186,6 +186,49 @@ The certificate stays local: a subset both re-solves stop short of from
 both starts is still certified. M7's exact-minimum oracle in the tests
 measures what that leaves.
 
+## Amendment 2026-11-04: every test re-solved by Levenberg–Marquardt
+
+Under `Algorithm::DogLeg` the staged analysis of
+`regression/staged-conflict-inconclusive` ended `NotConverged` with no set
+where the whole path named the triangle-inequality conflict, and DogLeg
+was inconclusive on `dogleg-conflict-inconclusive` and on both halves of
+the first amendment's fixtures, where Levenberg–Marquardt proves the set.
+Measured on the fixture, the cause is the engine, not the path: a filter
+test of a subset with as many equations as it reads parameters that cannot
+hold (there, {`leg-a`, `leg-b`, `span`} with the distance from the fixed
+origin to the far end) has its least-squares point where the Jacobian is
+singular. There the Gauss–Newton step is unbounded, every dog-leg step is
+cut to the radius in the span of the gradient and that step, and the
+stiff directions are corrected only by the Cauchy step: the descent
+converges linearly and needs about 200 iterations, LM's damped step 85.
+At the 128-iteration cap every DogLeg re-solve of the subset ended 2–5×
+above `STATIONARY` (2.2e-6, 4.6e-6). Neither path proved it reliably: the
+whole one concluded only because its start, the best effort, differed
+(the budget share an earlier, satisfied component left, 2 iterations
+staged against 4 whole, ADR-0009 §Budgets). Giving each component its own
+caps made both paths inconclusive.
+
+Every test now re-solves by Levenberg–Marquardt, staged, whatever the
+caller's algorithm, under the caller's caps. The test asks whether a
+subset holds together, which is the sketch's, not a property of the
+caller's step; the caller's algorithm still makes the best effort a test
+starts from, the gate on a failed component and every coordinate a solve
+returns. Under LM nothing changes, bit for bit; the C1 twins' sets and
+re-solve counts are unchanged under both engines, and so are the
+digests. `staged-conflict-inconclusive`, `dogleg-conflict-inconclusive`
+and the `*_dogleg` halves are lifted, and the tests hold staged and whole
+conflict sets equal with no exemption: both sides inconclusive is the
+only case left without an answer, and then both name nothing.
+
+Rejected: a dog leg that converges there, which must leave the span of
+the gradient and the Gauss–Newton step (the trust-region step of the
+Gauss–Newton model is an LM step with its damping set by the radius), so
+it would make `DogLeg` a second LM; re-solving with the caller's
+algorithm and then LM where the first settles nothing, a fallback that
+spends up to twice the re-solves on every unsatisfiable test; a raised
+cap or a wider `STATIONARY`, which the slow singular approach to a true
+solution bounds (above).
+
 ## Alternatives considered
 
 - **Failed solve or rank deficiency as proof**: both hold for consistent

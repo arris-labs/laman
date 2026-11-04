@@ -8,10 +8,12 @@
 //! component's constraints. A subset is unsatisfiable when a re-solve of it
 //! ends at a stationary least-squares point with residual above tolerance (a
 //! certificate, below); satisfiable when a re-solve converges; anything else
-//! is inconclusive, and so is the whole component. The filter keeps a member
-//! only on a converged re-solve without it, its removal witness, so the set is
-//! inclusion-minimal: no member can be removed. The set's own unsatisfiability
-//! rests on the certificate, which is first-order and local (ADR-0005).
+//! is inconclusive, and so is the whole component. Each re-solve is the
+//! default solve (staged, Levenberg–Marquardt) under the caller's caps. The
+//! filter keeps a member only on a converged re-solve without it, its
+//! removal witness, so the set is inclusion-minimal: no member can be
+//! removed. The set's own unsatisfiability rests on the certificate, which
+//! is first-order and local (ADR-0005).
 //! On the staged path only a constraint with an equation in the head of its
 //! component is tested; the other parts hold no redundancy (ADR-0009).
 //! Intrinsic equations and ground are part of their entities: never removed,
@@ -19,7 +21,7 @@
 use super::{Freedom, dof_only, freedom_on, head_constraints};
 use crate::model::tolerance::{Component, STATIONARY, Source, Tolerances};
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
-use crate::solve::{Options, Outcome, Path, satisfied, solve};
+use crate::solve::{Algorithm, Options, Outcome, Path, satisfied, solve};
 use crate::system::System;
 use std::collections::BTreeSet;
 
@@ -116,7 +118,7 @@ enum Verdict {
 }
 
 /// The diagnosis of `sketch` at `outcome`'s coordinates, with re-solves
-/// under `options` (its caps, its algorithm).
+/// under `options`'s caps (`test`).
 #[cfg(test)]
 pub(crate) fn analyse(sketch: &Sketch, outcome: &Outcome, options: &Options) -> Diagnosis {
     analyse_kept(sketch, outcome, options, None)
@@ -279,13 +281,20 @@ fn conflict_sets(
 /// still converge (ADR-0005, amendment). A budget spent before the last
 /// start is inconclusive.
 ///
-/// Every re-solve is the default staged one, whatever `options.path` the
-/// analysis runs on (ADR-0005, second amendment): a staged solve that does
-/// not converge by parts falls back to the whole solve from the same start
-/// (ADR-0009), so it converges wherever the whole re-solve does and ends at
-/// the whole re-solve's coordinates where neither converges. A whole-path
-/// analysis then certifies nothing the staged re-solve disproves
-/// (`regression/whole-false-certificate`).
+/// Every re-solve is the default solve, staged and by Levenberg–Marquardt,
+/// whatever `options.path` and `options.algorithm` the analysis runs on; the
+/// caller's caps stand. Staged (ADR-0005, second amendment): a staged solve
+/// that does not converge by parts falls back to the whole solve from the
+/// same start (ADR-0009), so it converges wherever the whole re-solve does
+/// and ends at the whole re-solve's coordinates where neither converges. A
+/// whole-path analysis then certifies nothing the staged re-solve disproves
+/// (`regression/whole-false-certificate`). By Levenberg–Marquardt (third
+/// amendment): an inconsistent subset with as many equations as it reads
+/// parameters has its least-squares point where the Jacobian is singular,
+/// and there the dog leg's steps, in the span of the gradient and the
+/// Gauss–Newton step, crawl and end above the certificate at the caps
+/// (`regression/staged-conflict-inconclusive`). Only the caller's own solve,
+/// the best effort a test starts from, follows `options.algorithm`.
 fn test(
     sketch: &Sketch,
     values: &Coordinates,
@@ -309,8 +318,9 @@ fn test(
         // Present by construction: the ids were just read from the copy.
         let _ = copy.remove_constraint(id);
     }
-    let staged = Options {
+    let default = Options {
         path: Path::Staged,
+        algorithm: Algorithm::LevenbergMarquardt,
         ..*options
     };
     let mut certificate = false;
@@ -320,7 +330,7 @@ fn test(
         }
         *solves += 1;
         copy.place(start);
-        let out = solve(&copy, staged);
+        let out = solve(&copy, default);
         if out.converged {
             return Verdict::Satisfiable;
         }

@@ -208,8 +208,8 @@ proptest! {
                 .distance(built.points[i], built.points[j], d * false_by)
                 .unwrap();
             let solution = staged::assert_same_freedom("false distance", &sk, &options(algorithm));
-            // The conflict analysis may be inconclusive (regressions
-            // `dogleg-conflict-inconclusive`, `framework-conflict-inconclusive`):
+            // The conflict analysis may be inconclusive (regression
+            // `framework-conflict-inconclusive`):
             // NotConverged, no conflict named. It must never call the
             // contradictory sketch satisfied.
             let proven = solution.status == Status::Unsatisfiable;
