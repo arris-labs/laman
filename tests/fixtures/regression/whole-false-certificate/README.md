@@ -12,6 +12,8 @@ solves the same subset from the same start to the coordinates in
 `expected.json`, which the checker accepts: every constraint but `spared`
 holds there, so no conflict set can leave `spared` out. The staged path
 names a set with it; staged and whole conflict sets differ.
+The witness came from laman's staged solve, but its authority is the
+independent checker's: the test holds only that `laman-check` accepts it.
 
 Desired: every conflict set the whole path (`laman::reference::solve`)
 names contains `spared` and `stretched`, under both algorithms. The

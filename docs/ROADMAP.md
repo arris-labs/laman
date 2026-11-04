@@ -141,19 +141,38 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5 done.** The generated corpus, construction properties and
-bounded release benchmark are in place; the baseline is in
-ARCHITECTURE.md §Frame budget. M6 is next. Strict upstream edit bit
-preservation remains required for C2 and is recorded as
-`regression/upstream-edit-drift`; M5 checks coordinate preservation.
+**Status: M5 and M6 done; the frame budget missed.** M5: the generated
+corpus, construction properties and bounded release benchmark. M6: every
+component solved and diagnosed by stages (ADR-0009); an edit keeps every
+bit outside its stage's downstream closure (`upstream-edit-drift`
+lifted); staged DoF, per-entity DoF, direction span and redundant sets
+equal the whole path's, and conflict sets wherever the whole path's are
+unsatisfiable. The 4 ms acceptance is **not met** at 500 entities: edit
+medians 10.8–22.5 ms, first drag step 20 ms, both algorithms; 98/99
+entities 1.1–2.8 ms (ARCHITECTURE.md §Frame budget, with the two measured
+cost sources). Next: M7 and M8, independent.
 
-The risk this cycle retires is locality: that a decomposition into rigid
-clusters makes a local edit cost a local solve, without changing a
-diagnostic or a bit outside the clusters it reaches.
+- **M7 — drag robustness and conflicts**: the drag-robustness and radius
+  items of *In*; conflict sets against the exact minimum, which includes
+  the whole path's false certificate (`regression/whole-false-certificate`,
+  ADR-0009) and the staged DogLeg analysis's inconclusive cases
+  (`staged-conflict-inconclusive`).
+- **M8 — the frame budget at 500 entities**: profile the 500-entity edit
+  and drag step first, then remove what it confirms (the per-part extent
+  measurement, the diagnosis's recompile and re-cut of the placed sketch,
+  repeated linear scans), one path, no public type. Accept: every
+  500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
+  *Accept*). If they still miss, rigid
+  bodies in the remainder, a cache or a driver split is chosen by that
+  profile (`docs/ideas/c2-decomposition.md`).
 
-- In: subsystem decomposition into rigid clusters, with the (2,3) pebble
-  game (`laman::rigidity`) as the combinatorial pre-pass; incremental
-  edits that re-solve only the clusters they reach; generated sketches of
+The risk this cycle retires is locality: that a decomposition into stages
+makes a local edit cost a local solve, without changing a diagnostic or a
+bit outside the stages it reaches.
+
+- In: subsystem decomposition into stages (Dulmage–Mendelsohn on the
+  compiled equations, ADR-0009; no pebble game); incremental
+  edits that re-solve only the stages they reach; generated sketches of
   about 100 to 500 entities as fixtures by construction: shared-edge
   rectangle chains (98/248/498), slot grids (98/248/498), and nested
   triangle strips (99/249/501). M5 supplies these families and the bench;
@@ -171,8 +190,9 @@ diagnostic or a bit outside the clusters it reaches.
 - Accept: on 500-entity sketches, a drag step and a one-dimension edit each
   re-solve in ≤ 4 ms (a quarter of a 60 Hz frame) on the reference
   machine, bisected drag frames included; geometry outside the edited
-  clusters keeps its bits; DoF, redundant and conflict sets equal to those
-  of a whole-sketch solve; no flip across the generated drags; no radius
+  stages' downstream closure keeps its bits; DoF, redundant sets, and
+  conflict sets where the whole-sketch solve's are unsatisfiable, equal
+  to those of a whole-sketch solve; no flip across the generated drags; no radius
   below zero from any solve or drag the properties draw; conflict sets
   measured against the exact minimum where ADR-0005 says they are
   approximate; the C1 corpus and its digests unchanged, or re-blessed with

@@ -70,7 +70,7 @@ A defect a run measured, one block each:
 - Where: `laman::diagnose`
 - Seen: same property, M2 step 8
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored framework_conflict_inconclusive`
-- Measured: rigid distance framework plus one stretched distance
+- Measured: rigid distance framework plus one stretched distance. The whole path (`laman::reference::solve`) shows it under LM too where the staged analysis proves the set (property seed `58eab082…`, kept in `solved.proptest-regressions`)
 - State: regression/framework-conflict-inconclusive
 
 ### negative-radius-solve
@@ -112,6 +112,14 @@ A defect a run measured, one block each:
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored whole_false_certificate`
 - Measured: LM whole names {1, 3–9, `stretched`}, staged {`spared`, 1, 3–9, `stretched`}; a checker-clean witness of everything but `spared` is in the fixture; DogLeg ends `NotConverged` on both paths
 - State: regression/whole-false-certificate
+
+### staged-conflict-inconclusive
+- What: under DogLeg the staged conflict analysis ends `NotConverged` with no set where the whole-component path (`laman::reference::solve`) proves one
+- Where: `laman::diagnose::analysis`, the deletion filter's re-solves of subsets by the staged solve, `Algorithm::DogLeg`
+- Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `4ca64a2b…` (kept in `solved.proptest-regressions`), M6 retirement, 2026-11-04
+- Reproduce: `PROPTEST_CASES=1 cargo test -p laman-debug --test solved an_extra` with a strict staged = whole comparison
+- Measured: 6 construction steps, `false_by` 2.03; whole DogLeg names {5, 11, 12}, staged DogLeg names nothing; the property exempts an inconclusive side from the staged = whole comparison until this is shrunk to a fixture and fixed (M7's conflict work)
+- State: unshrunk; seed only
 
 ## Rejected
 

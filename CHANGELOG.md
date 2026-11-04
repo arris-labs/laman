@@ -6,6 +6,26 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- Large sketches solve far faster: each connected part of a sketch is cut
+  into stages solved in dependency order, so a 100-entity sketch solves,
+  diagnostics included, in about 1–3 ms and a 500-entity one in tens of
+  milliseconds, where they took tens of milliseconds and seconds.
+- An edit keeps the exact bits of every coordinate it cannot reach: a
+  re-solve after changing one dimension moves only that dimension's stage
+  and what depends on it.
+- Solutions may differ from 0.1.0's in their last bits (the same answers
+  within tolerance, reached by other steps); DoF, the span of the free
+  directions and redundant constraints are unchanged. A conflict set can
+  now keep a constraint 0.1.0 wrongly left out of it, where the rest held
+  together. On some contradictory sketches the conflict analysis now names
+  a set where 0.1.0's was inconclusive (`NotConverged`), and under DogLeg
+  occasionally the reverse.
+- `SolverOptions::max_iterations` and `max_evaluations` count a sketch
+  solved by stages in whole-solve units: a stage's step spends its share
+  of the parameters, so the defaults bound the same work. A staged solve
+  that fails is solved again whole, so a failing sketch can spend up to
+  twice the caps.
+
 ## 0.1.0 — 2026-11-03
 
 - Python: abi3 wheels for Linux x86_64 and aarch64 (glibc ≥ 2.17),

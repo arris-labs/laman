@@ -40,8 +40,12 @@ subset carrying its parent's frozen scale, origin and acceptance, so no
 tolerance changes (ADR-0003). `solve` stays stateless and cuts every call
 (S1); a `DragSession` cuts once at `drag` and reuses the cut for every
 frame and bisection, used only for the component whose parameters and
-sources it was cut from: the equations it solves never change and the
-cut reads no coordinates, so it is the cut a frame would make.
+sources it was cut from: the equations it solves never change, and the
+cut reads coordinates only where an equation is degenerate (coincident
+ends: no gradient where it stands). Such an equation is read at a fixed
+generic position, and failing that as everything it could read, so a
+cut is coarser there, never wrong. The kept cut is the one a frame
+would make while the dragged sketch's degenerate equations stay the same.
 
 **Part rank.** Order the scaled Jacobian's rows and columns by part. It is
 block lower triangular: block row `i` reads only columns of parts `≤ i`.
@@ -149,7 +153,17 @@ staged re-solve of that subset converges and keeps the constraint
 fixture). Staged conflict sets are held to the reference's only where the
 reference's sets are unsatisfiable: a set a converged, checker-clean
 re-solve disproves is the reference's error, not a staging one, and
-staged sets keep ADR-0005's own guarantee. Fixing the whole path's filter
+staged sets keep ADR-0005's own guarantee. The tests hold it so: staged
+and whole sets may differ only where every whole set the staged path
+lacks has a checker-clean witness (the set alone, or the sketch without
+one constraint outside it, from the guesses or the best effort), and a
+an analysis inconclusive on either side (`NotConverged`, no set) gives
+no pair of answers to compare: the staged one proves sets the whole one
+does not, and under DogLeg the reverse occurs (`staged-conflict-inconclusive`
+in the backlog, M7's conflict work). That is
+not a weakening: the witness is the independent checker's, so equality
+there would assert a known-false answer, and the case that found it runs
+on every gate from its fixture. Fixing the whole path's filter
 is M7's conflict work (conflict sets against the exact minimum), not a
 precondition of staging.
 
@@ -172,8 +186,11 @@ precondition of staging.
   component (their rustdoc says so); no public type or signature changes.
 - Each part's evaluation still measures its whole component's extent, so
   a solve is O(n²) in a component's size, and redundancy cuts the placed
-  sketch again; whether that meets C2's frame budget is measured, not
-  assumed (ARCHITECTURE.md §Frame budget).
+  sketch again. Measured, C2's frame budget is **missed** at 500 entities
+  (edits 10.8–22.5 ms, the first drag step 20 ms, against 4 ms;
+  ARCHITECTURE.md §Frame budget). The 4 ms target holds for both the edit
+  and the drag step; M8 profiles and removes these costs first, keeping
+  this decision's one path (ROADMAP.md §C2).
 - A floating or under-constrained region is one remainder, solved whole;
   rigid bodies in it (option A) or a cache (S2) are M8, only if measured.
 

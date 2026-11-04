@@ -35,9 +35,11 @@ with its 50 digests equal on five OS/arch runners and wasm32-wasip1, the
 oracle run in `docs/COMPARISON.md` (ADRs 0001–0007). The claim rests on
 the Python gap, the checker and deterministic branch-keeping drag
 (`docs/COMPARISON.md`, SEED.md §3 note).
-**C2 M5 done:** generated corpus and bounded benchmark; baseline in
-`docs/ARCHITECTURE.md`, upstream edit bit drift recorded for M6.
-**Next:** `/plan` M6, the stage decomposition (`docs/ROADMAP.md`).
+**C2 M5, M6 done:** generated corpus and bench; components solved and
+diagnosed by stages (ADR-0009), edits keep unreached bits. The 4 ms frame
+is **missed** at 500 entities (edit 11–23 ms, drag 20 ms).
+**Next:** `/plan` M8 (profile, then remove the measured costs) or M7
+(drag robustness, conflicts), independent (`docs/ROADMAP.md`).
 
 ## Rules that are not derivable from the code
 

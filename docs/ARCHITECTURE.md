@@ -43,10 +43,11 @@ it in this list:
 | `residual` | `equations(sketch, values, constraint)` and `intrinsic(sketch, values, entity)`: each an `Equation` (value, `Unit`, a degenerate flag, and its analytic gradient as terms keyed by `(EntityId, Coordinate)`, merged and sorted, at most 8) at any coordinates; total, no `Result` (DATA-MODEL.md §Constraints) |
 | `branch` | observations at coordinates (arc sweeps, circle radii, line-pair orientations) and the flips between two sets (§Branches) |
 | `system` | a sketch compiled for one solve: the dense vector of free parameters, the equation list in order, the components |
+| `stage` | each component cut into parts by the Dulmage–Mendelsohn decomposition of its equations: the head, the stages in dependency order, the remainder ([ADR-0009](adr/0009-stages-and-part-rank.md)) |
 | `solve` | Levenberg–Marquardt and DogLeg over a `System`, warm start, priorities |
 | `diagnose` | rank, DoF per entity, free directions, redundant and conflicting sets |
 | `drag` | `DragSession` |
-| `rigidity` | the generic rigidity count (the 0.0.1 API), later the combinatorial pre-pass of cycle 2's decomposition |
+| `rigidity` | the generic rigidity count (the 0.0.1 API); `stage` does not use it |
 
 ## The sketch and its ids
 
@@ -130,7 +131,16 @@ The pipeline, each stage deterministic:
    come from `residual`; the columns of fixed parameters are dropped.
 2. **Decompose** into components: free parameters connected through shared
    equations, found by union–find and numbered by their smallest parameter.
-   Cycle 2 refines this into rigid clusters (SEED.md §6).
+   Each component is then cut into **parts** (`stage`, ADR-0009): a maximum
+   matching of its equations to its free parameters over the gradient's
+   term keys, the coarse Dulmage–Mendelsohn split into an over-determined
+   **head**, a square middle and an under-determined **remainder**, and
+   Tarjan's strongly connected components of the middle, the **stages**,
+   in dependency order. A constraint's equations, and an arc with its
+   intrinsic equation, never split. A degenerate equation, which has no
+   gradient where it stands, is read at a fixed generic position, and
+   failing that as everything it could read: the cut is then coarser,
+   never wrong.
 3. **Solve** each component: damped least squares with analytic Jacobians,
    Levenberg–Marquardt by default and DogLeg by `SolverOptions`, dense
    `nalgebra` matrices. Hard caps on iterations and on function
@@ -166,8 +176,9 @@ The pipeline, each stage deterministic:
    component is factorized part by part over its stages (`stage`): each
    part's rows, unit over the whole row, cut to its own columns; the rank
    is the parts' sum and the free directions the last part's null basis.
-   A failed or degenerate component, or one whose part before the last is
-   column-deficient, is factorized whole. Both give the same DoF and
+   A failed or degenerate component, one whose part before the last is
+   column-deficient, or one with an entry that breaks the parts'
+   triangular pattern, is factorized whole. Both give the same DoF and
    direction span; the non-default `reference` feature exposes the whole
    path (`laman::reference::solve`, and `diagnose` at given coordinates;
    hidden, unbound) for the tests to compare, and `downstream`, the
@@ -374,7 +385,14 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
 - **Redundancy** removes satisfied constraints in reverse source order,
   with contacts and scales recompiled, and names those whose removal keeps
   the geometric DoF. A constraint it names stays removed, so of two
-  duplicates the later is named. It costs no solve.
+  duplicates the later is named. It costs no solve. In a staged
+  component only a constraint with a head equation is tested: when every
+  part after the head has full row rank at the coordinates, every left
+  null vector of the Jacobian lives on the head's rows, so a stage or the
+  remainder is never redundant (ADR-0009). A part after the head with a
+  row dependent on the others (a point on a line through a point it
+  coincides with: the structure hides it) sends the component to the full
+  test. Each test still compares the whole DoF.
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the
@@ -486,16 +504,15 @@ budget a step must meet is ROADMAP.md's: ≤ 1 ms, measured by the bench on
 fixture 4 (§Frame budget).
 
 **Per-step diagnostics.** Every step runs the full diagnostics, the same
-`analyse` a static solve runs: the solve toward the goal costs about 0.4 ms
-and the diagnostics about 0.6 ms of the plate's step, three quarters of
-them redundancy (one rank computation of the recompiled system per
-satisfied constraint). The frame-cheap alternative, redundancy only on
-`finish`, would make a step's `redundant` stale and was not needed: the
-redundancy pass takes the rank alone (`dof_only`: no null basis, no
-per-entity counts), which brought the step from 1.08 to 0.99 ms and the
-plate's static redundant twin from 0.93 to 0.88 ms. The margin is thin
-(the worst of 200 runs is up to 1.2 ms); C2's incremental solve is what
-buys it, since redundancy then recomputes only the edited cluster.
+`analyse` a static solve runs, so a step's `redundant` is never stale;
+the frame-cheap alternative, redundancy only on `finish`, is not needed.
+The redundancy pass takes the rank alone (`dof_only`: no null basis, no
+per-entity counts) and tests only the head's constraints (§Diagnose). Each of
+its ten steps, solve and diagnostics, takes 0.39–0.40 ms under both
+algorithms (§Frame budget), inside C1's 1 ms. At 500 entities the first
+drag step takes 20 ms, over C2's 4 ms: the step pays every part's extent
+measurement and the diagnosis's recompile and re-cut of the placed sketch
+(§Frame budget).
 
 **Bisection.** A step whose solve flips a branch (§Branches) is retried
 toward the last good target: the full step, then half of it, a quarter, and
@@ -673,7 +690,7 @@ conventions (median / worst in ms, five samples; every position now
 finishes inside its limit). **Under 4 ms: the 98- and 99-entity cells and
 one 249-entity cell (triangles edit, LM, 3.992, a hair under; DogLeg 4.001
 is over). Every other cell is over, and none of the 500-entity acceptance
-cells (edit ≤ 4 ms) is met.**
+cells (edit and first drag step, each ≤ 4 ms) is met.**
 
 | Family | Actual entities | Algorithm | Static | Edit | First drag step |
 |---|---:|---|---:|---:|---:|
@@ -701,14 +718,19 @@ under 4 ms; the 498-entity cells went from not finishing in 5 s to 11–34 ms.
 The 4 ms target is missed at 500 entities by 2.8× (triangles edit) to 5.6×
 (slots edit), and the 500-entity drag step by 5× (20 ms) on both families
 that have one. The time is not in the solve of the edited stage. Two
-measured sources (step 6) account for it: every part's evaluation measures
+measured sources account for it: every part's evaluation measures
 the whole component's extent for its acceptance (O(n²) a solve), and the
 redundancy pass compiles and cuts the placed sketch again (5–13 ms). The
 scaling from 248 to 498 entities (edit 5.0 → 11.8, 7.9 → 22.5, 4.0 → 11.7)
 is 2.3–2.9× for 2× the size, consistent with a quadratic term on top of
 a linear one. The drag step is the same cost as an edit: a drag opens its
 decomposition once, but each frame still pays the per-part extent and the
-frame's diagnostics.
+frame's diagnostics. Two linear scans repeated per component or per term
+(the head's constraints found by a search of each component's sources,
+rerun after each redundancy found; the continuation's membership test of
+each term's parameter) are further suspects of the same order. No
+profile has confirmed the attribution yet; M8 profiles first
+(ROADMAP.md §C2).
 
 ## wasm32
 
