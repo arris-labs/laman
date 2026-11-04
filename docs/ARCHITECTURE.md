@@ -418,7 +418,10 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
   the component's parameters, sources, scale and parts and by the bits of
   every coordinate it reads. A static solve or an edit makes one per
   staged component; a drag frame two, its solve accepting the staged
-  result before it pursues the goal.
+  result before it pursues the goal. Each is made from the rows' sparse
+  terms, not the component's dense Jacobian: a zero entry adds nothing to a
+  row's maximum or sum of squares, so the blocks are the dense ones bit for
+  bit.
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the

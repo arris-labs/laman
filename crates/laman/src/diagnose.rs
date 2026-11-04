@@ -20,7 +20,10 @@
 //! part's. A component that is not satisfied (failed or degenerate), a part
 //! before the last that is column-deficient, or a Jacobian entry that
 //! breaks the block structure at these coordinates, sends the component to
-//! the whole factorization instead (plans/m6-stages).
+//! the whole factorization instead (plans/m6-stages). The rows are read
+//! sparsely, a row's terms in the component's columns, and each part's
+//! block is made from them without the component's dense Jacobian; the
+//! blocks are the dense ones bit for bit (plans/m8-frame-floor).
 //!
 //! A frame's solve and analysis read one component's staged factorization
 //! up to three times at the same coordinates: the solve's acceptance of a
@@ -434,21 +437,47 @@ fn factorize(
         .iter()
         .map(|param| part_of.get(param).copied())
         .collect::<Option<_>>()?;
+    let column_of: BTreeMap<Param, usize> = component
+        .params
+        .iter()
+        .enumerate()
+        .map(|(j, param)| (*param, j))
+        .collect();
+    // Each part's columns, ascending, and each column's place among them.
+    let mut part_columns: Vec<Vec<usize>> = vec![vec![]; parts.parts.len()];
+    let mut place = vec![0; n];
+    for (j, &q) in column_part.iter().enumerate() {
+        if let (Some(columns), Some(at)) = (part_columns.get_mut(q), place.get_mut(j)) {
+            *at = columns.len();
+            columns.push(j);
+        }
+    }
     let mut row_part: BTreeMap<usize, usize> = BTreeMap::new();
     for (p, part) in parts.parts.iter().enumerate() {
         for &row in &part.rows {
             row_part.insert(row, p);
         }
     }
-    let (evaluation, indices) = system.evaluate_indexed(component, values, 1.0);
+    // The rows read sparsely: a row's nonzero entries are its terms in the
+    // component's columns times its factor, the dense row's (plans/m8-frame-floor
+    // step 2). A zero entry adds +0 to the running maximum and to the sum of
+    // squares and is visited last in neither, so the unit row and the
+    // triangular test over the nonzero entries in column order equal the
+    // dense ones bit for bit.
+    let (rows, _, _) = system.rows(component, component, values, 1.0);
     let mut blocks: Vec<Vec<Vec<f64>>> = vec![vec![]; parts.parts.len()];
-    for (row, index) in evaluation.jacobian.into_iter().zip(indices) {
-        let p = *row_part.get(&index)?;
-        // Block lower triangular: a row reads nothing of a later part.
-        if row
+    for row in rows {
+        let p = *row_part.get(&row.index)?;
+        let mut entries: Vec<(usize, f64)> = row
+            .terms
             .iter()
-            .zip(&column_part)
-            .any(|(x, q)| *q > p && *x != 0.0)
+            .filter_map(|(param, term)| Some((*column_of.get(param)?, term * row.factor)))
+            .collect();
+        entries.sort_unstable_by_key(|(j, _)| *j);
+        // Block lower triangular: a row reads nothing of a later part.
+        if entries
+            .iter()
+            .any(|(j, x)| column_part.get(*j).is_some_and(|q| *q > p) && *x != 0.0)
         {
             return None;
         }
@@ -456,22 +485,40 @@ fn factorize(
         // whose own entries are rounding of a dependency on earlier rows
         // stays below RANK there, instead of being blown up to a unit row
         // that the whole factorization would never count.
-        if let (Some(unit), Some(block)) = (unit_row(row), blocks.get_mut(p)) {
-            block.push(
-                unit.into_iter()
-                    .zip(&column_part)
-                    .filter(|(_, q)| **q == p)
-                    .map(|(x, _)| x)
-                    .collect(),
-            );
+        let big = entries.iter().fold(0.0, |m: f64, (_, x)| m.max(x.abs()));
+        if big == 0.0 || !big.is_finite() {
+            continue;
+        }
+        let norm = entries
+            .iter()
+            .fold(0.0, |s, (_, x)| {
+                let scaled = x / big;
+                s + scaled * scaled
+            })
+            .sqrt();
+        let width = part_columns.get(p).map_or(0, Vec::len);
+        let mut block_row = vec![0.0; width];
+        for (j, x) in &entries {
+            if column_part.get(*j) == Some(&p) {
+                if let Some(slot) = place.get(*j).and_then(|at| block_row.get_mut(*at)) {
+                    *slot = (x / big) / norm;
+                }
+            }
+        }
+        if let Some(block) = blocks.get_mut(p) {
+            block.push(block_row);
         }
     }
     let last = parts.parts.len() - 1;
     let mut rank = 0;
     let mut independent = true;
     let mut tail = None;
-    for (p, (rows, part)) in blocks.into_iter().zip(&parts.parts).enumerate() {
-        let columns: Vec<usize> = (0..n).filter(|&j| column_part[j] == p).collect();
+    for (p, ((rows, part), columns)) in blocks
+        .into_iter()
+        .zip(&parts.parts)
+        .zip(part_columns)
+        .enumerate()
+    {
         let qr = Qr::new(rows, columns.len());
         if p < last && qr.rank < columns.len() {
             return None;

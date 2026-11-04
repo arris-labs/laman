@@ -568,6 +568,27 @@ fn shared_ranks_are_the_three_pass_ones_on_every_family_and_size() {
     }
 }
 
+#[test]
+fn shared_ranks_are_the_three_pass_ones_at_the_extremes_of_f64() {
+    // The sparse rows (plans/m8-frame-floor step 2) against the dense
+    // reference where a row's entries underflow, overflow and square to
+    // nothing: sketches at 1e±150 and 1e±300.
+    let mut built = 0;
+    for scale in [1e-300, 1e-150, 1e150, 1e300] {
+        let case = laman_debug::corpus::rect_chain_with(3, 20.0 * scale, 10.0 * scale);
+        if let Ok(case) = case {
+            built += 1;
+            assert_shared_is_three_pass(&format!("rectangles at {scale:e}"), &case);
+        }
+        let case = laman_debug::corpus::slot_grid_with(2, 2, 40.0 * scale, 5.0 * scale);
+        if let Ok(case) = case {
+            built += 1;
+            assert_shared_is_three_pass(&format!("slots at {scale:e}"), &case);
+        }
+    }
+    assert!(built > 0, "no extreme case was built");
+}
+
 proptest::proptest! {
     // No explicit case count: proptest's default and PROPTEST_CASES both apply.
     #[test]

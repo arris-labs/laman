@@ -97,7 +97,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   cell's share inside the remainder's descent, pursuit and null basis
   (A's ceiling). Reorder or strike steps 2–5 to match. Commit:
   `docs(plan)`.
-- [ ] Step 2 **[2]** — Sparse staged rank, as in the deltas. Test: rank,
+- [x] Step 2 **[2]** — Sparse staged rank, as in the deltas. Test: rank,
   null basis and every `None` bit-equal to the dense reference on the C1
   fixtures, every generated family and size, and a proptest over the
   corpus strategies at f64's extremes.
