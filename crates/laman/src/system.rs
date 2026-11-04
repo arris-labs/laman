@@ -268,19 +268,22 @@ impl<'a> System<'a> {
             valid,
         };
         let mut indices = Vec::new();
-        let column: BTreeMap<Param, usize> = component
+        // The columns by parameter, sorted: a part's parameters are already
+        // in order, which the sort detects, and a lookup allocates nothing.
+        let mut column: Vec<(Param, usize)> = component
             .params
             .iter()
             .enumerate()
             .map(|(j, p)| (*p, j))
             .collect();
+        column.sort_by_key(|(p, _)| *p);
         for row in rows {
             // A column the row does not read is `0 × factor`: +0, the factor
             // being a positive finite scale.
             let mut dense = vec![0.0; component.params.len()];
             for (p, term) in &row.terms {
-                if let Some(j) = column.get(p) {
-                    if let Some(x) = dense.get_mut(*j) {
+                if let Ok(at) = column.binary_search_by_key(p, |(q, _)| *q) {
+                    if let Some(x) = column.get(at).and_then(|(_, j)| dense.get_mut(*j)) {
                         *x = term * row.factor;
                     }
                 }

@@ -107,8 +107,11 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
 - [x] Step 4 **[2]** — Splitter in O(parts), as in the deltas. Test: the
   existing bit-equality property over a sequence of parts moving in turn,
   plus a 500-part case.
-- [ ] Step 5 **[1]** — Per-part set-up once per descent, if step 1 keeps
-  it. Test: the solve suites and digests unchanged.
+- [x] Step 5 **[1]** — Per-part set-up once per descent, if step 1 keeps
+  it. Test: the solve suites and digests unchanged. Settled: the column map
+  became a sorted vector searched by key (a part's parameters arrive
+  sorted, so building it is a linear pass and a lookup allocates nothing),
+  not a per-descent cache: no signature changes, same bits.
 - [ ] Step 6 **[2]** — Re-profile the 500-entity edits. Remove any
   remaining source ≥ 5 % that is not the solve's own arithmetic, each
   with its own equality test (`stage::cut` in the diagnosis is the named
