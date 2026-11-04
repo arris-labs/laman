@@ -17,6 +17,8 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Python tests: `DEFAULT_TOLERANCE` copies Rust's by hand and is absolute, not the sketch's size; `MIN_CROSS` in the hypothesis property is not scale-relative and may flake under the `ci` profile
 - The collapse-name mapping is written twice in `laman-py` (`solve.rs`, `check.rs`); no Python test produces a non-empty `flips` or `ill_conditioned`, or the `Origin::Arc` path
 - `IncompleteSolution` and `FixedMoved` are unreachable from Python; `Rigidity.is_rigid` re-derives `dof == 0` instead of calling Rust's
+- `cargo doc --document-private-items` with warnings denied fails in a checkout (found during m8 review; the gate's public doc stage passes): find the item and either fix it or decide private docs are not held
+- Make the bench's verdict on the worst sample, not the median, as the C2 acceptance is stated (rectangles 248 DogLeg drag: median 3.89 ms, worst 5.04 ms)
 - The conflict analysis costs 1–52 ms on the conflicting twins (the slotted plate's is the slowest; timed by the bench, not budgeted); profile it before C2's incremental solve
 - Property tests set an explicit `ProptestConfig` case count, so `PROPTEST_CASES` cannot raise it; let the environment win
 - Step 4 (DogLeg) of the m2 plan has no commit of its own: it landed inside the step 5 commit (e303c7e)
