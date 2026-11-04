@@ -101,7 +101,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   null basis and every `None` bit-equal to the dense reference on the C1
   fixtures, every generated family and size, and a proptest over the
   corpus strategies at f64's extremes.
-- [ ] Step 3 **[1]** — Satisfaction without a Jacobian, as in the deltas.
+- [x] Step 3 **[1]** — Satisfaction without a Jacobian, as in the deltas.
   Test: equal to the dense `evaluate(..).satisfied` on the same inputs,
   non-finite and degenerate rows included; digests unchanged.
 - [ ] Step 4 **[2]** — Splitter in O(parts), as in the deltas. Test: the

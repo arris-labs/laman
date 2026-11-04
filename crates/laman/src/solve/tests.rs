@@ -998,3 +998,88 @@ fn a_continued_part_is_held_to_the_acceptance_of_the_whole_at_its_start() {
         assert_eq!(bits(&got), bits(&want), "{algorithm:?}");
     }
 }
+
+/// The sparse satisfaction test equals the dense `evaluate(..).satisfied`
+/// (plans/m8-frame-floor step 3): at the initial guess, a solution, zeros
+/// (degenerate rows), a non-finite coordinate and f64's extremes.
+#[test]
+fn satisfaction_without_a_jacobian_equals_the_dense_one() {
+    use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+    let mut sketches: Vec<(String, Sketch)> = vec![];
+    for slug in [
+        "sss-triangle",
+        "belt",
+        "slotted-plate",
+        "sss-triangle-redundant",
+        "belt-redundant",
+        "slotted-plate-redundant",
+        "sss-triangle-conflicting",
+        "belt-conflicting",
+        "slotted-plate-conflicting",
+    ] {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/c1")
+            .join(slug);
+        let fixture = laman_debug::fixture::Fixture::load(&path).unwrap();
+        let sk: Sketch =
+            serde_json::from_str(&serde_json::to_string(&fixture.sketch).unwrap()).unwrap();
+        sketches.push((slug.to_string(), sk));
+    }
+    for (name, case) in [
+        ("rect-chain-19", rect_chain(19)),
+        ("slot-grid-3x3", slot_grid(3, 3)),
+        ("triangle-strip-32", triangle_strip(32)),
+    ] {
+        let case = case.unwrap();
+        let sk: Sketch =
+            serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
+        sketches.push((name.to_string(), sk));
+    }
+    let (mut satisfied, mut unsatisfied) = (0, 0);
+    for (name, sk) in &sketches {
+        let system = System::new(sk);
+        let guess = sk.coordinates();
+        let mut variants: Vec<(&str, Coordinates)> = vec![("guess", guess.clone())];
+        for (label, value) in [
+            ("zero", 0.0),
+            ("nan", f64::NAN),
+            ("inf", f64::INFINITY),
+            ("huge", 1e300),
+            ("tiny", 1e-300),
+        ] {
+            let mut all = guess.clone();
+            for v in all.values_mut() {
+                *v = value;
+            }
+            variants.push((label, all));
+            // One coordinate only: a single bad entry among good rows.
+            let mut one = guess.clone();
+            if let Some(v) = one.values_mut().next() {
+                *v = value;
+            }
+            variants.push((label, one));
+        }
+        // The solved coordinates, where most components are satisfied.
+        let solved = sk.solve(&crate::solution::SolverOptions::default());
+        variants.push(("solved", solved.coordinates.clone()));
+        for (label, values) in &variants {
+            for component in &system.components {
+                let dense = dense_satisfied(&system, component, values);
+                assert_eq!(
+                    sparse_satisfied(&system, component, values),
+                    dense,
+                    "{name} at {label}"
+                );
+                if dense {
+                    satisfied += 1;
+                } else {
+                    unsatisfied += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        satisfied > 0 && unsatisfied > 0,
+        "{satisfied} {unsatisfied}"
+    );
+}
