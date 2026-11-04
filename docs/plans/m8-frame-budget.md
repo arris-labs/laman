@@ -87,7 +87,7 @@ careful, **[3]** unproven.
 - [x] Step 4 **[2]** — Extent split, as in the deltas. Test: the joined
   measure equals `Frame::measure` bit for bit (proptest over the corpus
   strategies, plus f64's extremes near 1e±300 per `solver.md`).
-- [ ] Step 5 **[2]** — Re-profile the 500-entity cells. If any of them
+- [x] Step 5 **[2]** — Re-profile the 500-entity cells. If any of them
   still has a removable source above 10 %, remove it here with its own
   equality test, or split it into its own step if it is larger. The
   candidates the first profile left: the dense Jacobian's allocation in
@@ -162,6 +162,29 @@ Suspects: (1) confirmed. (2) the recompile is never reached on these cells
 under 1 %. (4) `position` 0.2-1.0 %. Steps 2-5 are reordered to match: the
 old 2 (mask) and the old 4, 5 are dropped; the shared staged rank and the
 shared tolerances are new; the extent split stays. Step 5 re-profiles.
+
+Step 5, after steps 2-4 (self time, `perf report --no-children`, the
+inclusive shares of step 1 are not comparable: inlining had put the
+once-per-part-solve measure of step 4 under every caller). The re-profile
+found one removable source: `Frame::split` still cost 12 % of the slot edit,
+because it measured everything outside a part at every part, O(parts x
+entities) (a slot grid has a part per stage). `Splitter` (a design delta of
+this step, crate-private) sorts the frame's entities once by the parts that
+move them and keeps each group's terms until its part is solved, so the
+parts of one component measure each entity about once; an entity several
+parts move (an arc across two) is kept the same way. Bit-equal to the whole
+measure (`split_frame_measures_what_the_whole_does`, now also over a
+sequence of parts moving in turn, at f64's extremes). A/B, alternating the
+two builds on a machine at load ~17 (15 samples, LM, median ms, before ->
+after): rectangles edit 11.5 -> 11.2, slots edit 17.5 -> 16.5, slots drag
+21 -> 18, slots bisect 38-52 -> 33-43 (the pair measured together), triangles
+edit 9.7 -> 9.6. What is left is flat, no self-time symbol over 9 %:
+`Splitter::split` 8.5 % on the rectangle edit (the joins, O(parts^2)),
+`unit_row` 7-8 %, `evaluate_within` 6 %, `entity_params` 3-5 %, `malloc`/`free`
+~8 %, `BTreeMap` lookups ~6 %, `stage::cut` 6 % on rectangles. No cell is
+near 4 ms (edits 10-17 ms, drag 18 ms, bisect 33+ ms), so step 6 will record
+a miss; the remaining cost is spread over many sources of a few percent
+each, none of them a single removable one.
 
 ## Open questions
 - Settled by the agent: `perf_event_paranoid` is 1; step 1 used `perf`.

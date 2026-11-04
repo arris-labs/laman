@@ -8,7 +8,7 @@
 //! budgets; an algorithm only proposes a step and updates its own control.
 //! Defaults are measured in docs/ARCHITECTURE.md, “LM engine” and “DogLeg
 //! engine”; no reference solver code is used.
-use crate::model::tolerance::{Component, LENGTH_FLOOR, Source, Tolerances};
+use crate::model::tolerance::{Component, Frame, LENGTH_FLOOR, Source, Splitter, Tolerances};
 use crate::model::{Constraint, Coordinate, Coordinates, Sketch};
 use crate::system::{Evaluation, Goal, System};
 use nalgebra::{DMatrix, DVector};
@@ -356,13 +356,13 @@ impl<'c> Scope<'c> {
     /// the rest of the frame is measured once here and not at every
     /// evaluation. It holds no parameters or sources, only the scale, origin
     /// and frame the acceptance reads.
-    fn measured(part: &Component, whole: &Component, values: &Coordinates) -> Component {
+    fn measured(whole: &Component, frame: Frame) -> Component {
         Component {
             params: vec![],
             sources: vec![],
             scale: whole.scale,
             origin: whole.origin,
-            frame: std::sync::Arc::new(whole.frame.split(&part.params, values)),
+            frame: std::sync::Arc::new(frame),
         }
     }
 
@@ -412,16 +412,22 @@ fn solve_staged(
         out.iteration_work,
         out.evaluation_work,
     );
-    let descended = parts.iter().all(|part| {
+    let mut splitter = Splitter::new(
+        &component.frame,
+        &parts.iter().map(|p| &p.params[..]).collect::<Vec<_>>(),
+    );
+    let descended = parts.iter().enumerate().all(|(k, part)| {
         part.sources.is_empty() || {
-            let accepts = Scope::measured(part, component, &out.coordinates);
+            let accepts = Scope::measured(component, splitter.split(k, &out.coordinates));
             let scope = Scope {
                 part,
                 whole: component,
                 accepts: &accepts,
                 solved: Some(&start.0),
             };
-            descend(system, scope, options, out)
+            let done = descend(system, scope, options, out);
+            splitter.moved(k);
+            done
         }
     });
     if !descended || !crate::diagnose::stageable(system, component, &out.coordinates, &out.staged) {
@@ -443,7 +449,7 @@ fn solve_staged(
     if goals.is_empty() {
         return Some(true);
     }
-    let accepts = Scope::measured(last, component, &out.coordinates);
+    let accepts = Scope::measured(component, splitter.split(parts.len() - 1, &out.coordinates));
     let scope = Scope {
         part: last,
         whole: component,

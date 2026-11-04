@@ -198,51 +198,11 @@ impl Frame {
     }
 
     /// The frame of a part solve: what `self` measures, with everything that
-    /// is not the part's own measured once at `values` and kept. The part's
-    /// own entities are the points with a coordinate in `own`, the circles
-    /// with their radius in it and the arcs on such points; the part moves
-    /// no other parameter, so [`Self::measure`] of the result is
-    /// `self.measure` at any coordinates that differ from `values` only in
-    /// `own`, bit for bit (`split_frame_measures_what_the_whole_does`).
+    /// is not the part's own measured once at `values` and kept. See
+    /// [`Splitter`], of which this is the case of one part.
+    #[cfg(test)]
     pub(crate) fn split(&self, own: &[Param], values: &Coordinates) -> Frame {
-        let own: BTreeSet<Param> = own.iter().copied().collect();
-        let moves = |id| own.contains(&(id, Coordinate::X)) || own.contains(&(id, Coordinate::Y));
-        let mut inside = Frame::default();
-        let mut outside = Frame {
-            stated: self.stated,
-            pinned: self.pinned.clone(),
-            ..Frame::default()
-        };
-        for point in &self.points {
-            let side = if moves(point.0) {
-                &mut inside
-            } else {
-                &mut outside
-            };
-            side.points.push(*point);
-        }
-        for radius in &self.radii {
-            let side = if own.contains(&(radius.0, Coordinate::R)) {
-                &mut inside
-            } else {
-                &mut outside
-            };
-            side.radii.push(*radius);
-        }
-        for arc in &self.arcs {
-            let side = if moves(arc.0[0]) || moves(arc.0[1]) {
-                &mut inside
-            } else {
-                &mut outside
-            };
-            side.arcs.push(*arc);
-        }
-        let mut kept = outside.terms(values);
-        if let Some(before) = &self.outside {
-            kept.join(before);
-        }
-        inside.outside = Some(kept);
-        inside
+        Splitter::new(self, &[own]).split(0, values)
     }
 
     /// Everything a measure takes a maximum or an extent of, before the
@@ -263,7 +223,11 @@ impl Frame {
                 terms.scale = terms.scale.max(r);
             }
         }
-        terms.origin = self.points.first().map(|(id, own)| (*id, xy(*id, *own)));
+        terms.origin = self
+            .points
+            .iter()
+            .min_by_key(|(id, _)| *id)
+            .map(|(id, own)| (*id, xy(*id, *own)));
         for (id, own) in &self.points {
             let p = xy(*id, *own);
             if p.iter().all(|v| v.is_finite()) {
@@ -284,6 +248,146 @@ impl Frame {
             }
         }
         terms
+    }
+}
+
+/// The frames of a component's part solves, made together. A part moves only
+/// its own parameters, so what is outside it is measured once ([`Terms`])
+/// and the part's own entities at each evaluation. The entities are sorted
+/// once by the parts that move them: none (constants), one (that part's
+/// group) or several. The terms of a group are kept until its part has been
+/// solved ([`Self::moved`]), so the part solves of one component measure
+/// each entity about once and not once per part. Every term is a maximum, a
+/// minimum or a box, so what is joined is what the whole frame measures at
+/// the same coordinates, bit for bit (`split_frame_measures_what_the_whole_does`).
+pub(crate) struct Splitter {
+    /// Constants: no part moves them. Measured at the first split.
+    fixed: Frame,
+    /// What the whole frame was itself split from, then the constants'
+    /// terms, joined, once measured.
+    before: Option<Terms>,
+    fixed_terms: Option<Terms>,
+    /// The entities exactly one part moves, by part.
+    groups: Vec<Frame>,
+    cached: Vec<Option<Terms>>,
+    /// The entities several parts move, with those parts.
+    /// Each with its terms, kept until one of its parts has been solved.
+    shared: Vec<(Vec<usize>, Frame, Option<Terms>)>,
+}
+
+impl Splitter {
+    /// The split of `whole` by `parts`' parameters. A point is a part's if
+    /// the part holds a coordinate of it, a circle if it holds its radius, an
+    /// arc if it holds a coordinate of its centre or start.
+    pub(crate) fn new(whole: &Frame, parts: &[&[Param]]) -> Self {
+        let mut holders: BTreeMap<Param, Vec<usize>> = BTreeMap::new();
+        for (j, part) in parts.iter().enumerate() {
+            for p in *part {
+                holders.entry(*p).or_default().push(j);
+            }
+        }
+        let holding = |ps: &[Param]| -> Vec<usize> {
+            let mut held: Vec<usize> = ps
+                .iter()
+                .filter_map(|p| holders.get(p))
+                .flatten()
+                .copied()
+                .collect();
+            held.sort_unstable();
+            held.dedup();
+            held
+        };
+        let xy = |id| [(id, Coordinate::X), (id, Coordinate::Y)];
+        let mut fixed = Frame {
+            stated: whole.stated,
+            pinned: whole.pinned.clone(),
+            ..Frame::default()
+        };
+        let mut groups = vec![Frame::default(); parts.len()];
+        let mut shared: Vec<(Vec<usize>, Frame, Option<Terms>)> = Vec::new();
+        // Puts one item where its holders say; `add` appends it to a frame.
+        let mut place = |held: Vec<usize>, add: &dyn Fn(&mut Frame)| match held[..] {
+            [] => add(&mut fixed),
+            [j] => add(&mut groups[j]),
+            _ => {
+                let mut frame = Frame::default();
+                add(&mut frame);
+                shared.push((held, frame, None));
+            }
+        };
+        for point in &whole.points {
+            place(holding(&xy(point.0)), &|f| f.points.push(*point));
+        }
+        for radius in &whole.radii {
+            place(holding(&[(radius.0, Coordinate::R)]), &|f| {
+                f.radii.push(*radius);
+            });
+        }
+        for arc in &whole.arcs {
+            let [c, s] = arc.0;
+            let ps = [
+                (c, Coordinate::X),
+                (c, Coordinate::Y),
+                (s, Coordinate::X),
+                (s, Coordinate::Y),
+            ];
+            place(holding(&ps), &|f| f.arcs.push(*arc));
+        }
+        Self {
+            fixed,
+            before: whole.outside.clone(),
+            fixed_terms: None,
+            cached: vec![None; groups.len()],
+            groups,
+            shared,
+        }
+    }
+
+    /// The frame of part `k` solved from `values`: its own entities, and
+    /// everything else measured at `values` (cached for the parts not moved
+    /// since).
+    pub(crate) fn split(&mut self, k: usize, values: &Coordinates) -> Frame {
+        let (fixed, before) = (&self.fixed, &self.before);
+        let mut kept = self
+            .fixed_terms
+            .get_or_insert_with(|| {
+                let mut terms = fixed.terms(values);
+                if let Some(before) = before {
+                    terms.join(before);
+                }
+                terms
+            })
+            .clone();
+        for (j, group) in self.groups.iter().enumerate() {
+            if j != k {
+                kept.join(self.cached[j].get_or_insert_with(|| group.terms(values)));
+            }
+        }
+        let mut inside = self.groups.get(k).cloned().unwrap_or_default();
+        for (held, frame, cached) in &mut self.shared {
+            if held.contains(&k) {
+                inside.points.extend_from_slice(&frame.points);
+                inside.radii.extend_from_slice(&frame.radii);
+                inside.arcs.extend_from_slice(&frame.arcs);
+            } else {
+                kept.join(cached.get_or_insert_with(|| frame.terms(values)));
+            }
+        }
+        inside.outside = Some(kept);
+        inside
+    }
+
+    /// Part `k` has been solved: what it moved is measured again when next
+    /// needed.
+    pub(crate) fn moved(&mut self, k: usize) {
+        if let Some(cached) = self.cached.get_mut(k) {
+            *cached = None;
+        }
+        for (held, _, cached) in &mut self.shared {
+            if held.contains(&k) {
+                *cached = None;
+            }
+        }
     }
 }
 
@@ -827,6 +931,49 @@ mod tests {
         }
     }
 
+    /// Parts solved in turn, each moving only its parameters, each split
+    /// from the coordinates the earlier ones left: the joined measure is the
+    /// whole's at the part's moved coordinates, parts sharing entities (an
+    /// overlapping `held`, as a point whose X and Y fall to different parts)
+    /// included.
+    fn assert_splitter_measures_whole(sk: &Sketch, parts: usize, shift: f64, big: f64) {
+        let base = sk.coordinates();
+        for component in Tolerances::new(sk).components {
+            let held: Vec<Vec<Param>> = (0..parts)
+                .map(|j| {
+                    component
+                        .params
+                        .iter()
+                        .copied()
+                        .enumerate()
+                        .filter(|(i, _)| i % parts == j)
+                        .map(|(_, p)| p)
+                        .collect()
+                })
+                .collect();
+            let slices: Vec<&[Param]> = held.iter().map(Vec::as_slice).collect();
+            let mut splitter = Splitter::new(&component.frame, &slices);
+            let mut values = base.clone();
+            for (j, own) in held.iter().enumerate() {
+                let split = splitter.split(j, &values);
+                for (k, p) in own.iter().enumerate() {
+                    let v = match (j + k) % 4 {
+                        0 => shift * (k as f64 + 1.0),
+                        1 => big,
+                        2 => -big,
+                        _ => base[p] + shift,
+                    };
+                    values.insert(*p, v);
+                }
+                let want = component.frame.measure(&values);
+                let got = split.measure(&values);
+                assert_eq!(got.0.to_bits(), want.0.to_bits(), "scale");
+                assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits), "origin");
+                splitter.moved(j);
+            }
+        }
+    }
+
     fn constructed(steps: &[(f64, f64, u8, usize)]) -> Option<Sketch> {
         let mut sk = Sketch::new();
         let mut points = vec![sk.point_fixed(1.0, -2.0).ok()?];
@@ -873,6 +1020,7 @@ mod tests {
         ) {
             let Some(sk) = constructed(&steps) else { return Ok(()); };
             assert_split_measures_whole(&sk, own_every, shift, extreme);
+            assert_splitter_measures_whole(&sk, own_every + 1, shift, extreme);
         }
     }
 
@@ -886,6 +1034,7 @@ mod tests {
                 serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
             for every in [1, 2, 5] {
                 assert_split_measures_whole(&sk, every, 0.75, 1e300);
+                assert_splitter_measures_whole(&sk, every + 1, 0.75, 1e300);
             }
         }
     }
