@@ -152,6 +152,40 @@ and rest), so it stands. DogLeg still ends `NotConverged` on both
 regressions, as on `dogleg-conflict-inconclusive`; that is a separate
 defect.
 
+## Amendment 2026-11-04: every test re-solved by the default solve
+
+A whole-path analysis (`laman::reference`, and the fallback of a failed
+component, ADR-0009) re-solved each test whole. From the best effort such
+a re-solve could stop at a certified stationary point of a satisfiable
+subset where the staged re-solve of the same subset from the same start
+converges, so the filter dropped a true distance and named a set that
+holds together (`regression/whole-false-certificate`, a checker-clean
+witness in the fixture). The same certificate's locality as the first
+amendment's, met by a start the staged solve escapes and the whole one
+does not.
+
+Every test now re-solves by the default staged solve, whatever path the
+analysis runs on. A staged solve that does not converge by parts falls
+back to the whole solve from the same start with the caps restored
+(ADR-0009 §Fallback), so it converges wherever the whole re-solve does,
+and where neither converges it ends at the whole re-solve's coordinates
+and certifies exactly what the whole one would. The whole-path test can
+only gain witnesses. Each start is still one re-solve of the budget, so
+the bound and the measured counts stand; the staged path's results are
+unchanged bit for bit (it already re-solved staged), and so are the
+digests. Both paths' analyses now differ only by the best effort they
+start from, so the tests hold staged and whole conflict sets equal and
+ADR-0009's witness exemption is withdrawn.
+
+Rejected: a further start, the staged re-solve of the subset, after the
+two whole ones. It certifies no less than this and spends up to twice the
+re-solves for nothing the staged re-solve's own fallback does not already
+try.
+
+The certificate stays local: a subset both re-solves stop short of from
+both starts is still certified. M7's exact-minimum oracle in the tests
+measures what that leaves.
+
 ## Alternatives considered
 
 - **Failed solve or rank deficiency as proof**: both hold for consistent

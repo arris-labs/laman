@@ -123,9 +123,10 @@ fn c2_corpus_at_constructed_coordinates() {
 #[test]
 fn a_whole_conflict_that_holds_together_is_not_the_staged_answer() {
     // `regression/whole-false-certificate`, the property seed that found it
-    // held here so the gate meets it on every run: the whole path names a
-    // set a checker-clean witness disproves, and `assert_same_freedom`
-    // admits the difference only on that witness.
+    // held here so the gate meets it on every run: the whole path named a
+    // set a checker-clean witness disproves until its filter tests were
+    // re-solved staged (ADR-0005, second amendment); `assert_same_freedom`
+    // now holds the two paths' sets equal.
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures/regression/whole-false-certificate");
     let fixture = Fixture::load(&dir).unwrap();

@@ -218,3 +218,14 @@ precondition of staging.
   the whole filter first**: the first holds staging to a known false
   certificate; the second pulls M7's conflict work into M6 to correct a
   path staging does not use for that answer.
+
+## Amendment 2026-11-04: staged = whole on conflict sets
+
+**Conflict sets against the reference** is withdrawn. Every conflict
+filter test now re-solves by the staged solve on both paths (ADR-0005,
+second amendment), so the whole path's analysis certifies nothing the
+staged re-solve disproves, and `regression/whole-false-certificate`
+passes on both paths. The tests hold staged and whole conflict sets
+equal, with no witness exemption; an analysis inconclusive on one side
+(`staged-conflict-inconclusive`) is still no pair of answers to compare
+until M7 fixes it.

@@ -278,6 +278,14 @@ fn conflict_sets(
 /// satisfiable subset must not settle the verdict while another start can
 /// still converge (ADR-0005, amendment). A budget spent before the last
 /// start is inconclusive.
+///
+/// Every re-solve is the default staged one, whatever `options.path` the
+/// analysis runs on (ADR-0005, second amendment): a staged solve that does
+/// not converge by parts falls back to the whole solve from the same start
+/// (ADR-0009), so it converges wherever the whole re-solve does and ends at
+/// the whole re-solve's coordinates where neither converges. A whole-path
+/// analysis then certifies nothing the staged re-solve disproves
+/// (`regression/whole-false-certificate`).
 fn test(
     sketch: &Sketch,
     values: &Coordinates,
@@ -301,6 +309,10 @@ fn test(
         // Present by construction: the ids were just read from the copy.
         let _ = copy.remove_constraint(id);
     }
+    let staged = Options {
+        path: Path::Staged,
+        ..*options
+    };
     let mut certificate = false;
     for start in starts {
         if *solves >= options.max_analysis_solves {
@@ -308,7 +320,7 @@ fn test(
         }
         *solves += 1;
         copy.place(start);
-        let out = solve(&copy, *options);
+        let out = solve(&copy, staged);
         if out.converged {
             return Verdict::Satisfiable;
         }

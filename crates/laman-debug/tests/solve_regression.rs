@@ -349,7 +349,6 @@ fn whole_false_certificate_staged() {
 }
 
 #[test]
-#[ignore = "the whole path certifies a stationary point of a satisfiable subset and names a conflict that holds together"]
 fn whole_false_certificate() {
     assert_spared_in_every_conflict(laman::reference::solve);
 }

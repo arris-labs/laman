@@ -111,7 +111,7 @@ A defect a run measured, one block each:
 - Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `aa67e2f4…`, plans/m6-stages step 7, 2026-11-04; also red at 3495a4b (step 5)
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored whole_false_certificate`
 - Measured: LM whole names {1, 3–9, `stretched`}, staged {`spared`, 1, 3–9, `stretched`}; a checker-clean witness of everything but `spared` is in the fixture; DogLeg ends `NotConverged` on both paths
-- State: regression/whole-false-certificate
+- State: fixed (plans/m7-drag-conflicts step 4: every filter test re-solved by the default staged solve, ADR-0005 second amendment); regression/whole-false-certificate
 
 ### staged-conflict-inconclusive
 - What: under DogLeg the staged conflict analysis ends `NotConverged` with no set where the whole-component path (`laman::reference::solve`) proves one

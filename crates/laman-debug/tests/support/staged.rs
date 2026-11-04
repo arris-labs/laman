@@ -10,8 +10,7 @@
 #![allow(clippy::unwrap_used, dead_code)]
 
 use laman::model::{Coordinate, Coordinates, EntityId, Sketch};
-use laman::solution::{ConstraintRef, Solution, SolverOptions, Status};
-use laman_check::check;
+use laman::solution::{Solution, SolverOptions, Status};
 use std::collections::BTreeMap;
 
 /// How far the staged and whole projectors onto the free directions may
@@ -47,108 +46,43 @@ fn projector_gap(staged: &Solution, whole: &Solution) -> f64 {
         .fold(0.0, f64::max)
 }
 
-/// Whether `set` holds together: a sketch holding every constraint of
-/// `set` solves to coordinates the independent checker accepts, which
-/// then satisfy `set` too. The sketches tried are `set`'s constraints
-/// alone and `sketch` without one constraint outside `set` (the deletion
-/// filter's own tests), each from its guesses and from the best effort
-/// `from`, as the filter starts. Such a set is no conflict, whoever named
-/// it.
-fn disproved(
-    sketch: &Sketch,
-    set: &[ConstraintRef],
-    from: &Solution,
-    options: &SolverOptions,
-) -> bool {
-    let outside: Vec<_> = sketch
-        .constraints()
-        .map(|(id, _)| id)
-        .filter(|id| set.iter().all(|c| c.id != *id))
-        .collect();
-    let mut alone = sketch.clone();
-    for id in &outside {
-        alone.remove_constraint(*id).unwrap();
-    }
-    let holds = |start: &Sketch| {
-        let solution = start.solve(options);
-        matches!(
-            solution.status,
-            Status::FullyConstrained | Status::UnderConstrained
-        ) && check(start, &solution.coordinates).is_clean()
-    };
-    let witnessed = |sk: &Sketch| holds(sk) || holds(&placed(sk, &from.coordinates));
-    witnessed(&alone)
-        || outside.iter().any(|id| {
-            let mut without = sketch.clone();
-            without.remove_constraint(*id).unwrap();
-            witnessed(&without)
-        })
-}
-
 /// Whether `solution`'s conflict analysis was inconclusive: `NotConverged`
 /// with no conflict set named.
 fn inconclusive(solution: &Solution) -> bool {
     solution.status == Status::NotConverged && solution.diagnostics.conflicts.is_empty()
 }
 
-/// Holds the staged conflict sets to the whole path's, where the whole
-/// path's are unsatisfiable. The whole deletion filter can certify a
-/// stationary point of a satisfiable subset (ADR-0005's certificate is
-/// local) and name a set that holds together
-/// (`regression/whole-false-certificate`, ignored until M7). The two may
-/// differ only where every whole set staging lacks is `disproved` by a
-/// checker-clean witness: the reference is the wrong side there, and
-/// equality would assert a known-false answer. An analysis that is
-/// `inconclusive` on either side gives no answer to compare; the staged
-/// one is a finding (`docs/BACKLOG.md` `staged-conflict-inconclusive`).
-/// Nothing staged is excused by either: the
+/// Holds the staged conflict sets equal to the whole path's. Both
+/// analyses re-solve every filter test by the default staged solve
+/// (ADR-0005, second amendment), so a whole-path set that holds together
+/// (`regression/whole-false-certificate`) is no longer excused. An analysis
+/// that is `inconclusive` on either side gives no answer to compare; the
+/// staged one is a finding (`docs/BACKLOG.md`
+/// `staged-conflict-inconclusive`). Nothing staged is excused by it: the
 /// staged sets keep their own guarantees, which the callers' properties
 /// hold (each set names the contradiction, a member violated).
-fn assert_same_conflicts(
-    name: &str,
-    what: &str,
-    sketch: &Sketch,
-    staged: &Solution,
-    whole: &Solution,
-    options: &SolverOptions,
-) {
+fn assert_same_conflicts(name: &str, what: &str, staged: &Solution, whole: &Solution) {
     let (s, w) = (&staged.diagnostics.conflicts, &whole.diagnostics.conflicts);
-    if s == w {
-        return;
-    }
-    if inconclusive(whole) || inconclusive(staged) {
-        // One analysis was inconclusive and names nothing
-        // (`framework-conflict-inconclusive`'s family; the staged DogLeg
-        // side is the finding `staged-conflict-inconclusive`): there is no
-        // pair of answers to compare, and the property's own checks still
-        // hold the inconclusive side to never calling the sketch satisfied.
-        return;
-    }
-    let missing: Vec<_> = w.iter().filter(|set| !s.contains(set)).collect();
+    // One analysis inconclusive names nothing
+    // (`framework-conflict-inconclusive`'s family; the staged DogLeg side
+    // is the finding `staged-conflict-inconclusive`): there is no pair of
+    // answers to compare, and the property's own checks still hold the
+    // inconclusive side to never calling the sketch satisfied.
+    let one_inconclusive = inconclusive(whole) || inconclusive(staged);
     assert!(
-        !missing.is_empty()
-            && missing
-                .iter()
-                .all(|set| disproved(sketch, set, staged, options)),
-        "{name}: {what}: staged {s:?}, whole {w:?}: a whole set staging lacks holds no witness against it"
+        s == w || one_inconclusive,
+        "{name}: {what}: staged {s:?}, whole {w:?}"
     );
 }
 
 /// Solves `sketch` staged, diagnoses its coordinates whole and holds the
-/// two to equality, and the conflict sets to the whole solve's (where the
-/// whole path's are unsatisfiable, `assert_same_conflicts`); returns the
+/// two to equality, and the conflict sets to the whole solve's
+/// (`assert_same_conflicts`); returns the
 /// staged solution. A failure names `name`.
 pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions) -> Solution {
     let staged = sketch.solve(options);
     let solved = laman::reference::solve(sketch, options);
-    assert_same_conflicts(
-        name,
-        "conflicts of the whole solve",
-        sketch,
-        &staged,
-        &solved,
-        options,
-    );
+    assert_same_conflicts(name, "conflicts of the whole solve", &staged, &solved);
     let whole = laman::reference::diagnose(sketch, &staged.coordinates, options);
     // An inconclusive analysis on one side reports `NotConverged` where the
     // other proves a set (`assert_same_conflicts`).
@@ -174,7 +108,7 @@ pub fn assert_same_freedom(name: &str, sketch: &Sketch, options: &SolverOptions)
         staged.diagnostics.redundant, whole.diagnostics.redundant,
         "{name}: redundant"
     );
-    assert_same_conflicts(name, "conflicts", sketch, &staged, &whole, options);
+    assert_same_conflicts(name, "conflicts", &staged, &whole);
     assert_eq!(
         staged.diagnostics.free_directions.len(),
         whole.diagnostics.free_directions.len(),

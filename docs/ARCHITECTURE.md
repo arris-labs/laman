@@ -404,7 +404,10 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the
-  guesses. It counts as satisfiable when either re-solve converges. It
+  guesses, by the default staged solve on either path (whose fallback is
+  the whole solve from the same start, so a whole-path test gains its
+  witnesses and certifies nothing the whole re-solve would not; ADR-0005,
+  second amendment). It counts as satisfiable when either re-solve converges. It
   counts as unsatisfiable only when neither converges and one ends at a
   certified stationary least-squares point: `|Jᵀf| ≤ STATIONARY ·
   |(f_i |J_i|)|`, with `STATIONARY = 1e-6`. A certified local minimum of a

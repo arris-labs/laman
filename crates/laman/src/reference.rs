@@ -33,7 +33,8 @@ pub fn solve(sketch: &Sketch, options: &SolverOptions) -> Solution {
 /// The whole-component diagnosis of `sketch` at `coordinates` (a solve's,
 /// every parameter named), as a solve that ended there would report it,
 /// with no step taken: the coordinates come back unchanged. The conflict
-/// analysis of an unsatisfied component still re-solves it, whole.
+/// analysis of an unsatisfied component re-solves its tests by the default
+/// staged solve, as every analysis does (ADR-0005, second amendment).
 pub fn diagnose(sketch: &Sketch, coordinates: &Coordinates, options: &SolverOptions) -> Solution {
     crate::solution::diagnose_on(sketch, coordinates, options, Path::Whole)
 }

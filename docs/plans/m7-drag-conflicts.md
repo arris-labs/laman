@@ -84,7 +84,7 @@ established here.
 - [x] Step 3 **[2]** — Shrink seed `4ca64a2b…` to
   `regression/staged-conflict-inconclusive` (inspect skill), ignored,
   desired: staged DogLeg names whole DogLeg's set; finding updated.
-- [ ] Step 4 **[3]** — Fix the whole path's false certificate, ADR-0005
+- [x] Step 4 **[3]** — Fix the whole path's false certificate, ADR-0005
   amendment; lift `whole-false-certificate`; staged = whole on conflict
   sets in `solved.rs`, the witness exemption deleted.
 - [ ] Step 5 **[3]** — Fix the staged DogLeg inconclusive case; lift its
@@ -149,8 +149,13 @@ established here.
   `expected.json` DoF corrected from 3 by count). C1 digests unchanged.
   `satisfied-status-degenerate-tangent` is not lifted: its radius ends
   positive; its fault is the status at a collapsed contact.
-- ⚠ OPEN: the false certificate's fix (another start or one re-solve path
-  for both filters). The agent, step 4, in the ADR-0005 amendment.
+- *Settled* (step 4, ADR-0005 second amendment): one re-solve path, the
+  default staged solve, for both filters. Its fallback is the whole solve
+  from the same start, so it dominates a further start at no extra
+  re-solve; the staged path's bits and the digests are unchanged. The
+  `solved.rs` seed `267f6820…` (staged named 9 members, whole 7) is kept
+  in its regressions file and passes; at 2000 cases staged = whole with
+  only the inconclusive-side exemption left (step 5).
 - ⚠ OPEN: `MAX_SWEEP_STEP`'s value. A move of `f` turns is read
   correctly up to half a turn, so any `f < ½` catches true moves in
   `(f, 1 − f)` turns and misses the rest; the agent picks it in step 7

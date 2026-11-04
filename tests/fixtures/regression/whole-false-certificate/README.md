@@ -18,3 +18,7 @@ independent checker's: the test holds only that `laman-check` accepts it.
 Desired: every conflict set the whole path (`laman::reference::solve`)
 names contains `spared` and `stretched`, under both algorithms. The
 witness's check and the staged path's sets pass today.
+
+Fixed by plans/m7-drag-conflicts step 4 (ADR-0005, second amendment):
+every filter test re-solves by the default staged solve on both paths,
+whose fallback is the whole re-solve from the same start.
