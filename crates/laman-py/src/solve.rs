@@ -297,14 +297,17 @@ impl Flip {
 
 /// A drag frame that was bisected: halved toward the last target because
 /// the full step flipped a branch or moved an arc's sweep too far. A frame
-/// the session stayed put on, every halving having flipped, is bisected
-/// too: `reached` is then the last halving's target.
+/// the session stayed put on, every halving having flipped or jumped, is
+/// marked too: `reached` is then the last halving's target (never solved
+/// at; the coordinates are the previous frame's), and `halvings` is 0 if
+/// `max_bisections` is 0.
 #[pyclass(frozen, eq, get_all, module = "laman")]
 #[derive(Clone, PartialEq)]
 pub struct Bisection {
     /// The target the frame was solved at, `(x, y)`.
     reached: (f64, f64),
-    /// How many times the step was halved, at least 1.
+    /// How many times the step was halved: at least 1, except 0 for a
+    /// frame refused with `max_bisections` 0.
     halvings: usize,
 }
 

@@ -156,13 +156,16 @@ impl DragSession {
     /// [`MAX_SWEEP_STEP`](crate::model::tolerance::MAX_SWEEP_STEP) (a sweep
     /// jump, which names no flip), is halved toward the last target, at most `max_bisections` times, and the first
     /// halving that keeps every branch is the frame. If every halving
-    /// flips, the frame is the last solution unchanged, its `flips` naming
-    /// what the nearest halving would have changed; the session stays on
-    /// its branch, and the caller can finish and solve statically to take
-    /// the other. A frame halved at least once carries
+    /// flips or jumps, the frame is the last solution unchanged, its `flips`
+    /// naming what the nearest flipping halving would have changed (none if
+    /// they only jumped); the session stays on its branch, and the caller can
+    /// finish and solve statically to take the other. A frame halved at
+    /// least once, and every frame that stayed put (even with
+    /// `max_bisections` 0), carries
     /// [`Diagnostics::bisection`](crate::solution::Diagnostics::bisection):
-    /// the target it was solved at and the halvings (for a frame that stayed
-    /// put, the last halving tried). The target is a goal, never a constraint:
+    /// the target it was solved at and the halvings. For a frame that stayed
+    /// put that is the last halving tried, a target never solved at: the
+    /// coordinates are the previous frame's. The target is a goal, never a constraint:
     /// one the sketch makes unreachable ends at the nearest reachable place,
     /// `UnderConstrained` or better, not `NotConverged`. A target that is
     /// not finite is refused as a frame: the last solution's coordinates
@@ -236,11 +239,16 @@ impl DragSession {
             self.last = solution.clone();
             return solution;
         }
-        // Every try flipped: stay on the branch, and say what the nearest
-        // one would have flipped.
+        // Every try flipped or jumped: stay on the branch, say what the
+        // nearest flipping one would have changed, and mark the frame even
+        // with no halving allowed, so a refusal is never read as a frame
+        // solved at its own target.
         let mut stayed = self.last.clone();
         stayed.diagnostics.flips = refused.unwrap_or_default();
-        stayed.diagnostics.bisection = bisection(last_try.0, last_try.1);
+        stayed.diagnostics.bisection = Some(Bisection {
+            reached: last_try.0,
+            halvings: last_try.1,
+        });
         stayed
     }
 

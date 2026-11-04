@@ -543,8 +543,9 @@ every branch is the frame, `flips` empty and the dragged point stopped
 short of the target; the session's reference target moves to it, and the
 frame says so in `Diagnostics::bisection` (the target solved at and the
 halvings; `None` for a frame at its own target). If every
-try flips, the frame is the last solution unchanged with the nearest try's
-flips named and `bisection` the last halving tried, and the session stays
+try flips or jumps, the frame is the last solution unchanged with the nearest
+flipping try's flips named and `bisection` the last halving tried (never solved
+at; with `max_bisections` 0, `halvings` 0), and the session stays
 where it was (ADR-0006): a drag cannot
 cross a branch, only a static solve can. `max_bisections` defaults to 8:
 the smallest step tried is 1/256 of the frame's, below what the eye reads

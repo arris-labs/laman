@@ -234,8 +234,10 @@ _Avoid_: backtracking, line search
 **Bisected frame**:
 A drag frame that was halved at least once toward the last target; its
 `Diagnostics::bisection` holds the target it was solved at and the number
-of halvings. A frame that stayed put because every halving flipped is
-bisected too (its mark is the last halving tried).
+of halvings. A frame that stayed put because every halving flipped or
+jumped is marked too: the target is the last halving tried (never solved
+at; the coordinates are the previous frame's), and with `max_bisections` 0
+the mark has no halvings.
 
 **Branch**:
 Which of a constraint system's discrete solutions a sketch sits on (which

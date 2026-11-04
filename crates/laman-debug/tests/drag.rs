@@ -113,3 +113,19 @@ fn a_sweep_jump_is_bisected_without_a_flip() {
         );
     }
 }
+
+/// With no halving allowed, a frame refused for a sweep jump names no flip
+/// but is marked: the previous coordinates and a bisection of 0 halvings
+/// at the target tried.
+#[test]
+fn a_refused_sweep_jump_is_marked_though_it_names_no_flip() {
+    let fixture = load("sweep-jump");
+    let drag = fixture.drag.as_ref().unwrap();
+    let mut options = SolverOptions::default();
+    options.max_bisections = 0;
+    let mut session = fixture.sketch.drag(drag.dragged, &options).unwrap();
+    let step = session.to(drag.targets[0]);
+    assert!(step.diagnostics.flips.is_empty());
+    let mark = step.diagnostics.bisection.unwrap();
+    assert_eq!((mark.halvings, mark.reached), (0, drag.targets[0]));
+}

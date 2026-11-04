@@ -178,6 +178,9 @@ fn without_bisections_a_flipping_frame_stays_put_and_the_session_recovers() {
     let stuck = drag.to([-1.0, 1.0]);
     assert_eq!(at(&stuck.coordinates, p), [3.0, 1.0]);
     assert_eq!(stuck.diagnostics.flips.len(), 1);
+    // A refusal is marked, never read as a frame solved at its own target.
+    let mark = stuck.diagnostics.bisection.unwrap();
+    assert_eq!((mark.halvings, mark.reached), (0, [-1.0, 1.0]));
     let flip = &stuck.diagnostics.flips[0];
     assert!(flip.was > 0.0 && flip.now < 0.0, "{flip:?}");
     // The session is still on its branch: a target on the near side lands.

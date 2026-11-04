@@ -67,6 +67,11 @@ can fail on a flip, and the 500-entity bench times a bisected frame.
   literal breaks (`### Breaking`). Binding, `.pyi`, docstring example in
   the same commit; digests re-blessed only where a drag fixture bisects.
   Glossary: **bisected frame**.
+  *Settled (review):* "the last one's" is the last halving *tried*, a
+  target the frame was not solved at (its coordinates are the previous
+  frame's); kept because the mark must say how far the step was halved.
+  Every stay-put frame is marked, also with `max_bisections` 0
+  (`halvings` 0), so a refusal is never read as a frame at its own target.
 
 ## Steps
 

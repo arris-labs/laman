@@ -264,9 +264,12 @@ pub struct Diagnostics {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Bisection {
     /// The target the frame was solved at: the full step's, halved
-    /// `halvings` times toward the previous frame's.
+    /// `halvings` times toward the previous frame's. For a frame that
+    /// stayed put because every try flipped or jumped, the last target
+    /// tried, never solved at: the coordinates are the previous frame's.
     pub reached: [f64; 2],
-    /// How many times the step was halved, at least 1.
+    /// How many times the step was halved: at least 1, except 0 for a
+    /// frame refused with `max_bisections` 0.
     pub halvings: usize,
 }
 

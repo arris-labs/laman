@@ -189,7 +189,9 @@ class Flip:
 @final
 class Bisection:
     """A drag frame that was halved toward its target: the full step flipped
-    a branch or moved an arc's sweep too far."""
+    a branch or moved an arc's sweep too far. A frame that stayed put because
+    every halving flipped or jumped is marked too, with the last halving's
+    target (never solved at) and halvings 0 if max_bisections is 0."""
 
     @property
     def reached(self) -> tuple[float, float]: ...
@@ -219,8 +221,8 @@ class Diagnostics:
     def flips(self) -> list[Flip]: ...
     @property
     def bisection(self) -> Bisection | None:
-        """Set on a drag frame halved toward its target; None for a static
-        solve and a frame solved at its own target."""
+        """Set on a drag frame halved toward its target or one that stayed
+        put; None for a static solve and a frame solved at its own target."""
         ...
 
 @final

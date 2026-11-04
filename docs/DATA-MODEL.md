@@ -172,7 +172,8 @@ free directions, redundant, conflicting and degenerate sets are computed
   that was halved toward its target (`halvings ≥ 1`), `None` for a static
   solve and a frame solved at its own target. `reached` is the target the
   frame was solved at; a frame that stayed put because every halving
-  flipped carries the last halving tried (ARCHITECTURE.md §Drag sessions,
+  flipped or jumped is marked too, with the last halving tried (never
+  solved at) and, with `max_bisections` 0, `halvings` 0 (ARCHITECTURE.md §Drag sessions,
   ADR-0006).
 
 Every item names constraints and entities as `(id, kind, tag)`; the caller's
