@@ -163,7 +163,7 @@ sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). Next: M8.
   500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
   *Accept*). If they still miss, rigid
   bodies in the remainder, a cache or a driver split is chosen by that
-  profile (`docs/ideas/c2-decomposition.md`).
+  profile (`docs/plans/m8-frame-budget.md`).
 
 The risk this cycle retires is locality: that a decomposition into stages
 makes a local edit cost a local solve, without changing a diagnostic or a

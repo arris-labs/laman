@@ -174,7 +174,7 @@ _Avoid_: subsystem (until it means a rigid cluster), island
 One of a component's square parts: a strongly connected set of required
 equations with the free parameters they fix, from the Dulmage–Mendelsohn
 decomposition of the compiled system. Stages solve in dependency order,
-so an edit never moves a stage before it (ideas/c2-decomposition).
+so an edit never moves a stage before it (ADR-0009).
 _Avoid_: block, cluster
 
 **Head**:
@@ -190,7 +190,7 @@ change: where every freedom, and every drag, lives.
 A part of a sketch that is rigid by itself, as a pebble game
 (`laman::rigidity`) would find it, solved as one rigid body. Not built:
 C2 decomposes into stages, and rigid clusters join only if a remainder
-misses the frame budget (ideas/c2-decomposition, M8).
+misses the frame budget (ROADMAP.md §C2, M8).
 _Avoid_: block, group
 
 **Generic rigidity**:
