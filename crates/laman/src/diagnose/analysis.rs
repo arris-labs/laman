@@ -198,8 +198,9 @@ fn constraints_of(component: &Component) -> Vec<ConstraintId> {
 /// (ADR-0003): with `w_i = f_i |J_i|`, `|Σ w_i J_i / |J_i|| = |Jᵀf| ≤
 /// STATIONARY |w|`. A component
 /// with no free parameter is certified exactly by its unsatisfied value.
-/// An invalid evaluation (degenerate, non-finite, off the stored contact
-/// side) certifies nothing.
+/// A radius at 0 that `Jᵀf` presses below it reads the projected gradient,
+/// its component dropped (ADR-0010). An invalid evaluation (degenerate,
+/// non-finite, off the stored contact side) certifies nothing.
 fn certified(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
     let e = system.evaluate(component, values);
     if !e.valid || satisfied(system, component, values) {
@@ -216,6 +217,15 @@ fn certified(system: &System<'_>, component: &Component, values: &Coordinates) -
         weight += (f * length) * (f * length);
         for (g, j) in gradient.iter_mut().zip(row) {
             *g += j * f;
+        }
+    }
+    // At a radius on its bound the first-order motion is the projected
+    // gradient's (ADR-0010): a component pressing a radius below 0 cannot
+    // follow it, so that component is dropped.
+    for (g, p) in gradient.iter_mut().zip(&component.params) {
+        let held = p.1 == Coordinate::R && values.get(p).is_some_and(|r| *r <= 0.0);
+        if held && *g > 0.0 {
+            *g = 0.0;
         }
     }
     let stationary = gradient.iter().fold(0.0, |s, x| s + x * x).sqrt();

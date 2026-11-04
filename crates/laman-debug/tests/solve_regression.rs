@@ -129,8 +129,32 @@ fn false_conflict_excludes_contradiction_dogleg() {
     assert_excludes_contradiction(Algorithm::DogLeg);
 }
 
+/// The status, DoF and checker of a solution whose radius the bound holds
+/// at or near 0: violations none, the circle named degenerate.
+fn assert_held_radius(f: &Fixture, solution: &laman::solution::Solution, algorithm: Algorithm) {
+    assert_eq!(
+        solution.status.to_string(),
+        f.expected.status,
+        "{algorithm:?}"
+    );
+    assert_eq!(
+        u32::try_from(solution.diagnostics.dof).unwrap(),
+        f.expected.dof,
+        "{algorithm:?}"
+    );
+    assert!(
+        solution
+            .coordinates
+            .iter()
+            .all(|((_, c), v)| *c != laman::model::Coordinate::R || *v >= 0.0),
+        "{algorithm:?}: {:?}",
+        solution.coordinates
+    );
+    let report = check(&f.sketch, &solution.coordinates);
+    assert!(report.violations.is_empty(), "{algorithm:?}: {report:?}");
+}
+
 #[test]
-#[ignore = "a drag step returns a radius of -2.55e-19, which Sketch::apply refuses"]
 fn drag_negative_radius() {
     let f = load("drag-negative-radius");
     let drag = f.drag.as_ref().unwrap();
@@ -141,20 +165,22 @@ fn drag_negative_radius() {
         for target in &drag.targets {
             session.to(*target);
         }
+        let finish = session.finish();
+        assert_held_radius(&f, &finish, algorithm);
         let mut applied = f.sketch.clone();
-        let result = applied.apply(&session.finish());
+        let result = applied.apply(&finish);
         assert!(result.is_ok(), "{algorithm:?}: {result:?}");
     }
 }
 
 #[test]
-#[ignore = "a solve returns a radius of -7.6e90, which Sketch::apply refuses"]
 fn negative_radius_solve() {
     let f = load("negative-radius-solve");
     for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
         let mut options = SolverOptions::default();
         options.algorithm = algorithm;
         let solution = f.sketch.solve(&options);
+        assert_held_radius(&f, &solution, algorithm);
         let mut applied = f.sketch.clone();
         let result = applied.apply(&solution);
         assert!(result.is_ok(), "{algorithm:?}: {result:?}");

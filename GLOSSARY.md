@@ -146,9 +146,16 @@ that the member is needed in the set.
 
 **Conflict certificate**:
 A least-squares point, outside tolerance, at which the weighted residual
-is a left null vector of the Jacobian to `STATIONARY`. No first-order
-motion reduces the residual there. It is local evidence of a conflict,
+is a left null vector of the Jacobian to `STATIONARY`, its gradient
+projected where a radius is held at 0 (ADR-0010). No first-order motion
+the radius bound allows reduces the residual there. It is local evidence of a conflict,
 never a proof that no solution exists anywhere (ADR-0005).
+
+**Radius bound**:
+A circle's radius is never below 0, held inside both engines by a
+projected step: a radius on the bound that descent presses below takes no
+step, and a step that would cross 0 is cut there (ADR-0010).
+_Avoid_: radius clamp
 
 **Component**:
 The free parameters connected through shared equations, solved as one

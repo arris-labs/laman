@@ -212,11 +212,25 @@ impl Control {
         (value.is_finite() && value > 0.0).then_some(control)
     }
 
-    fn propose(&self, e: &Evaluation) -> Option<Proposal> {
-        let step = match *self {
-            Control::Damping(damping) => damped_step(e, damping)?,
-            Control::Radius(radius) => dog_leg(e, radius)?,
+    /// The step at `e` with `bound`'s active radii held (ADR-0010): their
+    /// columns are dropped from the model, and the step is cut where it would
+    /// carry a radius below 0. The prediction is that of the step taken.
+    fn propose(&self, e: &Evaluation, bound: &Bound<'_>) -> Option<Proposal> {
+        let active = bound.active(e);
+        let model = bound.release(e, &active);
+        let model = model.as_ref().unwrap_or(e);
+        let mut step = match *self {
+            Control::Damping(damping) => damped_step(model, damping)?,
+            Control::Radius(radius) => dog_leg(model, radius)?,
         };
+        // A column the model lacks takes no step: LM's is zero already,
+        // DogLeg's SVD leaves rounding there.
+        for i in &active {
+            if let Some(d) = step.get_mut(*i) {
+                *d = 0.0;
+            }
+        }
+        bound.cut(&mut step);
         let predicted = predicted_decrease(e, &step);
         Some(Proposal { step, predicted })
     }
@@ -487,6 +501,7 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
     let Some(mut control) = Control::new(options).filter(|_| cost.is_finite()) else {
         return false;
     };
+    let radii = radii_of(component);
     // A part spends a share of a cap, so it is also held to the cap alone:
     // no descent takes more steps than a whole component may.
     let mut steps = 0;
@@ -496,7 +511,11 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
     {
         steps += 1;
         out.spend_iteration(weight);
-        let proposal = control.propose(&current);
+        let bound = Bound {
+            radii: &radii,
+            position: &position,
+        };
+        let proposal = control.propose(&current, &bound);
         let candidate = proposal
             .as_ref()
             .and_then(|p| trial(component, &out.coordinates, &position, &p.step));
@@ -1028,6 +1047,88 @@ fn normalized(component: &Component, values: &Coordinates) -> Option<Vec<f64>> {
         .collect()
 }
 
+/// The indices of `component`'s radius parameters: the only ones with a
+/// bound (`r ≥ 0`, ADR-0010). In normalized coordinates a radius has origin
+/// 0, so the bound is `x ≥ 0` there too.
+fn radii_of(component: &Component) -> Vec<usize> {
+    component
+        .params
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.1 == Coordinate::R)
+        .map(|(i, _)| i)
+        .collect()
+}
+
+/// The bound `r ≥ 0` at one iterate (ADR-0010): a projected step with an
+/// active set (Bertsekas, *Nonlinear Programming*, 2nd ed., 1999, §2.3, the
+/// two-metric projection). A radius is **active** when it sits on its bound
+/// and the objective's gradient `Jᵀf` presses it below; its column leaves the
+/// step's model, so the other parameters take the step that model gives
+/// without it, and every radius the step would carry below 0 is cut at 0.
+struct Bound<'a> {
+    radii: &'a [usize],
+    position: &'a [f64],
+}
+
+impl Bound<'_> {
+    /// The active radii at `e`: on the bound, pressed below it.
+    fn active(&self, e: &Evaluation) -> Vec<usize> {
+        self.radii
+            .iter()
+            .copied()
+            .filter(|i| self.position.get(*i).is_some_and(|x| *x <= 0.0) && pressed(e, *i) > 0.0)
+            .collect()
+    }
+
+    /// `e` with the `active` radii's columns zeroed, or `None` when none is
+    /// active, so an unbounded iterate is proposed from `e` itself, bit for bit.
+    fn release(&self, e: &Evaluation, active: &[usize]) -> Option<Evaluation> {
+        if active.is_empty() {
+            return None;
+        }
+        let jacobian = e
+            .jacobian
+            .iter()
+            .map(|row| {
+                let mut row = row.clone();
+                for i in active {
+                    if let Some(x) = row.get_mut(*i) {
+                        *x = 0.0;
+                    }
+                }
+                row
+            })
+            .collect();
+        Some(Evaluation {
+            values: e.values.clone(),
+            jacobian,
+            satisfied: e.satisfied,
+            valid: e.valid,
+        })
+    }
+
+    /// Cuts `step` where it would carry a radius below 0: `x + δ ≥ 0`, and
+    /// `x + (−x)` is exactly 0.
+    fn cut(&self, step: &mut [f64]) {
+        for i in self.radii {
+            if let (Some(x), Some(d)) = (self.position.get(*i), step.get_mut(*i)) {
+                if *x + *d < 0.0 {
+                    *d = -*x;
+                }
+            }
+        }
+    }
+}
+
+/// The objective's gradient `(Jᵀf)_i` along parameter `i`, summed in row
+/// order: positive when descent would lower it.
+fn pressed(e: &Evaluation, i: usize) -> f64 {
+    e.jacobian.iter().zip(&e.values).fold(0.0, |sum, (row, f)| {
+        sum + row.get(i).copied().unwrap_or(0.0) * f
+    })
+}
+
 fn trial(
     component: &Component,
     values: &Coordinates,
@@ -1043,7 +1144,12 @@ fn trial(
             Coordinate::Y => component.origin[1],
             Coordinate::R => 0.0,
         };
-        let x = x + delta;
+        // A radius is held at its bound, never carried below it (ADR-0010):
+        // a NaN is kept, for the finite check below to refuse.
+        let x = match key.1 {
+            Coordinate::R if x + delta < 0.0 => 0.0,
+            Coordinate::X | Coordinate::Y | Coordinate::R => x + delta,
+        };
         // Do not round-trip an unchanged parameter through normalization.
         let value = if *delta == 0.0 {
             *values.get(key)?

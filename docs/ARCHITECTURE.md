@@ -291,6 +291,14 @@ arithmetic. Coordinates use the frozen component origin and common scale;
 fixed and untouched parameters retain their bits. A non-finite transform,
 factorization or trial cannot certify convergence.
 
+**The radius bound** (ADR-0010), shared by both engines: a circle's radius
+is held `≥ 0` by a projected step with an active set. A radius on its
+bound that `Jᵀf` presses below has its column dropped from the model the
+step is taken from; a step that would carry any radius below 0 is cut at
+0, and the gain ratio reads the cut step's prediction; every trial holds a
+radius at 0 rather than below it. Where no radius is active and no step
+crosses 0, all of this is the unbounded iteration bit for bit.
+
 The numerical defaults, exercised by `laman`'s `solve::tests`, are:
 
 | Setting | Value | Purpose |
@@ -496,10 +504,9 @@ equation path to the dragged point is in another component and is not
 touched: its bits stay the bits it started with. A target that is not
 finite is no frame: the last solution comes back with `NotConverged` and
 the session is unchanged. Every solution of a session claims the sketch it
-was opened on, so `apply` takes any of them on it, unedited, with one
-known gap: a degenerate sketch can end a frame with a radius rounded just
-below zero, which `apply` refuses (regression `drag-negative-radius`,
-ignored). The frame
+was opened on, so `apply` takes any of them on it, unedited: no frame
+ends with a radius below zero (ADR-0010, regression
+`drag-negative-radius`). The frame
 budget a step must meet is ROADMAP.md's: ≤ 1 ms, measured by the bench on
 fixture 4 (§Frame budget).
 

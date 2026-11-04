@@ -7,6 +7,8 @@ with the small circle's radius at about -7.57e90 and no flip named, and
 `Sketch::apply` refuses the solution (`DimensionOutOfRange`, `r >= 0`).
 Found by the property `any_point_of_any_sketch_drags_to_any_targets` (its
 drag session opens with this solve); the static solve alone shows it.
-Desired: a returned solution applies back; whether that means a radius
-held at 0 or a named flip and status is the fix's to decide, so only
-`apply` is held. `expected.json`'s status and DoF are not asserted.
+Desired: a returned solution applies back, the small radius held at 0
+(ADR-0010), `UnderConstrained` with DoF 5 (six parameters, one tangency;
+`expected.json`'s first count of 3 was wrong), the checker clean but for
+the zero radius it names degenerate. Fixed by the radius bound
+(plans/m7-drag-conflicts step 1).

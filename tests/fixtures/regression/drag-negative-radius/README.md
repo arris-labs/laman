@@ -9,6 +9,8 @@ tolerance, but `Sketch::apply` refuses a negative radius
 (`DimensionOutOfRange`), so `DragSession::finish`'s solution does not apply
 to the sketch it was opened on. Desired: every solution a session returns
 applies back (a radius that rounds below zero is not returned negative).
-Only that is held; `expected.json`'s status and DoF are the sketch's count
-(5 parameters, the tangency pins the radius at 0) and are not asserted.
-Levenberg-Marquardt happens to land on +3.7e-14 here.
+`expected.json`'s status and DoF are the sketch's count (5 parameters,
+one tangency: `UnderConstrained`, DoF 4), held with the checker clean
+but for the radius it names degenerate. Levenberg-Marquardt lands on
++3.7e-14. Fixed by the radius bound (ADR-0010, plans/m7-drag-conflicts
+step 1): DogLeg's radius is held at 0.

@@ -23,7 +23,7 @@ stored and solved is [ARCHITECTURE.md](ARCHITECTURE.md).
 |---|---|---|---|---|
 | Point | — | `x`, `y` | — | 2 |
 | Line segment `L` | start point `a`, end point `b` | — | — | 4 (its points') |
-| Circle `C` | centre point `c` | radius `r` | — | 3 |
+| Circle `C` | centre point `c` | radius `r ≥ 0` (ADR-0010) | — | 3 |
 | Arc `A` | centre `c`, start `s`, end `e` (ADR-0001) | — | `|e − c| − |s − c| = 0` | 5 |
 
 - Lines, circles and arcs **refer** to points; two entities that share a

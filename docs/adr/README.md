@@ -21,8 +21,9 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0002](0002-regularize-structural-tangent-contacts.md) | Regularize structural tangent contacts | accepted |
 | [0003](0003-scale-relative-tolerances-and-rank-order.md) | Scale-relative tolerances and deterministic rank ordering | accepted; rank normalization amended by 0009 |
 | [0004](0004-checker-tolerance-at-checked-coordinates.md) | The checker measures its tolerance at the coordinates it checks | accepted |
-| [0005](0005-conflict-sets-by-certified-deletion.md) | Conflict sets by certified deletion, redundancy by removal | accepted |
-| [0006](0006-branches-by-observation.md) | Branches by observation, compared beyond a margin | accepted |
+| [0005](0005-conflict-sets-by-certified-deletion.md) | Conflict sets by certified deletion, redundancy by removal | accepted; certificate amended by 0010 |
+| [0006](0006-branches-by-observation.md) | Branches by observation, compared beyond a margin | accepted; radius flips amended by 0010 |
 | [0007](0007-the-binding-carries-the-checker-the-dumps-and-the-digest.md) | The binding carries the checker, the dumps and the digest | accepted |
 | [0008](0008-the-release-gate-is-the-tags-own-ci-run.md) | The release gate is the tag's own CI run | accepted |
 | [0009](0009-stages-and-part-rank.md) | Stages, part rank and the whole-component fallback | accepted |
+| [0010](0010-a-radius-is-bounded-below-by-zero.md) | A radius is bounded below by zero, inside both engines | accepted; amends 0005, 0006 |

@@ -120,6 +120,39 @@ fn a_negative_radius_is_refused() {
     ));
 }
 
+/// Circles externally tangent, centres held 10 apart, the second's radius
+/// 20: only `r = −10` holds the tangency, so with `r ≥ 0` (ADR-0010) the
+/// three constraints conflict. The free radius ends held at 0, exactly, and
+/// the solution applies; without the bound the solve converged to `r = −10`.
+#[test]
+fn a_radius_held_at_zero_is_a_conflict_not_a_negative_radius() {
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut sk = Sketch::new();
+        let a = sk.point_fixed(0.0, 0.0).unwrap();
+        let b = sk.point(0.0, 25.0).unwrap();
+        let small = sk.circle(a, 1.0).unwrap();
+        let large = sk.circle(b, 20.0).unwrap();
+        let fix = sk.fix(b, 0.0, 10.0).unwrap();
+        let radius = sk.radius(large, 20.0).unwrap();
+        let tangent = sk.tangent_circles(small, large).unwrap();
+        let s = sk.solve(&options(algorithm));
+        assert_eq!(s.status, Status::Unsatisfiable, "{algorithm:?}");
+        let sets: Vec<Vec<_>> = s
+            .diagnostics
+            .conflicts
+            .iter()
+            .map(|set| set.iter().map(|c| c.id).collect())
+            .collect();
+        assert_eq!(sets, [[fix, radius, tangent]], "{algorithm:?}");
+        assert_eq!(
+            s.coordinates[&(small.id(), Coordinate::R)],
+            0.0,
+            "{algorithm:?}"
+        );
+        sk.apply(&s).unwrap();
+    }
+}
+
 #[test]
 fn apply_then_solve_keeps_every_bit() {
     let (mut sk, _, _) = rod();

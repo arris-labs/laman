@@ -1,6 +1,6 @@
 # Idea: c2-decomposition
 
-- Status: Accepted (C, S1); M5 and M6 done (ADR-0009); M7 and M8 remain, each for its own plan
+- Status: Accepted (C, S1); M5 and M6 done (ADR-0009); M7 absorbed by plans/m7-drag-conflicts; M8 remains
 - Raised: 2026-11-04
 - Prompt (verbatim from the human): "c2 (or you can directly plan first thing from it?)"
 
@@ -8,16 +8,9 @@
 
 M5 (corpus and bench) and M6 (stages, ADR-0009) are done; the options,
 the Round 1 decision (C with S1) and M6's design are in git history,
-ARCHITECTURE.md and ADR-0009. Two milestones remain, each its own plan
-(ROADMAP.md §C2):
+ARCHITECTURE.md and ADR-0009. M7 is planned (plans/m7-drag-conflicts);
+one milestone remains (ROADMAP.md §C2):
 
-- **M7 — drag robustness and conflicts**: sweep-jump bisection, the
-  bisected-frame mark, the observed subject in the drag property, radius
-  ≥ 0 (lifts `negative-radius-solve`, `drag-negative-radius`); conflict
-  sets against the exact minimum on the corpus, which includes the whole
-  path's false certificate (`whole-false-certificate`, lifted by M7)
-  and the staged DogLeg analysis's inconclusive cases
-  (`staged-conflict-inconclusive`, in the backlog).
 - **M8 — the frame budget at 500 entities**: decided below.
 
 ## After M6's bench (2026-11-04): does M8 run?
