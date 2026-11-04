@@ -36,6 +36,8 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Degenerate-point tests for `parallel`, `perpendicular`, `angle`, `equal_length`, `symmetric` and tangent at coincident centres (only `point_on_line`, `distance` and an arc end on its centre have one); the FD strategies never draw an exactly degenerate configuration
 - A static solve tracks an arc's sweep from the guesses, so a solve that moves the sweep more than half a turn from them reads it the short way round and can name a flip that did not happen, or miss one (ADR-0006, Consequences)
 - `laman-debug`'s `configuration` strategy and its `Mode` use words GLOSSARY.md lists under _Avoid_ for **Branch**; rename one side. `tests/residual.rs` also has dead `covered()` scaffolding and picks arcs by `name.contains("Arc")`
+- The staged-rank sparse-vs-dense proptest (`diagnose/tests.rs`) covers rectangles and slots only, and `if let Ok` / `built > 0` can drop most of its cases silently; add triangles and assert the components are staged, not vacuously whole
+- `augment`'s buffer reuse and `Frame::terms`' single read (M8 frame floor step 6) have no equality test of their own, only the stage tests against `reference_rank` and the splitter property
 
 ## Findings
 
