@@ -131,7 +131,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   already covers its members'). Set-up fell from 15-19 % to 6-7 % of the
   rectangle, slot and triangle edits (`Tolerances::new` inclusive); what is
   left (`entity_params` 3-4 %, `extent` 3 %) is under 5 % alone and struck.
-- [ ] Step 7 **[1]** — Run `bench_c2` in full. Replace the table in
+- [x] Step 7 **[1]** — Run `bench_c2` in full. Replace the table in
   ARCHITECTURE.md §Frame budget, with the attribution and A's measured
   ceiling per drag and bisect cell. Correct "reaches all four cell
   kinds". If an edit misses, record the miss and what the profile names
@@ -228,6 +228,18 @@ coordinate of the part's frame at every evaluation, and removing them needs
 the part's coordinates as a slice, a larger change than a step. Step 6a
 takes the per-solve set-up.
 
+Step 7, after steps 2-6a (LM, `bench_c2` in full, tables in ARCHITECTURE.md
+§Frame budget). **The acceptance is missed on the edits**: worst samples
+rectangles 498 4.65 (LM) / 5.15 (DogLeg), slots 498 6.39 / 5.82, triangles 501
+4.62 / 4.69. The drag and bisect cells are faster than before (rectangles 15.0,
+slots 6.0, bisect 15.0), no 98/99 or 248/249 cell is slower. The split for
+A's ceiling (share of the timed operation): rectangles 498 drag pursuit 63 %
+(`Qr::new` 29 %, null basis 20 %), descent 4 %; slots 498 drag pursuit 5 %,
+descent 11 %, diagnosis 33 %, `parts_of` 16 %; slots bisect pursuit 20 %,
+descent 13 %, diagnosis 18 %, `parts_of` 16 %. Next named by the profile:
+`stage::cut` (7-21 % of the edits), `parts_of`'s per-part components (6-12 %,
+a linear `find` per part) and the allocator (12-20 %).
+
 ## Open questions
 - Settled by the human (planning, 2026-11-04): this plan does the floor;
   A is the next M8 plan and runs only if a drag or bisect cell still
@@ -235,7 +247,9 @@ takes the per-solve set-up.
 - ⚠ OPEN (agent, step 1): the 5 % threshold. If the whole profile is flat
   below it, the step records the five largest sources and steps 2–5 run
   only for the suspects that grow faster than the part count.
-- ⚠ OPEN (agent, step 7): if the edits meet 4 ms but the drag cells still
+- Settled (agent, step 7): the edits miss (see *Profile*, step 7); the
+  second branch applies: A alone won't close M8, and the profile names
+  `stage::cut`, `parts_of` and the allocator. Originally: if the edits meet 4 ms but the drag cells still
   miss by less than the remainder's measured share, the A plan's goal is
   set from that share. If they miss by more, the step records that A
   alone won't close M8 and names what the profile points to.

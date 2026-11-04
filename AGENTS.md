@@ -38,11 +38,12 @@ the Python gap, the checker and deterministic branch-keeping drag
 **C2 M5, M6, M7 done:** generated corpus and bench; components solved and
 diagnosed by stages (ADR-0009), edits keep unreached bits; no radius below
 0 (ADR-0010), conflict sets equal on both paths, sweep-jump frames bisected
-and marked. M8's first plan (`plans/m8-frame-budget`) made the 500-entity
-cells faster (edit 6–11 ms, drag 12–17, bisected frame 29–30) and they still
-**miss** the 4 ms frame.
-**Next:** a second M8 plan, rigid bodies in the remainder: the profile in
-`docs/ARCHITECTURE.md` §Frame budget chooses it (`docs/ROADMAP.md`).
+and marked. M8's two plans (`plans/m8-frame-budget`, `plans/m8-frame-floor`)
+brought the 500-entity cells to edit 4.4–5.8 ms (worst 4.6–6.4), drag 6.0
+(slots) to 15–16 (rectangles), bisected frame 15; they still **miss** the 4 ms
+frame. **Next:** a third M8 plan from the profile in `docs/ARCHITECTURE.md`
+§Frame budget (`stage::cut`, `parts_of`, the allocator; rigid bodies in the
+remainder reach only the rectangle drag by much) (`docs/ROADMAP.md`).
 
 ## Rules that are not derivable from the code
 

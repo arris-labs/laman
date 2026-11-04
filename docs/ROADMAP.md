@@ -141,7 +141,7 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5, M6 and M7 done; M8's first plan measured, and the frame budget is still missed.** M5: the generated
+**Status: M5, M6 and M7 done; M8's two plans done, and the frame budget is still missed.** M5: the generated
 corpus, construction properties and bounded release benchmark. M6: every
 component solved and diagnosed by stages (ADR-0009); an edit keeps every
 bit outside its stage's downstream closure (`upstream-edit-drift`
@@ -157,7 +157,13 @@ sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). M8's first
 plan (staged rank and tolerances once per frame, the extent split): the
 500-entity edits are 6–11 ms, the first drag step 12–17 ms, the bisected
 frame 29–30 ms, still over 4 ms; the profile in ARCHITECTURE.md §Frame budget
-chooses rigid bodies in the remainder for the next M8 plan.
+chose a frame floor first (`plans/m8-frame-floor`: sparse staged rank,
+satisfaction without a Jacobian, the splitter in O(parts), set-up once a
+frame): the 500-entity edits are now 4.4–5.8 ms medians (worst 4.6–6.4),
+the first drag step 6.0 (slots) and 15–16 ms (rectangles), the bisected
+frame 15 ms, all still over 4 ms. Rigid bodies in the remainder reach only
+the drag and bisect cells (the edits have no remainder), by a measured
+ceiling of about 5.6, 5.0 and 12 ms; they do not close M8 alone.
 
 - **M7 — drag robustness and conflicts**: done (status line).
 - **M8 — the frame budget at 500 entities**: profile the 500-entity edit
