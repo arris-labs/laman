@@ -122,7 +122,7 @@ careful, **[3]** unproven.
 - `docs/ROADMAP.md` §C2: the status line, and the M8 line's pointer to
   the deleted idea now points to this plan's outcome. If the budget is
   met, C2 is ready for `/close-cycle`.
-- - `AGENTS.md` current state.
+- `AGENTS.md` current state.
 - `CHANGELOG.md` under Unreleased: 500-entity edits and drags inside a
   4 ms frame (a consumer sees the speed; no API change).
 

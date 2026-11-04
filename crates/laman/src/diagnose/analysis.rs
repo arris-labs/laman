@@ -138,7 +138,9 @@ pub(crate) fn analyse_kept(
 }
 
 /// [`analyse_kept`] under the frame's tolerances, which must be
-/// [`FrameTolerances::of`] `sketch` and the outcome's coordinates.
+/// [`FrameTolerances::of`] `sketch` and the outcome's coordinates. `outcome`
+/// must come from a solve of this same sketch, constraint values included:
+/// its [`StagedRanks`](crate::diagnose::StagedRanks) are read as made for it.
 pub(crate) fn analyse_under(
     sketch: &Sketch,
     outcome: &Outcome,

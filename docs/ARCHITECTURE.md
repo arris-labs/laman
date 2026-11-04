@@ -774,16 +774,19 @@ costs step 1 measured: the staged rank computed three times per frame
 10 %, the per-part split of the frame (12 % of the slot edit). What is left has no
 single source above 9 %. Most of it is the solver's per-iteration work:
 `unit_row` 7–8 %, `evaluate_within` 6 %, `entity_params` 3–5 %, `BTreeMap`
-lookups about 6 %, `malloc`/`free` about 8 %. The rest is the diagnosis's
-placement of the sketch: `Splitter::split` 8.5 % and `stage::cut` 6 % on the
-rectangle edit. Of the three options the plan named, the choice is:
+lookups about 6 %, `malloc`/`free` about 8 %. Two more are the staged solve's
+`Splitter::split` (the joins of each part's frame, 8.5 % on the rectangle
+edit; it is called only from the solve) and the diagnosis's cut of the
+placed sketch into parts, `stage::cut` (6 %). Of the three options the plan named, the choice is:
 
 - **Rigid bodies in the remainder (A)**, the next M8 plan. It shrinks the rows
   and parameters every solve touches, the per-iteration work above, and so
   reaches all four cell kinds: edit, first drag step, the bisect's tries and
   the static solve.
-- A **diagnosis cache (S2)** is not chosen. It reaches only the placement
-  share (under 15 % on the rectangle edit), and not the bisected frame at all:
+- A **diagnosis cache (S2)** is not chosen. It reaches only the diagnosis's
+  own share, the cut and the recompile (`stage::cut` is 6 % on the rectangle
+  edit; the split is solve cost and a cache of the diagnosis leaves it), and
+  not the bisected frame at all:
   its tries carry no diagnostics, so the solve is most of that cell (30 ms
   against the 12 ms plain drag it extends).
 - A **driver split of the remainder** is not chosen. It moves the solve of

@@ -275,8 +275,10 @@ pub(crate) fn stageable(
 /// it is made once. An entry is read again only for the same component
 /// (parameters, sources, scale and parts) at the same bits of every
 /// coordinate it can read, so a read returns what a factorization made
-/// there returns. The systems that share one compile the same sketch
-/// structure: one frame's solve and analysis.
+/// there returns. The systems that share one compile the same sketch with
+/// the same constraint values (what an equation's rows depend on beyond the
+/// coordinates): one frame's solve and analysis. That is a precondition of
+/// the cache and of [`analyse_under`], not checked by them.
 #[derive(Debug, Default)]
 pub(crate) struct StagedRanks {
     entries: RefCell<Vec<Entry>>,
