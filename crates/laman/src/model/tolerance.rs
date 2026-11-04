@@ -223,13 +223,13 @@ impl Frame {
                 terms.scale = terms.scale.max(r);
             }
         }
-        terms.origin = self
-            .points
-            .iter()
-            .min_by_key(|(id, _)| *id)
-            .map(|(id, own)| (*id, xy(*id, *own)));
+        // One pass: each point is read once, and the first of the least ids
+        // is the origin, as `min_by_key` would pick it.
         for (id, own) in &self.points {
             let p = xy(*id, *own);
+            if terms.origin.is_none_or(|(first, _)| *id < first) {
+                terms.origin = Some((*id, p));
+            }
             if p.iter().all(|v| v.is_finite()) {
                 terms.include(p);
             }

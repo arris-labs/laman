@@ -112,10 +112,17 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   became a sorted vector searched by key (a part's parameters arrive
   sorted, so building it is a linear pass and a lookup allocates nothing),
   not a per-descent cache: no signature changes, same bits.
-- [ ] Step 6 **[2]** — Re-profile the 500-entity edits. Remove any
+- [x] Step 6 **[2]** — Re-profile the 500-entity edits. Remove any
   remaining source ≥ 5 % that is not the solve's own arithmetic, each
   with its own equality test (`stage::cut` in the diagnosis is the named
   candidate), or split it into a step of its own if it's larger.
+- [ ] Step 6a **[2]** — Split from step 6: the per-solve set-up the profile
+  names, `Tolerances::new`/`at`, `extent`, `entity_params` and
+  `Sketch::coordinates`, together 15-19 % self on the rectangle edit and
+  about 8 % on triangles; each rebuilds from the sketch what the component
+  list already holds. Remove with an equality test per piece (same
+  components, scales and frames), or strike it with the measured share if a
+  piece is under 5 % alone.
 - [ ] Step 7 **[1]** — Run `bench_c2` in full. Replace the table in
   ARCHITECTURE.md §Frame budget, with the attribution and A's measured
   ceiling per drag and bisect cell. Correct "reaches all four cell
@@ -198,6 +205,20 @@ no dominant remainder cost: their top self entries are `unit_row` 8 %,
 `evaluate_within` 6-7 %, `factorize` 4 %, i.e. the same per-part work this
 plan removes; A's share there is not measured by this profile and needs the
 descent/pursuit split step 7 asks for.
+
+Step 6, after steps 2-5 (rect 498 edit about 6.1 ms, slots 7.8, triangles
+5.5; median of 15). Self shares on the rectangle edit: malloc/free 15-20 %,
+`Frame::terms` 7.5 %, `stage::cut` 6.9 % (triangles 19 %, of which
+`augment` 11 % and the rest the graph build), `entity_params` 6.0 %,
+`axis_aligned` 4 %, `Tolerances::at` 3.9 %, `extent` 3.6 %, `Splitter::split`
+3.8 % (before step 4's tree was in the profile it was 7.4 %),
+`Sketch::coordinates` 2.8 %. Landed: `augment` reuses its stack buffers (the
+matching it finds is the same one), `Frame::terms` reads each point once
+(6 % of the samples were its `BTreeMap` lookups; the origin comes out of the
+same pass). `Frame::terms` stays near 6 %: the lookups remain, one per
+coordinate of the part's frame at every evaluation, and removing them needs
+the part's coordinates as a slice, a larger change than a step. Step 6a
+takes the per-solve set-up.
 
 ## Open questions
 - Settled by the human (planning, 2026-11-04): this plan does the floor;

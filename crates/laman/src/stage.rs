@@ -200,8 +200,17 @@ fn cut(system: &System<'_>, component: &Component) -> Decomposition {
     let mut match_row: Vec<Option<usize>> = vec![None; nr];
     let mut match_col: Vec<Option<usize>> = vec![None; nc];
     let mut seen = vec![0_usize; nc];
+    let mut path = Path::default();
     for r in 0..nr {
-        augment(r, &adj, &mut match_row, &mut match_col, &mut seen, r + 1);
+        augment(
+            r,
+            &adj,
+            &mut match_row,
+            &mut match_col,
+            &mut seen,
+            r + 1,
+            &mut path,
+        );
     }
     let rank = match_row.iter().flatten().count();
 
@@ -377,9 +386,17 @@ fn cut(system: &System<'_>, component: &Component) -> Decomposition {
     Decomposition { parts, rank }
 }
 
+/// The search stack of [`augment`], kept between calls so that a search
+/// allocates nothing once the buffers have grown.
+#[derive(Default)]
+struct Path {
+    stack: Vec<(usize, usize)>,
+    via: Vec<usize>,
+}
+
 /// Extend the matching by an augmenting path from `root`, iteratively (a
 /// long chain of equations must not overflow the stack). `stamp` marks the
-/// columns visited in this attempt.
+/// columns visited in this attempt; `path` is scratch, left empty.
 fn augment(
     root: usize,
     adj: &[Vec<usize>],
@@ -387,9 +404,12 @@ fn augment(
     match_col: &mut [Option<usize>],
     seen: &mut [usize],
     stamp: usize,
+    path: &mut Path,
 ) -> bool {
-    let mut stack: Vec<(usize, usize)> = vec![(root, 0)];
-    let mut via: Vec<usize> = Vec::new();
+    let Path { stack, via } = path;
+    stack.clear();
+    via.clear();
+    stack.push((root, 0));
     while let Some(&(r, i)) = stack.last() {
         let Some(&c) = adj[r].get(i) else {
             stack.pop();
@@ -406,7 +426,7 @@ fn augment(
         via.push(c);
         match match_col[c] {
             None => {
-                for (&(row, _), &col) in stack.iter().zip(&via) {
+                for (&(row, _), &col) in stack.iter().zip(via.iter()) {
                     match_row[row] = Some(col);
                     match_col[col] = Some(row);
                 }
