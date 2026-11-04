@@ -39,7 +39,7 @@ fn case(family: usize, size: usize) -> Result<Case, Error> {
 
 /// The slot grid's drag sketch with the middle slot's left arc let loose of
 /// its tangent lines, and the target that turns the arc's start a quarter
-/// turn about its centre: the arc's sweep moves by half a turn's quarter,
+/// turn about its centre: the arc's sweep moves by a quarter turn (π/2),
 /// more than `MAX_SWEEP_STEP`, so the first frame is bisected
 /// (plans/m7-drag-conflicts step 10).
 fn bisecting_drag(case: &Case) -> Result<(Sketch, laman::model::EntityId, [f64; 2]), Error> {
