@@ -75,8 +75,15 @@ pub(crate) struct Observations(BTreeMap<Subject, Observation>);
 impl Observations {
     /// Observed with no history: guesses, or the first frame. Arcs' sweeps
     /// are read in `[0, 2π)`.
+    #[cfg(any(test, feature = "reference"))]
     pub(crate) fn at(sketch: &Sketch, values: &Coordinates) -> Self {
         observe(sketch, values, None)
+    }
+
+    /// [`Self::at`] with the tolerances of `sketch` at `values` given
+    /// (`tolerances`, which must be [`Tolerances::at`] of both).
+    pub(crate) fn under(sketch: &Sketch, values: &Coordinates, tolerances: &Tolerances) -> Self {
+        observe_under(sketch, values, tolerances, None)
     }
 
     /// Observed after `self`: arcs tracked from its sweeps, and a quantity
@@ -138,6 +145,7 @@ struct Reading {
     jump: bool,
 }
 
+#[cfg(any(test, feature = "reference"))]
 fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -> Observations {
     observe_under(sketch, values, &Tolerances::at(sketch, values), last)
 }

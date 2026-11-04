@@ -116,13 +116,21 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   remaining source ≥ 5 % that is not the solve's own arithmetic, each
   with its own equality test (`stage::cut` in the diagnosis is the named
   candidate), or split it into a step of its own if it's larger.
-- [ ] Step 6a **[2]** — Split from step 6: the per-solve set-up the profile
+- [x] Step 6a **[2]** — Split from step 6: the per-solve set-up the profile
   names, `Tolerances::new`/`at`, `extent`, `entity_params` and
   `Sketch::coordinates`, together 15-19 % self on the rectangle edit and
   about 8 % on triangles; each rebuilds from the sketch what the component
   list already holds. Remove with an equality test per piece (same
   components, scales and frames), or strike it with the measured share if a
-  piece is under 5 % alone.
+  piece is under 5 % alone. Settled: landed as one change, a frame builds the
+  components once (`Tolerances::new`) and the outcome's measure is
+  `Tolerances::remeasured` from their frames, the static solve and the drag
+  session's opening share one `Tolerances::new` with the `before`
+  observation, and `new` reads the sketch's coordinates once. The per-entity
+  extents are taken only for entities in no component (a component's scale
+  already covers its members'). Set-up fell from 15-19 % to 6-7 % of the
+  rectangle, slot and triangle edits (`Tolerances::new` inclusive); what is
+  left (`entity_params` 3-4 %, `extent` 3 %) is under 5 % alone and struck.
 - [ ] Step 7 **[1]** — Run `bench_c2` in full. Replace the table in
   ARCHITECTURE.md §Frame budget, with the attribution and A's measured
   ceiling per drag and bisect cell. Correct "reaches all four cell

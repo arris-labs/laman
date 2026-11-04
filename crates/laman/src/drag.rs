@@ -18,6 +18,7 @@
 //! ```
 
 use crate::branch::Observations;
+use crate::model::tolerance::Tolerances;
 use crate::model::{Coordinate, EntityId, ModelError, Sketch};
 use crate::solution::{
     Bisection, Provenance, Solution, SolverOptions, Status, attempt, conclude, flips_of,
@@ -101,12 +102,21 @@ impl Sketch {
             return Err(ModelError::FixedPoint { id });
         }
         let source = self.provenance();
-        let before = Observations::at(self, &self.coordinates());
+        let frozen = Tolerances::new(self);
+        let before = Observations::under(self, &self.coordinates(), &frozen);
         let parts = Decompositions::of(&System::new(self));
         let (last, observed) = conclude(
             self,
             options,
-            attempt(self, &[], options, &before, Path::Staged, Some(&parts)),
+            attempt(
+                self,
+                &[],
+                options,
+                &before,
+                Path::Staged,
+                Some(&parts),
+                frozen,
+            ),
             source,
             Some(&parts),
         );
@@ -212,6 +222,7 @@ impl DragSession {
                 &self.observed,
                 Path::Staged,
                 Some(&self.parts),
+                Tolerances::new(&self.sketch),
             );
             let jumped = tried.observed.jumped();
             if !tried.flips.is_empty() || jumped {

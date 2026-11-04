@@ -110,8 +110,18 @@ impl SolverOptions {
 
 /// [`Sketch::solve`] by `path`.
 pub(crate) fn solve_on(sketch: &Sketch, options: &SolverOptions, path: Path) -> Solution {
-    let before = Observations::at(sketch, &sketch.coordinates());
-    solve_observed(sketch, &[], options, &before, sketch.provenance(), path).0
+    let frozen = Tolerances::new(sketch);
+    let before = Observations::under(sketch, &sketch.coordinates(), &frozen);
+    solve_observed(
+        sketch,
+        &[],
+        options,
+        &before,
+        sketch.provenance(),
+        path,
+        frozen,
+    )
+    .0
 }
 
 /// An entity as a diagnostic names it: the caller's id, its kind and its tag.
@@ -336,7 +346,9 @@ pub(crate) struct Attempt {
 
 /// One solve of `sketch` toward `goals`, its branches observed after
 /// `before` (the guesses' for a static solve, the last frame's for a drag
-/// step) and compared with them, to be diagnosed by `path`.
+/// step) and compared with them, to be diagnosed by `path`. `frozen` is
+/// [`Tolerances::new`] of `sketch`, made by the caller when it needed it
+/// already.
 pub(crate) fn attempt(
     sketch: &Sketch,
     goals: &[Goal],
@@ -344,10 +356,10 @@ pub(crate) fn attempt(
     before: &Observations,
     path: Path,
     kept: Option<&Decompositions>,
+    frozen: Tolerances,
 ) -> Attempt {
-    let frozen = Tolerances::new(sketch);
     let outcome = solve::solve_under(sketch, goals, options.internal_on(path), kept, &frozen);
-    let reached = Tolerances::at(sketch, &outcome.coordinates);
+    let reached = frozen.remeasured(sketch, &outcome.coordinates);
     let observed = before.next_under(sketch, &outcome.coordinates, &reached);
     let flips = before.flips(&observed);
     Attempt {
@@ -392,11 +404,12 @@ pub(crate) fn solve_observed(
     before: &Observations,
     source: Provenance,
     path: Path,
+    frozen: Tolerances,
 ) -> (Solution, Observations) {
     conclude(
         sketch,
         options,
-        attempt(sketch, goals, options, before, path, None),
+        attempt(sketch, goals, options, before, path, None, frozen),
         source,
         None,
     )

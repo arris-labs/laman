@@ -499,6 +499,11 @@ pub struct Tolerances {
     pub(crate) components: Vec<Component>,
     constraints: BTreeMap<ConstraintId, f64>,
     entities: BTreeMap<EntityId, f64>,
+    /// Each component's entities, in `components`' order.
+    members: Vec<std::sync::Arc<[EntityId]>>,
+    /// The entities in no component: measured alone, and again at other
+    /// coordinates.
+    lone: Vec<EntityId>,
 }
 
 // Structural reads, not nonzero derivatives. Expand references explicitly;
@@ -592,7 +597,8 @@ impl Tolerances {
     /// Freeze scales from the sketch's stored coordinates, its dimensions and
     /// structural dependencies. See the type example.
     pub fn new(sk: &Sketch) -> Self {
-        Self::at(sk, &sk.coordinates())
+        let own = sk.coordinates();
+        Self::build(sk, &own, &own)
     }
 
     /// Scales measured at `values`, a coordinate missing from it read from
@@ -613,9 +619,16 @@ impl Tolerances {
     /// # Ok::<(), laman::model::ModelError>(())
     /// ```
     pub fn at(sk: &Sketch, values: &Coordinates) -> Self {
-        let coords = merged(sk, values);
-        let params: Vec<_> = sk
-            .coordinates()
+        let own = sk.coordinates();
+        let coords = merged(&own, values);
+        Self::build(sk, &own, &coords)
+    }
+
+    /// The components and scales of `sk`, measured at `coords` (the sketch's
+    /// own coordinates overlaid with the values asked for) and framed at
+    /// `own`.
+    fn build(sk: &Sketch, own: &Coordinates, coords: &Coordinates) -> Self {
+        let params: Vec<_> = own
             .keys()
             .copied()
             .filter(|(id, c)| !sk.is_fixed(*id, *c))
@@ -677,40 +690,81 @@ impl Tolerances {
                 .push(*s);
         }
         let mut components: Vec<_> = grouped.into_values().collect();
-        let own = sk.coordinates();
-        let mut constraints = BTreeMap::new();
-        let mut entities: BTreeMap<EntityId, f64> = BTreeMap::new();
+        let mut members = Vec::with_capacity(components.len());
         for component in &mut components {
             let ids = component_entities(sk, component);
-            let (scale, origin) = extent(sk, &coords, &ids, &component.sources);
+            component.frame = std::sync::Arc::new(Frame::of(sk, own, &ids, &component.sources));
+            members.push(ids.into_iter().collect());
+        }
+        let mut tolerances = Self {
+            components,
+            constraints: BTreeMap::new(),
+            entities: BTreeMap::new(),
+            members,
+            lone: Vec::new(),
+        };
+        tolerances.measure(coords);
+        tolerances.lone = sk
+            .entities()
+            .map(|(id, _)| id)
+            .filter(|id| {
+                !tolerances
+                    .members
+                    .iter()
+                    .any(|m| m.binary_search(id).is_ok())
+            })
+            .collect();
+        tolerances.measure_lone(sk, coords);
+        tolerances
+    }
+
+    /// The same components measured at `values` (the sketch's own
+    /// coordinates where it lacks one): what [`Tolerances::at`] returns for
+    /// the same sketch and values, without finding the components again.
+    pub(crate) fn remeasured(&self, sk: &Sketch, values: &Coordinates) -> Self {
+        let mut again = self.clone();
+        again.measure(values);
+        if !again.lone.is_empty() {
+            let coords = merged(&sk.coordinates(), values);
+            again.measure_lone(sk, &coords);
+        }
+        again
+    }
+
+    /// Each component's scale and origin at `values`, and the thresholds of
+    /// its constraints and entities.
+    fn measure(&mut self, values: &Coordinates) {
+        self.constraints.clear();
+        self.entities.clear();
+        for (component, ids) in self.components.iter_mut().zip(&self.members) {
+            let (scale, origin) = component.frame.measure(values);
             component.scale = scale;
             component.origin = origin;
-            component.frame = std::sync::Arc::new(Frame::of(sk, &own, &ids, &component.sources));
             let tol = length(scale);
-            for id in ids {
-                entities
-                    .entry(id)
+            for id in ids.iter() {
+                self.entities
+                    .entry(*id)
                     .and_modify(|v| *v = v.max(tol))
                     .or_insert(tol);
             }
             for s in &component.sources {
                 if let Source::Constraint(id) = s {
-                    constraints.insert(*id, tol);
+                    self.constraints.insert(*id, tol);
                 }
             }
         }
-        // Unconstrained geometric entities still have a meaningful local size.
-        for (id, _) in sk.entities() {
-            let own = length(extent(sk, &coords, &BTreeSet::from([id]), &[]).0);
-            entities
-                .entry(id)
+    }
+
+    /// Entities in no component still have a meaningful local size. One in a
+    /// component never needs it: a component's scale covers every position,
+    /// radius and arc of its entities, so it is at least the entity's own.
+    fn measure_lone(&mut self, sk: &Sketch, coords: &Coordinates) {
+        for id in &self.lone {
+            let own = length(extent(sk, coords, &BTreeSet::from([*id]), &[]).0);
+            self.entities
+                .entry(*id)
                 .and_modify(|v| *v = v.max(own))
                 .or_insert(own);
-        }
-        Self {
-            components,
-            constraints,
-            entities,
         }
     }
     /// Frozen length threshold for a constraint, or the floor for an unknown id.
@@ -756,8 +810,8 @@ impl FrameTolerances {
 }
 
 /// The sketch's coordinates overlaid with `values` for the keys it has.
-fn merged(sk: &Sketch, values: &Coordinates) -> Coordinates {
-    let mut coords = sk.coordinates();
+fn merged(own: &Coordinates, values: &Coordinates) -> Coordinates {
+    let mut coords = own.clone();
     for (key, value) in coords.iter_mut() {
         if let Some(v) = values.get(key) {
             *value = *v;
@@ -913,7 +967,12 @@ mod tests {
         for component in Tolerances::new(&sk).components {
             for values in [&base, &moved, &partial, &broken] {
                 let ids = component_entities(&sk, &component);
-                let want = extent(&sk, &merged(&sk, values), &ids, &component.sources);
+                let want = extent(
+                    &sk,
+                    &merged(&sk.coordinates(), values),
+                    &ids,
+                    &component.sources,
+                );
                 let got = component.frame.measure(values);
                 assert_eq!(got.0.to_bits(), want.0.to_bits());
                 assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits));
@@ -1007,6 +1066,114 @@ mod tests {
                 assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits), "origin");
                 splitter.moved(j);
             }
+        }
+    }
+
+    /// The thresholds as the first implementation measured them: `extent`
+    /// over every component's entities and over every entity alone, at the
+    /// sketch's coordinates overlaid with `values`.
+    fn assert_remeasured_is_at(sk: &Sketch, values: &Coordinates) {
+        let own = sk.coordinates();
+        let coords = merged(&own, values);
+        let frozen = Tolerances::new(sk);
+        let again = frozen.remeasured(sk, values);
+        let fresh = Tolerances::at(sk, values);
+        let mut constraints = BTreeMap::new();
+        let mut entities: BTreeMap<EntityId, f64> = BTreeMap::new();
+        for (a, b) in again.components.iter().zip(&fresh.components) {
+            assert_eq!(a.params, b.params);
+            assert_eq!(a.sources, b.sources);
+            assert_eq!(a.scale.to_bits(), b.scale.to_bits());
+            assert_eq!(a.origin.map(f64::to_bits), b.origin.map(f64::to_bits));
+        }
+        assert_eq!(again.components.len(), fresh.components.len());
+        for component in &fresh.components {
+            let ids = component_entities(sk, component);
+            let (scale, origin) = extent(sk, &coords, &ids, &component.sources);
+            assert_eq!(component.scale.to_bits(), scale.to_bits());
+            assert_eq!(component.origin.map(f64::to_bits), origin.map(f64::to_bits));
+            let tol = length(scale);
+            for id in ids {
+                entities
+                    .entry(id)
+                    .and_modify(|v| *v = v.max(tol))
+                    .or_insert(tol);
+            }
+            for s in &component.sources {
+                if let Source::Constraint(id) = s {
+                    constraints.insert(*id, tol);
+                }
+            }
+        }
+        for (id, _) in sk.entities() {
+            let own = length(extent(sk, &coords, &BTreeSet::from([id]), &[]).0);
+            entities
+                .entry(id)
+                .and_modify(|v| *v = v.max(own))
+                .or_insert(own);
+        }
+        for t in [&again, &fresh] {
+            assert_eq!(t.constraints.len(), constraints.len());
+            for (id, v) in &constraints {
+                assert_eq!(t.constraints[id].to_bits(), v.to_bits());
+            }
+            assert_eq!(t.entities.len(), entities.len());
+            for (id, v) in &entities {
+                assert_eq!(t.entities[id].to_bits(), v.to_bits());
+            }
+        }
+    }
+
+    fn assert_remeasured_at_extremes(sk: &Sketch, shift: f64, big: f64) {
+        let base = sk.coordinates();
+        let mut moved = base.clone();
+        let mut broken = base.clone();
+        let mut partial = Coordinates::new();
+        for (k, (p, v)) in base.iter().enumerate() {
+            let w = match k % 6 {
+                0 => *v + shift,
+                1 => big,
+                2 => -big,
+                3 => 0.0,
+                4 => -0.0,
+                _ => shift * (k as f64 + 1.0),
+            };
+            moved.insert(*p, w);
+            if k % 3 == 0 {
+                partial.insert(*p, w);
+            }
+        }
+        if let Some(p) = base.keys().next() {
+            broken.insert(*p, f64::NAN);
+        }
+        for values in [&base, &moved, &broken, &partial, &Coordinates::new()] {
+            assert_remeasured_is_at(sk, values);
+        }
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn remeasured_tolerances_are_those_of_at(
+            steps in proptest::collection::vec(
+                (-1e3..1e3_f64, -1e3..1e3_f64, 0..7_u8, 0..64_usize),
+                1..24,
+            ),
+            shift in -1e3..1e3_f64,
+            extreme in proptest::sample::select(vec![1e-300, 1.0, 1e150, 1e300, 1.7e308]),
+        ) {
+            let Some(sk) = constructed(&steps) else { return Ok(()); };
+            assert_remeasured_at_extremes(&sk, shift, extreme);
+        }
+    }
+
+    #[test]
+    fn remeasured_tolerances_are_those_of_at_on_the_corpus() {
+        use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+        for case in [rect_chain(8), slot_grid(2, 3), triangle_strip(9)] {
+            let case = case.unwrap();
+            let sk: Sketch =
+                serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
+            assert_remeasured_at_extremes(&sk, 0.75, 1e300);
         }
     }
 
