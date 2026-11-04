@@ -162,7 +162,7 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
   on the 98-entity slots; the small named cases and every property case
   cover each family's edit and drag, the properties 8 → 34 s in debug.
   A seed found `whole-false-certificate`, red since step 4: see below.)
-- [ ] Step 8 **[1, tier 3]** — ADR-0009: stages, part rank and its proof
+- [x] Step 8 **[1, tier 3]** — ADR-0009: stages, part rank and its proof
   sketch, the fallback and its budget, the per-part normalization
   amending ADR-0003's rank, the re-bless reasons.
 - [ ] Step 9 **[2]** — Re-run `bench_c2` and `bench`; record the table
@@ -208,15 +208,17 @@ or a bound established here. The grade is the tier (`.agents/tiers.md`).
 - *Settled* at step 4: the fallback grain is the whole component, from
   its start with the counters restored; it keeps every failure's bits, and
   failures are outside the frame budget.
-- ⚠ OPEN (acceptance, the human's): "staged = reference on conflict sets"
-  fails on `whole-false-certificate`, and the reference is the wrong one:
-  its filter certifies a stationary point of a satisfiable subset
-  (ADR-0005's local certificate) and names a set that holds together; the
-  staged set keeps the constraint it drops. The property that found it
-  may find such a seed again. Options: hold staged sets to the reference
-  only where the reference's sets are unsatisfiable, or fix the whole
-  path's filter first (M7's conflict work). Until decided the fixture is
-  ignored and the seed is not kept in `solved.proptest-regressions`.
+- *Settled* at step 8 (the option; ADR-0009): staged conflict sets are
+  held to the reference's only where the reference's sets are
+  unsatisfiable, not by fixing the whole path's filter first. The
+  defect is the whole path's (ADR-0005's local certificate names a set a
+  converged, checker-clean re-solve disproves, `whole-false-certificate`),
+  the staged set is right there, and the filter's fix is M7's conflict
+  work (a non-goal here). The fixture stays ignored until M7.
+  ⚠ OPEN (acceptance wording, the human's): the acceptance's "conflict
+  sets" would read "conflict sets where the reference's are
+  unsatisfiable"; until decided it is unedited, and the seed is not kept
+  in `solved.proptest-regressions`.
 - ⚠ OPEN: if a 500-entity drag misses 4 ms, which M8 option (A, S2, or a
   driver split of the remainder)? Agent writes it up as an idea after
   step 9; the human decides there.
