@@ -15,7 +15,7 @@ the corpus's locality and staged-against-whole equalities unchanged).
 
 ## Non-goals
 - Rigid bodies in the remainder (option A), a diagnosis cache (S2), a
-  driver split of the remainder. If step 7 still misses, its profile
+  driver split of the remainder. If step 6 still misses, its profile
   picks one of them in a second M8 plan. The target stays 4 ms.
 - A change to what redundancy means: the same rank test on the same
   rows at the same tolerances. Only how often it is compiled changes.
@@ -29,19 +29,26 @@ the corpus's locality and staged-against-whole equalities unchanged).
 ## Design deltas
 No public type or signature changes. No new glossary term.
 
-- **The measured sources, profile first.** ARCHITECTURE.md §Frame budget
-  names four suspects and nobody has profiled them yet:
-  (1) `System::acceptance` → `tolerance::scale_at` →
-  `Frame::measure` walks the whole component on every part evaluation;
-  (2) `diagnose::analysis::redundant` clones and places the sketch, and
-  for each head candidate clones it again, removes the constraint and runs
-  `dof_only`, which calls `System::new` and ranks every component; it also
-  reruns `head_constraints` after every redundant constraint it names;
-  (3) `head_constraints` tests `component.sources.contains` for every
-  equation of every component;
-  (4) `solve::pursue` looks each goal up with `component.params...position`,
-  and `system.rs` tests `params.contains`. Step 1's profile reorders
-  steps 2–5 or drops some of them, and records the change here.
+- **The measured sources** (step 1's *Profile*, below). Of the four
+  suspects ARCHITECTURE.md §Frame budget named, only (1) `scale_at` is
+  confirmed (12-24 %). (2) the redundancy recompile never runs on the
+  500-entity cells (`dof_only` 0 %: the generated families have no head
+  candidate), so its mask is dropped from M8; what costs there is
+  `head_constraints`' own `staged_checked` (12-21 %). (3) the
+  `sources.contains` test and (4) `pursue`'s `position` are under 1 % and
+  are dropped. Two sources nobody named are over 10 %: the staged rank
+  (`staged_checked`) runs three times per frame on the same component
+  (solve's `stageable`, `freedom_on`, `head_constraints`), 30-55 % in all,
+  and `Tolerances::at` runs six or seven times per frame (15-28 %).
+- **One staged rank per component and frame** (removes the repeats).
+  `staged_checked` at a frame's final coordinates is computed once and the
+  solve's `stageable`, the analysis's `freedom_on` and `head_constraints`
+  read it. Same matrices in the same order, so the same bits; a cache
+  keyed by component and values, not a new path.
+- **One `Tolerances::at` per frame.** The tolerances of a sketch at one
+  set of coordinates are made once and shared by `System::new` (solve,
+  analysis, redundancy), `observe`, `flips` and `degeneracy`, where the
+  coordinates are the same. A different set of coordinates remakes them.
 - **Extent split** (removes 1). `Frame` gets a measure taken over
   everything outside a part, made once per part solve, and joined with a
   measure of the part's own entities at each evaluation. Every term is a
@@ -50,20 +57,8 @@ No public type or signature changes. No new glossary term.
   point by id. The result must be bit for bit what `Frame::measure`
   returns; a property test extends `frame_measures_what_extent_does` to
   cover the joined measure.
-- **Redundancy without a recompile** (removes 2). A candidate is tested on
-  the compiled `System` with its rows masked out, and only its own
-  component is ranked (the DoF is a sum over components that do not
-  touch each other). The recompile is still used whenever skipping it could change
-  the answer: the removal disconnects the component, changes its scale
-  (`Frame::stated`, the largest stated dimension), or removes or
-  touches a contact (ADR-0002 regularization). `head_constraints` is
-  rerun only for the component that lost a constraint. This becomes an
-  amendment to ADR-0009, written in step 2's commit.
-- **Indexed lookups** (removes 3, 4). `System::rows_of` or a source → row
-  map takes the place of `sources.contains`; a param → column index the
-  component builds once takes the place of `position` and `contains`.
 - **Bisected frames.** A bisected frame's extra tries are solves without
-  diagnostics. Once the plain frame meets the budget, step 6 measures
+  diagnostics. Once the plain frame meets the budget, step 5 measures
   whether bisection still misses it; reusing anything across tries is
   allowed only if that profile shows the need.
 
@@ -71,7 +66,7 @@ No public type or signature changes. No new glossary term.
 Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]**
 careful, **[3]** unproven.
 
-- [ ] Step 1 **[2]** — Profile the worker under `perf record --call-graph
+- [x] Step 1 **[2]** — Profile the worker under `perf record --call-graph
   dwarf` (release with `CARGO_PROFILE_RELEASE_DEBUG=true`, no Cargo.toml
   change) on rectangles-498 edit, slots-498 edit, slots-498 drag and
   bisect, and triangles-501 edit, LM and DogLeg. Add a `--samples N`
@@ -79,27 +74,25 @@ careful, **[3]** unproven.
   share per suspect, plus anything unnamed above 10 %, under *Profile*
   below, and reorder steps 2–5 to match. Commit: `docs(plan)` plus the
   bench flag.
-- [ ] Step 2 **[3]** — Redundancy without a recompile, as in the deltas,
-  with its fallbacks, and the ADR-0009 amendment. Tests: redundant sets
-  are equal to the recompiling pass's (kept under `cfg(test)` as the
-  reference) on the C1 fixtures and every generated family and size,
-  plus a proptest over the corpus strategies. That includes a removal
-  that splits a component, one that lowers the stated scale, and one on
-  a tangent contact.
-- [ ] Step 3 **[2]** — Extent split, as in the deltas. Test: the joined
+- [ ] Step 2 **[3]** — One staged rank per component and frame, as in the
+  deltas. Test: the solve, DoF, per-entity DoF, direction span and
+  redundant sets are bit-equal to the three-pass code (kept under
+  `cfg(test)` as the reference) on the C1 fixtures and every generated
+  family and size, plus a proptest over the corpus strategies.
+- [ ] Step 3 **[2]** — One `Tolerances::at` per frame, as in the deltas.
+  Test: the existing solve, diagnose and drag suites pass and the digests
+  are unchanged.
+- [ ] Step 4 **[2]** — Extent split, as in the deltas. Test: the joined
   measure equals `Frame::measure` bit for bit (proptest over the corpus
   strategies, plus f64's extremes near 1e±300 per `solver.md`).
-- [ ] Step 4 **[1]** — `head_constraints` reads rows by source map. Test:
-  the head sets are unchanged on every generated family.
-- [ ] Step 5 **[1]** — Index the param lookups in `pursue` and `system.rs`.
-  Test: the existing solve and drag suites pass, and the digests are
-  unchanged.
-- [ ] Step 6 **[2]** — Re-profile the 500-entity cells. If any of them
-  still has a removable source above 10 % that steps 2–5 did not reach,
-  remove it here with its own equality test, or split it into its own
-  step if it is larger. That includes reuse across bisection tries when
-  the bisect cell alone misses.
-- [ ] Step 7 **[1]** — Re-run `bench_c2` in full and replace the post-M6
+- [ ] Step 5 **[2]** — Re-profile the 500-entity cells. If any of them
+  still has a removable source above 10 %, remove it here with its own
+  equality test, or split it into its own step if it is larger. The
+  candidates the first profile left: the dense Jacobian's allocation in
+  `evaluate_within` (`malloc`/`calloc` ~15-20 %), the `BTreeMap`
+  coordinate lookups (26-35 % of samples), `unit_row` (8 %), and reuse
+  across bisection tries when the bisect cell alone misses.
+- [ ] Step 6 **[1]** — Re-run `bench_c2` in full and replace the post-M6
   table in ARCHITECTURE.md §Frame budget with the new one, the profile's
   attribution included. If a cell misses, record the miss and the profile
   that chooses between A, S2 and the driver split. Commit: `perf(debug)`
@@ -123,29 +116,52 @@ careful, **[3]** unproven.
 ## Docs to update on completion
 - `docs/ARCHITECTURE.md` §Frame budget: the new table and the confirmed
   attribution, with the paragraph that calls the two sources unprofiled
-  replaced. §Diagnose, *Redundancy*: when the compile is reused and when
-  it is redone. §Drag, *Per-step diagnostics*: the 20 ms sentence.
+  replaced. §Diagnose: the staged rank computed once per component and frame. §Drag, *Per-step diagnostics*: the 20 ms sentence.
 - `docs/ROADMAP.md` §C2: the status line, and the M8 line's pointer to
   the deleted idea now points to this plan's outcome. If the budget is
   met, C2 is ready for `/close-cycle`.
-- `docs/adr/0009-stages-and-part-rank.md`: the amendment (step 2).
-- `AGENTS.md` current state.
+- - `AGENTS.md` current state.
 - `CHANGELOG.md` under Unreleased: 500-entity edits and drags inside a
   4 ms frame (a consumer sees the speed; no API change).
 
 ## Profile
-Filled in by step 1, then by step 6.
+Step 1, 2026-11-04, AMD Ryzen 9 7950X. Method: `perf record -F 4000
+--call-graph fp` of `bench_c2 --worker F 2 ALGO OP --samples 20` built with
+`RUSTFLAGS="-C force-frame-pointers=yes"` and `CARGO_PROFILE_RELEASE_DEBUG=true`
+(a separate target dir; `--call-graph dwarf` truncates every stack after
+its first function). The release build inlines the whole call tree into
+`main`, so a share is the fraction of samples whose stack holds a frame
+of that function, inlined frames included. The denominator is the timed
+operation's samples (`black_box` of the solve for an edit, `DragSession::to`
+for a drag and a bisect); the edit's set-up is outside it (the worker now
+builds the edited sketch once and clones it per sample). `--samples N` is
+the new worker flag. Percent of the timed operation, LM / DogLeg:
+
+| cell | diagnose (`conclude`) | solve (`attempt`) | `staged_checked` | `scale_at` | `Tolerances::at` | `redundant` | `dof_only` |
+|---|---|---|---|---|---|---|---|
+| rectangles-498 edit | 42 / 43 | 52 / 52 | 31 / 30 | 23 / 22 | 28 / 27 | 18 / 18 | 0 / 0 |
+| slots-498 edit | 55 / 55 | 40 / 41 | 52 / 52 | 12 / 12 | 20 / 19 | 22 / 23 | 0 / 0 |
+| slots-498 drag | 57 / 56 | 43 / 43 | 55 / 55 | 13 / 14 | 17 / 16 | 24 / 24 | 0 / 0 |
+| slots-498 bisect | 28 / 28 | 72 / 72 | 43 / 44 | 24 / 24 | 16 / 15 | 12 / 12 | 0 / 0 |
+| triangles-501 edit | 43 / 45 | 53 / 51 | 37 / 39 | 21 / 19 | 17 / 18 | 18 / 20 | 0 / 0 |
+
+LM and DogLeg agree within 2 points in every cell. Inside the slot edit,
+`staged_checked` is 18 % under `head_constraints`, 18 % under `freedom_on`
+and 15 % under `stageable` (the solve's); `redundant` is `head_constraints`
+(84 % of it) plus one `System::new`; `scale_at` is all under `acceptance`
+in `evaluate_within`; `Tolerances::at` is called from `System::new`
+(solve, analysis, redundancy), `observe`, `flips` and `degeneracy`, 3-5 %
+each. Other shares over 10 %: `malloc`/`calloc` 15-20 % (10 % of the slot
+edit under `evaluate_within` in the solver loop, the rest under the three
+`staged_checked`s), `BTreeMap` lookups 26-35 %, `unit_row` 8 %.
+
+Suspects: (1) confirmed. (2) the recompile is never reached on these cells
+(no head candidate); `head_constraints`' own rank is. (3) `sources.contains`
+under 1 %. (4) `position` 0.2-1.0 %. Steps 2-5 are reordered to match: the
+old 2 (mask) and the old 4, 5 are dropped; the shared staged rank and the
+shared tolerances are new; the extent split stays. Step 5 re-profiles.
 
 ## Open questions
-- ⚠ OPEN: `kernel.perf_event_paranoid` is 4 on the reference machine,
-  which refuses `perf record` to a user. The human decides by step 1:
-  lower it for the session (`sudo sysctl kernel.perf_event_paranoid=1`),
-  or let step 1 use temporary `std::time` spans in an uncommitted
-  worktree. Spans attribute only the suspects they wrap, so the
-  unnamed > 10 % column would be blind.
-- ⚠ OPEN (agent, step 2): if the fallbacks fire often enough on the corpus
-  that the recompile still dominates, can the scale fallback be narrowed
-  to "the rank tolerance actually moves"? Decided by step 2's measurement
-  and recorded in the amendment.
+- Settled by the agent: `perf_event_paranoid` is 1; step 1 used `perf`.
 - Settled by the agent: the acceptance is the worst sample, not the median,
   because the budget applies to every frame, not to the average.

@@ -76,46 +76,56 @@ fn signal(message: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn worker(family: usize, size: usize, algorithm: Algorithm, operation: &str) -> Result<(), Error> {
+fn worker(
+    family: usize,
+    size: usize,
+    algorithm: Algorithm,
+    operation: &str,
+    samples: usize,
+) -> Result<(), Error> {
     let case = case(family, size)?;
     if case.sketch.entities().count() != COUNTS[family][size] {
         return Err("construction entity count differs from benchmark recipe".into());
     }
     let mut options = SolverOptions::default();
     options.algorithm = algorithm;
-    for _ in 0..RUNS {
+    // The edited sketch is built once; each sample solves a clone of it, so a
+    // profile of many samples holds the edit's solve and not its set-up.
+    let mut prepared = case.sketch.clone();
+    if operation == "edit" {
+        let initial = prepared.solve(&options);
+        prepared.apply(&initial)?;
+        let (id, dimension) = prepared
+            .constraints()
+            .find(|(id, _)| prepared.constraint_tag_of(*id) == Some(case.edit.tag.as_str()))
+            .map(|(id, value)| (id, *value))
+            .ok_or("missing edit dimension")?;
+        let replacement = if let Constraint::Distance { p, q, .. } = dimension {
+            Constraint::Distance {
+                p,
+                q,
+                value: case.edit.value,
+            }
+        } else if let Constraint::PointLineDistance { p, line, sense, .. } = dimension {
+            Constraint::PointLineDistance {
+                p,
+                line,
+                sense,
+                value: case.edit.value,
+            }
+        } else {
+            return Err("edit dimension has unsupported kind".into());
+        };
+        prepared.remove_constraint(id)?;
+        prepared.add_constraint_with_id(id, replacement)?;
+        prepared.tag_constraint(id, &case.edit.tag)?;
+    }
+    for _ in 0..samples {
         // Re-create each warm start outside the measured operation.
-        let mut edited = case.sketch.clone();
+        let edited = prepared.clone();
         let mut session = None;
         let mut bisect_target = None;
-        if operation == "edit" {
-            let initial = edited.solve(&options);
-            edited.apply(&initial)?;
-            let (id, dimension) = edited
-                .constraints()
-                .find(|(id, _)| edited.constraint_tag_of(*id) == Some(case.edit.tag.as_str()))
-                .map(|(id, value)| (id, *value))
-                .ok_or("missing edit dimension")?;
-            let replacement = if let Constraint::Distance { p, q, .. } = dimension {
-                Constraint::Distance {
-                    p,
-                    q,
-                    value: case.edit.value,
-                }
-            } else if let Constraint::PointLineDistance { p, line, sense, .. } = dimension {
-                Constraint::PointLineDistance {
-                    p,
-                    line,
-                    sense,
-                    value: case.edit.value,
-                }
-            } else {
-                return Err("edit dimension has unsupported kind".into());
-            };
-            edited.remove_constraint(id)?;
-            edited.add_constraint_with_id(id, replacement)?;
-            edited.tag_constraint(id, &case.edit.tag)?;
-        } else if operation == "bisect" {
+        if operation == "bisect" {
             let (sketch, dragged, target) = bisecting_drag(&case)?;
             session = Some(sketch.drag(dragged, &options)?);
             bisect_target = Some(target);
@@ -267,7 +277,14 @@ fn cpu() -> String {
 fn run() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if !args.is_empty() {
-        if args.len() != 5 || args[0] != "--worker" {
+        // `--worker F S ALGO OP [--samples N]`: N defaults to RUNS; a profile
+        // asks for more.
+        let samples = match args.get(5..) {
+            Some([]) | None => RUNS,
+            Some([flag, n]) if flag == "--samples" => n.parse()?,
+            Some(_) => return Err("invalid worker arguments".into()),
+        };
+        if args.len() < 5 || args[0] != "--worker" {
             return Err("invalid worker arguments".into());
         }
         let family: usize = args[1].parse()?;
@@ -280,7 +297,7 @@ fn run() -> Result<(), Error> {
             "DogLeg" => Algorithm::DogLeg,
             _ => return Err("unknown algorithm".into()),
         };
-        return worker(family, size, algorithm, &args[4]);
+        return worker(family, size, algorithm, &args[4], samples);
     }
     println!(
         "machine: {} ({} {}, {} logical CPUs)",
