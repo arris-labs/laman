@@ -196,6 +196,13 @@ pub(crate) fn run_case(name: &str, case: &Case) {
             {
                 assert_eq!(after.step, index + 1);
                 let solution = session.to(*target);
+                // The construction's drag moves no branch: every frame is
+                // solved at its own target, none bisected (plans/m7).
+                assert!(
+                    solution.diagnostics.bisection.is_none(),
+                    "{label} drag {}: bisected",
+                    after.step
+                );
                 let mut expected = drag.expected.clone();
                 expected.coordinates = after.coordinates.clone();
                 assert_solution(
