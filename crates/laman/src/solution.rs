@@ -56,7 +56,9 @@ pub struct SolverOptions {
     pub algorithm: Algorithm,
     /// Accepted and rejected steps in all, across components. A component
     /// solved by stages spends the share of its parameters a step moves, so
-    /// the cap bounds its work as a whole component's steps would.
+    /// the cap bounds its work as a whole component's steps would. A staged
+    /// component that fails is solved again whole from its start with its
+    /// counters restored, so its work can reach twice the cap.
     pub max_iterations: usize,
     /// Residual and Jacobian evaluations in all, across components, spent
     /// the same way.
