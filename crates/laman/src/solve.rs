@@ -470,6 +470,29 @@ fn solve_staged(
 /// component's frozen scale and origin. `None` for a component of one part,
 /// which is solved whole.
 fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>> {
+    let decomposition = crate::stage::decompose(system, component);
+    if decomposition.parts.len() < 2 {
+        return None;
+    }
+    Some(
+        decomposition
+            .parts
+            .iter()
+            .map(|part| Component {
+                params: part.params.clone(),
+                sources: part.sources.clone(),
+                scale: component.scale,
+                origin: component.origin,
+                frame: component.frame.clone(),
+            })
+            .collect(),
+    )
+}
+
+/// [`parts_of`] by filtering the component's parameters and sources for each
+/// part: the reference the one-pass version is held equal to.
+#[cfg(test)]
+fn parts_of_filtered(system: &System<'_>, component: &Component) -> Option<Vec<Component>> {
     use std::collections::BTreeSet;
     let decomposition = crate::stage::decompose(system, component);
     if decomposition.parts.len() < 2 {

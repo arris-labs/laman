@@ -60,6 +60,9 @@ pub(crate) struct Part {
     pub rows: Vec<usize>,
     /// The parameters the part owns, in the component's order.
     pub params: Vec<Param>,
+    /// The sources of its rows, in [`Source`] order (a constraint's
+    /// equations never split across parts).
+    pub sources: Vec<Source>,
     /// How many of its rows the matching covers.
     pub matched: usize,
 }
@@ -373,6 +376,7 @@ fn cut(system: &System<'_>, component: &Component) -> Decomposition {
             kind: ckind[c],
             rows: vec![],
             params: vec![],
+            sources: vec![],
             matched: 0,
         })
         .collect();
@@ -382,6 +386,11 @@ fn cut(system: &System<'_>, component: &Component) -> Decomposition {
             .and_then(|&p| parts.get_mut(p))
         {
             p.rows.push(rows[r]);
+            if let Some(e) = system.equations.get(rows[r]) {
+                if p.sources.last() != Some(&e.source) {
+                    p.sources.push(e.source);
+                }
+            }
             p.matched += usize::from(match_row[r].is_some());
         }
     }

@@ -1083,3 +1083,74 @@ fn satisfaction_without_a_jacobian_equals_the_dense_one() {
         "{satisfied} {unsatisfied}"
     );
 }
+
+/// `parts_of` reads each part's parameters and sources off the cut; it is
+/// the filter of the component's own, part by part (plans/m8-setup step 3).
+fn assert_parts_equal_the_filter(name: &str, sk: &Sketch) {
+    let system = System::new(sk);
+    for component in &system.components {
+        let got = parts_of(&system, component);
+        let want = parts_of_filtered(&system, component);
+        assert_eq!(got.is_some(), want.is_some(), "{name}");
+        let (got, want) = (got.unwrap_or_default(), want.unwrap_or_default());
+        assert_eq!(got.len(), want.len(), "{name}");
+        for (g, w) in got.iter().zip(&want) {
+            assert_eq!(g.params, w.params, "{name}");
+            assert_eq!(g.sources, w.sources, "{name}");
+            assert_eq!(g.scale.to_bits(), w.scale.to_bits(), "{name}");
+            assert_eq!(
+                g.origin.map(f64::to_bits),
+                w.origin.map(f64::to_bits),
+                "{name}"
+            );
+        }
+    }
+}
+
+fn through_serde<T: serde::Serialize>(sk: &T) -> Sketch {
+    serde_json::from_str(&serde_json::to_string(sk).unwrap()).unwrap()
+}
+
+#[test]
+fn parts_of_equals_the_filter_on_fixtures_and_every_family_and_size() {
+    use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+    for slug in [
+        "belt",
+        "belt-conflicting",
+        "belt-redundant",
+        "slotted-plate",
+        "slotted-plate-conflicting",
+        "slotted-plate-redundant",
+        "sss-triangle",
+        "sss-triangle-conflicting",
+        "sss-triangle-redundant",
+    ] {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/c1")
+            .join(slug);
+        let fixture = Fixture::load(&path).unwrap();
+        assert_parts_equal_the_filter(slug, &through_serde(&fixture.sketch));
+    }
+    for (name, case) in [
+        ("rect-chain-3", rect_chain(3)),
+        ("rect-chain-19", rect_chain(19)),
+        ("rect-chain-99", rect_chain(99)),
+        ("slot-grid-2x2", slot_grid(2, 2)),
+        ("slot-grid-4x6", slot_grid(4, 6)),
+        ("triangle-strip-6", triangle_strip(6)),
+        ("triangle-strip-82", triangle_strip(82)),
+    ] {
+        assert_parts_equal_the_filter(name, &through_serde(&case.unwrap().sketch));
+    }
+}
+
+proptest::proptest! {
+    #![proptest_config(proptest::prelude::ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn parts_of_equals_the_filter_on_the_corpus_strategy(
+        sk in laman_debug::strategy::sketch(12)
+    ) {
+        assert_parts_equal_the_filter("strategy", &through_serde(&sk));
+    }
+}

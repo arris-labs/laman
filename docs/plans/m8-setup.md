@@ -94,7 +94,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   diagnosis's decompositions equal a fresh cut on the C1 fixtures and
   every family and size; an edit cuts once (a `cfg(test)` count); digests
   unchanged.
-- [ ] Step 3 **[1]**: parts come out in one pass, as in the deltas
+- [x] Step 3 **[1]**: parts come out in one pass, as in the deltas
   (`decompose` borrowing struck: its clone is 0.3-2.9 %). Test: `parts_of` equals the reference on the C1
   fixtures, every family and size, and the corpus proptest strategies.
 - [ ] Step 4 **[2]**: The cut's own work (kept: 8-15 % of an edit after
