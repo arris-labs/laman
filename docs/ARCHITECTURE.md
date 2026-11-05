@@ -140,7 +140,9 @@ The pipeline, each stage deterministic:
    intrinsic equation, never split. A degenerate equation, which has no
    gradient where it stands, is read at a fixed generic position, and
    failing that as everything it could read: the cut is then coarser,
-   never wrong.
+   never wrong. A frame cuts each component once: the solve hands its cut
+   to the diagnosis, which reads it where its parameters and sources match
+   and cuts again only where they do not.
 3. **Solve** each component: damped least squares with analytic Jacobians,
    Levenberg–Marquardt by default and DogLeg by `SolverOptions`, dense
    `nalgebra` matrices. Hard caps on iterations and on function
@@ -547,7 +549,7 @@ algorithms (§Frame budget), inside C1's 1 ms. At 500 entities the first
 drag step takes 5.0–15.8 ms after M8's set-up plan, over C2's 4 ms
 (rectangles 14–16 ms, where the remainder's goal phase is most of it; the slot grid
 5 ms, where it is not); what remains is the solve of the sketch's rows and the
-per-part set-up of the staged solve (§Frame budget).
+staged rank (§Frame budget).
 
 **Bisection.** A step whose solve flips a branch, or moves an arc's sweep
 past `MAX_SWEEP_STEP` (§Branches), is retried
@@ -859,9 +861,9 @@ options the plan named, the choice was:
   the remainder's descent and pursuit, so it reaches only the drag and
   bisect cells: every edit and static sketch of the families is DoF 0 with
   nothing redundant, its matching is perfect and it has no remainder. Its
-  ceiling is in the table above; it does not close M8 alone, and the next
-  M8 plan is the set-up costs the frame floor left (`parts_of`, `stage::cut`,
-  the allocator, `Frame::terms`), A to follow when the drag cells need it.
+  ceiling is in the table above; it does not close M8 alone, and the set-up
+  costs the frame floor left (`parts_of`, `stage::cut`, the allocator) were
+  the third M8 plan, and A follows when the drag cells need it.
 - A **diagnosis cache (S2)** is not chosen. It reaches only the diagnosis's
   own share, the cut and the recompile (`stage::cut` is 7-21 % of the
   edits; the split is solve cost and a cache of the diagnosis leaves it), and
@@ -876,8 +878,8 @@ under 4 ms; the 498-entity cells went from not finishing in 5 s to 4–16 ms.
 After M6, the 500-entity cells were attributed to the per-part extent
 measure, the diagnosis's recompile and re-cut of the placed sketch, and the
 repeated linear scans; M8's step-1 profile confirmed the first and the
-rank and tolerance repeats, and steps 2–5 removed them. The table above is
-the state now.
+rank and tolerance repeats, and steps 2–5 removed them, and the set-up plan removed the
+diagnosis's re-cut (one cut a frame). The table above is the state now.
 
 **A bisected frame (M7, 2026-11-04)**, same command and machine: the 498-entity
 slot grid's `bisect` cell is its drag with the middle slot's left arc let
