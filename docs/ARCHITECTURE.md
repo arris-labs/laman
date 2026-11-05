@@ -777,12 +777,16 @@ steps: one `stage::cut` a frame, shared by the solve and the diagnosis; the
 parts' parameters and sources read off the cut in one pass; the cut's
 evaluation of each source once and a greedy first matching; a descent trial
 evaluated in place in the outcome's coordinates, not in a copy of them.
-**Under 4 ms, worst sample: every 98-, 99-, 248- and 249-entity cell but the
-slot grid 248's static solve, and the triangles 501 edits (3.26 LM, 2.91
-DogLeg). Over: the rectangles 498 DogLeg edit (3.92 LM passes; DogLeg 4.17),
-the slots 498 edits (6.05 LM, 4.66 DogLeg) and every 500-entity drag step,
-static solve and bisect.** The acceptance (the six 500-entity edits at worst
-4 ms) is met by two of six cells and missed by one by 4 %.
+**Under 4 ms, worst sample: every 98-, 99-, 248- and 249-entity cell (the
+slot grid 248's static solve included: 3.53 LM, 3.51 DogLeg), the triangles
+501 static solve (3.17, 3.54) and edits (3.26 LM, 2.91 DogLeg) and the
+rectangles 498 LM edit (3.92). Over: the rectangles 498 DogLeg edit (4.17),
+the slots 498 edits (6.05 LM, 4.66 DogLeg), the rectangles 498 and slots 498
+static solves, every 500-entity drag step and the bisect.** The acceptance
+(the six 500-entity edits at worst 4 ms) is met by three of six cells
+(triangles LM and DogLeg, rectangles LM) and missed by three: the rectangles
+DogLeg edit by about 4 %, the slots DogLeg edit by about 16 % and the slots
+LM edit by about 51 %.
 
 | Family | Actual entities | Algorithm | Static | Edit | First drag step |
 |---|---:|---|---:|---:|---:|
