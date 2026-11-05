@@ -544,9 +544,9 @@ The redundancy pass takes the rank alone (`dof_only`: no null basis, no
 per-entity counts) and tests only the head's constraints (§Diagnose). Each of
 its ten steps, solve and diagnostics, takes 0.39–0.40 ms under both
 algorithms (§Frame budget), inside C1's 1 ms. At 500 entities the first
-drag step takes 6.0–15.6 ms after M8's frame-floor plan, over C2's 4 ms
-(rectangles 15–16 ms, where the remainder's goal phase is most of it; the slot grid
-6 ms, where it is not); what remains is the solve of the sketch's rows and the
+drag step takes 5.0–15.8 ms after M8's set-up plan, over C2's 4 ms
+(rectangles 14–16 ms, where the remainder's goal phase is most of it; the slot grid
+5 ms, where it is not); what remains is the solve of the sketch's rows and the
 per-part set-up of the staged solve (§Frame budget).
 
 **Bisection.** A step whose solve flips a branch, or moves an arc's sweep
@@ -771,15 +771,56 @@ joins through a tree, the column map as a sorted vector, the matching's
 buffers reused and each frame point read once, and the tolerances' components
 built once a frame and re-measured from their frames.
 
-**Where the rest is (LM, `perf record` of the 500-entity workers, shares of
-the timed operation).** The edits: malloc/free 12–20 %, `stage::cut` of the
-diagnosis 7–21 % (triangles the most), the per-part components that
-`parts_of` builds 6–12 % (a linear `find` over the component's parameters and
-sources per part, so quadratic in the parts), `Frame::terms` 8–9 %,
-`Splitter::split` 4–6 %, `Tolerances::new` 6–7 %, `axis_aligned` 5–6 %.
-No source above 21 % (`stage::cut` on the triangle edit) and, after it, the
-allocator and `parts_of`; the next cuts are `stage::cut`'s graph build and
-`parts_of`'s lookups, both set-up and not the solve.
+C2 after M8's set-up plan (`plans/m8-setup`, 2026-11-05), same command,
+machine and conventions (median / worst in ms, five samples). The plan's
+steps: one `stage::cut` a frame, shared by the solve and the diagnosis; the
+parts' parameters and sources read off the cut in one pass; the cut's
+evaluation of each source once and a greedy first matching; a descent trial
+evaluated in place in the outcome's coordinates, not in a copy of them.
+**Under 4 ms, worst sample: every 98-, 99-, 248- and 249-entity cell but the
+slot grid 248's static solve, and the triangles 501 edits (3.26 LM, 2.91
+DogLeg). Over: the rectangles 498 DogLeg edit (3.92 LM passes; DogLeg 4.17),
+the slots 498 edits (6.05 LM, 4.66 DogLeg) and every 500-entity drag step,
+static solve and bisect.** The acceptance (the six 500-entity edits at worst
+4 ms) is met by two of six cells and missed by one by 4 %.
+
+| Family | Actual entities | Algorithm | Static | Edit | First drag step |
+|---|---:|---|---:|---:|---:|
+| rectangles | 98 | LM | 0.668 / 1.188 | 0.562 / 0.679 | 0.722 / 0.788 |
+| rectangles | 98 | DogLeg | 0.605 / 0.756 | 0.534 / 0.550 | 0.715 / 0.807 |
+| rectangles | 248 | LM | 1.917 / 2.070 | 1.667 / 1.679 | 3.041 / 3.371 |
+| rectangles | 248 | DogLeg | 1.842 / 2.643 | 1.658 / 2.042 | 3.154 / 3.261 |
+| rectangles | 498 | LM | 4.811 / 4.984 | 3.860 / 3.921 | 14.471 / 14.869 |
+| rectangles | 498 | DogLeg | 4.244 / 4.512 | 3.674 / 4.171 | 14.578 / 15.764 |
+| slots | 98 | LM | 1.079 / 1.201 | 0.807 / 0.848 | 0.952 / 0.968 |
+| slots | 98 | DogLeg | 1.182 / 1.312 | 0.777 / 0.943 | 0.970 / 0.998 |
+| slots | 248 | LM | 3.282 / 3.528 | 2.177 / 2.210 | 2.564 / 2.707 |
+| slots | 248 | DogLeg | 3.296 / 3.511 | 2.259 / 2.275 | 2.522 / 3.055 |
+| slots | 498 | LM | 8.056 / 8.289 | 4.865 / 6.047 | 5.013 / 5.107 |
+| slots | 498 | DogLeg | 7.523 / 7.784 | 4.603 / 4.659 | 5.057 / 5.125 |
+| triangles | 99 | LM | 0.469 / 0.635 | 0.451 / 0.486 | N/A |
+| triangles | 99 | DogLeg | 0.519 / 0.615 | 0.468 / 0.552 | N/A |
+| triangles | 249 | LM | 1.386 / 1.490 | 1.288 / 1.302 | N/A |
+| triangles | 249 | DogLeg | 1.403 / 1.821 | 1.331 / 1.459 | N/A |
+| triangles | 501 | LM | 3.046 / 3.171 | 2.832 / 3.257 | N/A |
+| triangles | 501 | DogLeg | 3.206 / 3.538 | 2.840 / 2.906 | N/A |
+
+The bisected frame (slot grid 498) is 11.59 / 11.78 ms LM and 11.57 / 11.64
+ms DogLeg, against 5.0 ms for the plain first drag step (it was 15.0-15.8).
+The rectangle drag is 14.5 / 14.9 (LM) and 14.6 / 15.8 ms (DogLeg), the slot
+drag 5.0 / 5.1: none slower than before. C1's bench holds its 1 ms budget
+(the drag steps take 0.29-0.30 ms).
+
+**Where the rest is (LM, `perf record` of the 500-entity workers, inclusive
+shares of all samples, 2026-11-05).** The edits: `stage::cut`, now once a
+frame, 7-11 %; `Frame::terms` 6-14 % (the coordinate map's lookups);
+`stageable`, the staged rank of the diagnosis, 10-23 %; malloc/free 12-17 %.
+`parts_of` is that cut and nothing else (its filter 0-1 %). The `Coordinates`
+copies are 0.2-2.6 %. Nothing left is a set-up step: the staged rank is the
+diagnosis proper, and `Frame::terms` is the dense `Coordinates` plan, whose
+lookups would also serve the bisect (11 %). The slot edit misses because
+its staged rank is 21-23 % of it, the rectangle DogLeg edit by 4 % at its
+worst sample.
 
 **A's reach, measured (descent and pursuit split).** Rigid bodies in the
 remainder cannot reach the edits (DoF 0, no remainder) and reach a drag or
@@ -787,21 +828,19 @@ bisect cell only through its descent and pursuit:
 
 | Cell (LM) | ms | pursuit | descent (head, stages, remainder) | diagnosis | `parts_of` |
 |---|---:|---:|---:|---:|---:|
-| rectangles 498 drag | 15.0 | 63 % (hessian 41 %: `Qr::new` 29 %, null basis 20 %; inclusive) | 4 % | 13 % | 4 % |
-| slots 498 drag | 6.0 | 5 % | 11 % | 33 % | 16 % |
-| slots 498 bisect | 15.0 | 20 % | 13 % | 18 % | 16 % |
+| rectangles 498 drag | 14.5 | 60 % (`Qr::new` 27 %; inclusive) | 3 % | 13 % | 0.3 % |
+| slots 498 drag | 5.0 | 4 % | 9 % | 30 % | 0.4 % |
+| slots 498 bisect | 11.6 | 19 % | 15 % | 19 % | 0.4 % |
 
-The shares are inclusive (a function and everything it calls), so the
-hessian's `Qr::new` and null basis overlap and do not sum to its 41 %; the
-null basis's 20 % is inclusive of the pursuit, where step 1's 0.1 % is the
-self time of the null-basis routine alone. A's ceiling is one method for all
-three: the time left were the pursuit free, which is all A can reach in
-principle (its descent shares are small beside it and A does not remove them).
-That is 15.0 x 0.37 = 5.6 ms on the rectangle drag, 6.0 x 0.95 = 5.7 ms on
-the slot drag and 15.0 x 0.80 = 12.0 ms on the bisect. A alone closes none of
-the three at 4 ms: the slot drag and the bisect are dominated by the
-diagnosis and the per-part set-up, the same sources as the edits, and the
-edits (4.6-6.4 ms worst) are out of its reach.
+The shares are inclusive (a function and everything it calls) and overlap.
+A's ceiling is the time left were the pursuit free, which is all A can reach
+in principle (its descent shares are small beside it and A does not remove
+them): 14.5 x 0.40 = 5.8 ms on the rectangle drag, 5.0 x 0.96 = 4.8 ms on the
+slot drag and 11.6 x 0.81 = 9.4 ms on the bisect. A alone closes none of the
+three at 4 ms: the slot drag and the bisect are dominated by the diagnosis
+(the staged rank, 20-24 %) and `Frame::terms` (5-11 %), the same sources as
+the slot edit. What the profile names next is the dense `Coordinates` plan
+(`Frame::terms`) and a cheaper staged rank before A.
 
 **Profile and the choice (M8 step 5; self time, `perf report
 --no-children`, the 500-entity cells, LM and DogLeg).** Steps 2-4 removed the

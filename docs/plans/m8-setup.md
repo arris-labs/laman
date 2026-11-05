@@ -112,7 +112,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   Remove any remaining source ≥ 5 % that isn't the solve's own
   arithmetic, each with its own equality test, or split it into a step
   of its own (7a) if it's larger.
-- [ ] Step 8 **[1]**: Run `bench_c2` in full. Replace the table in
+- [x] Step 8 **[1]**: Run `bench_c2` in full. Replace the table in
   ARCHITECTURE.md §Frame budget, with the attribution and A's measured
   ceiling for the rectangle drag and the bisect, restated. If a cell in
   *Acceptance* misses, record the miss and what the profile names next.
@@ -228,11 +228,13 @@ lookups: the dense `Coordinates` plan of *Non-goals*, a plan of its own
   -33 % it needs). It moves from *Acceptance* to "recorded", with its
   number, and the A plan takes it. The slot edit may also miss for the same
   reason (staged rank 17 %): step 8 records it.
-- ⚠ OPEN (agent, step 8): if every edit and the slot drag pass, A is the
-  next M8 plan, its goal set from the rectangle drag's and the bisect's
-  recorded distance. If an edit still misses, the step names what the
-  profile points to (the dense `Coordinates` plan in *Non-goals* is the
-  likely one), and A waits.
+- Settled (agent, step 8, bench 2026-11-05): the triangles 501 edits pass
+  (worst 3.26 / 2.91 ms), the rectangles 498 LM edit passes (3.92) and its
+  DogLeg misses by 4 % (4.17), the slots 498 edits miss (6.05 / 4.66; staged
+  rank 21-23 %). The slot drag is 5.0 ms (recorded), the rectangle drag 14.5
+  and the bisect 11.6, none slower. An edit still misses, so A waits: the
+  profile points to the dense `Coordinates` plan (`Frame::terms` 6-14 %) and
+  a cheaper staged rank, both named in ARCHITECTURE.md §Frame budget.
 - Human, before the A plan (not needed to start this one): A was
   estimated at about three plans (`ideas/c2-decomposition`). Whether the
   rectangle drag and the bisect stay in C2's *Accept* or move to a later
