@@ -108,7 +108,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
 - ~~Step 6~~ struck: no other allocation source reaches 5 % (the next:
   `descend` 3.9 % on the triangle DogLeg edit, the cut's own 0.9-3.6 %,
   the staged rank 0.9-2.0 %).
-- [ ] Step 7 **[2]**: Re-profile the 500-entity edits and the slot drag.
+- [x] Step 7 **[2]**: Re-profile the 500-entity edits and the slot drag.
   Remove any remaining source ≥ 5 % that isn't the solve's own
   arithmetic, each with its own equality test, or split it into a step
   of its own (7a) if it's larger.
@@ -197,6 +197,29 @@ the rectangle and triangle edits can pass, **the slot edit (staged rank
 17 %, not set-up) probably cannot**. The slot drag's first step has no cut
 to share and its set-up is the filter (13 %) and `Frame::terms` (4 %): at
 most 17 % of the samples against a 6.0 ms step needing -33 %.
+
+Step 7, 2026-11-05, after steps 2-5, same method (`--samples 20`, inclusive
+percent of all samples). `stage::cut` runs once per component and is 7.4-11.0
+% of an edit (the diagnosis no longer cuts); `parts_of` is 7.8-11.7 %, nearly
+all of it that cut (its filter is 0-0.8 %, `decompose`'s clone 1.2-4.6 %);
+the `Coordinates` clones are 0.2-2.6 % of the malloc share (step 5 took the
+per-try one), the whole allocator 11.8-17.0 % on the edits and 7.0-13.7 % on
+the drags.
+
+| inclusive % | rect edit LM/DL | slots edit LM/DL | tri edit LM/DL | rect drag | slots drag | slots bisect |
+|---|---:|---:|---:|---:|---:|---:|
+| `stage::cut` | 9.9 / 8.4 | 11.0 / 9.5 | 7.4 / 9.3 | 0 | 0 | 0 |
+| `Frame::terms` | 14.2 / 13.8 | 5.7 / 5.8 | 9.8 / 11.3 | 1.1 | 4.9 | 11.3 |
+| `stageable` (staged rank) | 14.4 / 13.6 | 22.9 / 21.2 | 10.5 / 11.4 | 12.2 | 19.9 | 24.1 |
+| malloc/free | 16.3 / 17.0 | 11.8 / 11.8 | 16.4 / 15.3 | 7.0 | 13.0 | 13.7 |
+
+Settled (agent, step 7): no source left is both at least 5 % and removable by
+a set-up step. The cut is the one cut a frame now, its matching 0-1.6 %, its
+own work already reduced in step 4. `stageable` is the staged rank, the
+diagnosis proper (A's and the staged-rank cost, not set-up). `Frame::terms`
+(5.7-14.2 % on the edits, 11.3 % on the bisect) is the coordinate map's
+lookups: the dense `Coordinates` plan of *Non-goals*, a plan of its own
+(7a), not a step here. Nothing is removed in this step.
 
 ## Open questions
 - Settled (agent, step 1): the slot drag is not in reach. Its
