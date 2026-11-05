@@ -153,6 +153,10 @@ pub(crate) struct Outcome {
     /// The staged factorizations the solve made accepting its staged
     /// components, for the diagnosis at the same coordinates to read.
     pub staged: crate::diagnose::StagedRanks,
+    /// The components' decompositions the solve cut itself, when the caller
+    /// kept none that applied: the diagnosis of the same sketch reads them
+    /// instead of cutting again ([`crate::solution::conclude`]).
+    pub cut: Option<crate::stage::Decompositions>,
 }
 
 impl Outcome {
@@ -166,6 +170,7 @@ impl Outcome {
             iteration_work: 0.0,
             evaluation_work: 0.0,
             staged: crate::diagnose::StagedRanks::default(),
+            cut: None,
         }
     }
 
@@ -322,6 +327,7 @@ pub(crate) fn solve_under(
         });
         out.converged &= converged;
     }
+    out.cut = system.cut.take();
     out
 }
 

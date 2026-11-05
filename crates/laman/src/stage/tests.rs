@@ -366,3 +366,70 @@ proptest! {
         }
     }
 }
+
+/// A solve cuts each component once and its diagnosis reads that cut: the
+/// outcome's decompositions are those of a fresh cut of the same sketch, and
+/// a solve counts one cut per component (plans/m8-setup step 2).
+fn assert_one_cut(name: &str, sk: &Sketch) {
+    use crate::solution::SolverOptions;
+    use crate::solve::{Options, solve_toward};
+    let system = System::new(sk);
+    let components = system
+        .components
+        .iter()
+        .filter(|c| !c.params.is_empty())
+        .count();
+    let fresh = Decompositions::of(&system);
+    let before = CUTS.with(std::cell::Cell::get);
+    let out = solve_toward(sk, &[], Options::default());
+    let after = CUTS.with(std::cell::Cell::get);
+    assert!(after - before <= components, "{name}: solve cut twice");
+    if let Some(cut) = &out.cut {
+        assert_eq!(*cut, fresh, "{name}");
+    }
+    let before = CUTS.with(std::cell::Cell::get);
+    let solution = sk.solve(&SolverOptions::default());
+    let after = CUTS.with(std::cell::Cell::get);
+    // The diagnosis of a conflict re-solves subsets and that of a redundancy
+    // compiles the sketch without a constraint, each its own system.
+    if solution.diagnostics.redundant.is_empty()
+        && solution.diagnostics.conflicts.is_empty()
+        && solution.status != crate::solution::Status::NotConverged
+    {
+        assert!(after - before <= components, "{name}: an edit cut twice");
+    }
+    let again = sk.solve(&SolverOptions::default());
+    assert_eq!(solution, again, "{name}");
+}
+
+#[test]
+fn an_edit_cuts_once_and_the_diagnosis_reads_the_solves_cut() {
+    use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+    for slug in [
+        "belt",
+        "belt-conflicting",
+        "belt-redundant",
+        "slotted-plate",
+        "slotted-plate-conflicting",
+        "slotted-plate-redundant",
+        "sss-triangle",
+        "sss-triangle-conflicting",
+        "sss-triangle-redundant",
+    ] {
+        assert_one_cut(slug, &load(slug));
+    }
+    for (name, case) in [
+        ("rect-chain-3", rect_chain(3)),
+        ("rect-chain-19", rect_chain(19)),
+        ("rect-chain-99", rect_chain(99)),
+        ("slot-grid-2x2", slot_grid(2, 2)),
+        ("slot-grid-4x6", slot_grid(4, 6)),
+        ("triangle-strip-6", triangle_strip(6)),
+        ("triangle-strip-82", triangle_strip(82)),
+    ] {
+        let case = case.unwrap();
+        let sk: Sketch =
+            serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
+        assert_one_cut(name, &sk);
+    }
+}

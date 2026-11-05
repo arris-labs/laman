@@ -90,7 +90,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   `decompose`'s clone and the filter, and malloc/free split by caller
   (`perf report --children` on the allocator, by caller). Strike or
   reorder steps 2–6 to match. Commit: `docs(plan)`.
-- [ ] Step 2 **[2]**: One cut a frame, as in the deltas. Test: the
+- [x] Step 2 **[2]**: One cut a frame, as in the deltas. Test: the
   diagnosis's decompositions equal a fresh cut on the C1 fixtures and
   every family and size; an edit cuts once (a `cfg(test)` count); digests
   unchanged.

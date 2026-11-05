@@ -384,7 +384,7 @@ pub(crate) fn conclude(
         sketch,
         &attempt.outcome,
         &options.internal_on(attempt.path),
-        kept,
+        kept.or(attempt.outcome.cut.as_ref()),
         &attempt.tolerances,
     );
     let solution = Solution {

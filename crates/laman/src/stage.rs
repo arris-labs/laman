@@ -121,7 +121,7 @@ pub(crate) fn support_at(system: &System<'_>, eq: &Equation, own: &Coordinates) 
 /// again from the same equations (a drag session's frames): the structure
 /// does not depend on coordinates, so it is cut once. An entry is used only
 /// for the component whose parameters and sources it was cut from.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Decompositions {
     by_first: BTreeMap<Param, usize>,
     entries: Vec<(Vec<Param>, Vec<Source>, Decomposition)>,
@@ -151,6 +151,13 @@ impl Decompositions {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    /// How many components this thread has cut (`cut` calls): a test's count
+    /// of the work a frame does.
+    pub(crate) static CUTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Cut `component` into parts, from the system's kept decompositions when it
 /// has them for this component.
 pub(crate) fn decompose(system: &System<'_>, component: &Component) -> Decomposition {
@@ -166,6 +173,8 @@ pub(crate) fn decompose(system: &System<'_>, component: &Component) -> Decomposi
 }
 
 fn cut(system: &System<'_>, component: &Component) -> Decomposition {
+    #[cfg(test)]
+    CUTS.with(|n| n.set(n.get() + 1));
     let rows = system.rows_of(component);
     let own = system.sketch.coordinates();
     let mut cols: Vec<Param> = component.params.clone();
