@@ -102,7 +102,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
   `cut` equals the reference (parts, kinds, order, `matched`, rank) on
   the same set, degenerate starts included (coincident ends, the generic
   position's fallback), and at `PROPTEST_CASES=1024`.
-- [ ] Step 5 **[2]**: The largest allocation source step 1 names: the
+- [x] Step 5 **[2]**: The largest allocation source step 1 names: the
   `Coordinates` clones per descent and try (`Row::terms` struck: no map is
   built there). Test: the solve suites and digests unchanged.
 - ~~Step 6~~ struck: no other allocation source reaches 5 % (the next:

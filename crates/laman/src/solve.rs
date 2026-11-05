@@ -590,14 +590,25 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
         let proposal = control.propose(&current, &bound);
         let candidate = proposal
             .as_ref()
-            .and_then(|p| trial(component, &out.coordinates, &position, &p.step));
+            .and_then(|p| trial_values(component, &out.coordinates, &position, &p.step));
         // An attempted trial, including a non-finite one, consumes one
         // evaluation allowance. Linear factorization failures consume both.
         out.spend_evaluation(weight);
-        if let (Some((coordinates, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
+        if let (Some((moved, next_position)), Some(p)) = (candidate, proposal.as_ref()) {
+            // The trial is evaluated in place and put back when refused: the
+            // component's parameters are the only entries it changes, so no
+            // copy of the whole sketch's coordinates is made.
+            let before: Vec<Option<f64>> = component
+                .params
+                .iter()
+                .map(|key| out.coordinates.get(key).copied())
+                .collect();
+            for (key, value) in component.params.iter().zip(&moved) {
+                out.coordinates.insert(*key, *value);
+            }
             let mut next =
-                system.evaluate_part(component, scope.accepts, &coordinates, SOLVE_TARGET);
-            next.satisfied &= vector_acceptance(system, scope, &coordinates, SOLVE_TARGET);
+                system.evaluate_part(component, scope.accepts, &out.coordinates, SOLVE_TARGET);
+            next.satisfied &= vector_acceptance(system, scope, &out.coordinates, SOLVE_TARGET);
             let next_cost = objective(&next);
             if next.valid && next_cost.is_finite() && (next_cost < cost || next.satisfied) {
                 // A non-positive prediction (rounding) is a poor model.
@@ -607,7 +618,6 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
                     0.0
                 };
                 control.accepted(gain, norm(&p.step));
-                out.coordinates = coordinates;
                 position = next_position;
                 current = next;
                 cost = next_cost;
@@ -615,6 +625,16 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
                     break;
                 }
                 continue;
+            }
+            for (key, old) in component.params.iter().zip(before) {
+                match old {
+                    Some(v) => {
+                        out.coordinates.insert(*key, v);
+                    }
+                    None => {
+                        out.coordinates.remove(key);
+                    }
+                }
             }
         }
         out.rejected += 1;
@@ -1247,8 +1267,24 @@ fn trial(
     position: &[f64],
     step: &[f64],
 ) -> Option<(Coordinates, Vec<f64>)> {
-    let scale = component.scale.max(LENGTH_FLOOR);
+    let (moved, next) = trial_values(component, values, position, step)?;
     let mut coordinates = values.clone();
+    for (key, value) in component.params.iter().zip(moved) {
+        coordinates.insert(*key, value);
+    }
+    Some((coordinates, next))
+}
+
+/// [`trial`] without the copy of the coordinates: the component's parameters'
+/// new values in `component.params` order, and the normalized position.
+fn trial_values(
+    component: &Component,
+    values: &Coordinates,
+    position: &[f64],
+    step: &[f64],
+) -> Option<(Vec<f64>, Vec<f64>)> {
+    let scale = component.scale.max(LENGTH_FLOOR);
+    let mut moved = Vec::with_capacity(position.len());
     let mut next = Vec::with_capacity(position.len());
     for ((key, x), delta) in component.params.iter().zip(position).zip(step) {
         let origin = match key.1 {
@@ -1271,10 +1307,10 @@ fn trial(
         if !x.is_finite() || !value.is_finite() {
             return None;
         }
-        coordinates.insert(*key, value);
+        moved.push(value);
         next.push(x);
     }
-    Some((coordinates, next))
+    Some((moved, next))
 }
 
 // (J^T J + lambda I) d = -J^T f is the unique damped least-squares
