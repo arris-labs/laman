@@ -382,21 +382,26 @@ fn assert_one_cut(name: &str, sk: &Sketch) {
     let fresh = Decompositions::of(&system);
     let before = CUTS.with(std::cell::Cell::get);
     let out = solve_toward(sk, &[], Options::default());
-    let after = CUTS.with(std::cell::Cell::get);
-    assert!(after - before <= components, "{name}: solve cut twice");
-    if let Some(cut) = &out.cut {
-        assert_eq!(*cut, fresh, "{name}");
-    }
+    let solve_cuts = CUTS.with(std::cell::Cell::get) - before;
     let before = CUTS.with(std::cell::Cell::get);
     let solution = sk.solve(&SolverOptions::default());
-    let after = CUTS.with(std::cell::Cell::get);
+    let edit_cuts = CUTS.with(std::cell::Cell::get) - before;
     // The diagnosis of a conflict re-solves subsets and that of a redundancy
-    // compiles the sketch without a constraint, each its own system.
-    if solution.diagnostics.redundant.is_empty()
+    // compiles the sketch without a constraint, each its own system; where
+    // the sketch has neither and converges, the count is exact and the
+    // solve's cut is the one every reader shares.
+    let clean = solution.diagnostics.redundant.is_empty()
         && solution.diagnostics.conflicts.is_empty()
-        && solution.status != crate::solution::Status::NotConverged
-    {
-        assert!(after - before <= components, "{name}: an edit cut twice");
+        && solution.status != crate::solution::Status::NotConverged;
+    if clean {
+        assert_eq!(solve_cuts, components, "{name}: the solve's cuts");
+        assert_eq!(edit_cuts, components, "{name}: an edit's cuts");
+        assert_eq!(out.cut.as_ref(), Some(&fresh), "{name}: the solve's cut");
+    } else {
+        assert!(solve_cuts <= components, "{name}: solve cut twice");
+        if let Some(cut) = &out.cut {
+            assert_eq!(*cut, fresh, "{name}");
+        }
     }
     let again = sk.solve(&SolverOptions::default());
     assert_eq!(solution, again, "{name}");
