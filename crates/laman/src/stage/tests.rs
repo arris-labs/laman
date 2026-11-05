@@ -433,3 +433,98 @@ fn an_edit_cuts_once_and_the_diagnosis_reads_the_solves_cut() {
         assert_one_cut(name, &sk);
     }
 }
+
+/// `cut` against the reference that evaluates every row alone and matches by
+/// augmenting paths only: parts, kinds, order, `matched` and rank.
+fn assert_cut_is_the_reference(name: &str, sk: &Sketch) {
+    let system = System::new(sk);
+    for component in &system.components {
+        assert_eq!(
+            cut(&system, component),
+            cut_reference(&system, component),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn the_cut_equals_the_reference_on_fixtures_and_every_family_and_size() {
+    use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+    for slug in [
+        "belt",
+        "belt-conflicting",
+        "belt-redundant",
+        "slotted-plate",
+        "slotted-plate-conflicting",
+        "slotted-plate-redundant",
+        "sss-triangle",
+        "sss-triangle-conflicting",
+        "sss-triangle-redundant",
+    ] {
+        assert_cut_is_the_reference(slug, &load(slug));
+    }
+    for (name, case) in [
+        ("rect-chain-3", rect_chain(3)),
+        ("rect-chain-19", rect_chain(19)),
+        ("rect-chain-99", rect_chain(99)),
+        ("slot-grid-2x2", slot_grid(2, 2)),
+        ("slot-grid-4x6", slot_grid(4, 6)),
+        ("slot-grid-7x7", slot_grid(7, 7)),
+        ("triangle-strip-6", triangle_strip(6)),
+        ("triangle-strip-82", triangle_strip(82)),
+        ("triangle-strip-166", triangle_strip(166)),
+    ] {
+        let case = case.unwrap();
+        let sk: Sketch =
+            serde_json::from_str(&serde_json::to_string(&case.sketch).unwrap()).unwrap();
+        assert_cut_is_the_reference(name, &sk);
+    }
+}
+
+#[test]
+fn the_cut_equals_the_reference_from_degenerate_starts() {
+    // Coincident ends of a distance, and of a zero-length line held
+    // horizontal: rows with no gradient where they stand.
+    let mut sk = Sketch::new();
+    let a = sk.point_fixed(1.0, 1.0).unwrap();
+    let b = sk.point(1.0, 1.0).unwrap();
+    let c = sk.point(1.0, 1.0).unwrap();
+    sk.distance(a, b, 2.0).unwrap();
+    let line = sk.line(b, c).unwrap();
+    sk.horizontal(line).unwrap();
+    sk.distance(b, c, 3.0).unwrap();
+    assert_cut_is_the_reference("coincident", &sk);
+
+    // Past the generic position's period two points share it, and the
+    // structure falls back to the constraint's dependencies.
+    let mut sk = Sketch::new();
+    let mut points = vec![sk.point_fixed(0.0, 0.0).unwrap()];
+    for _ in 0..110 {
+        let q = sk.point(0.0, 0.0).unwrap();
+        let last = *points.last().unwrap();
+        sk.distance(last, q, 1.0).unwrap();
+        points.push(q);
+    }
+    sk.distance(points[0], points[101], 5.0).unwrap();
+    assert_cut_is_the_reference("generic collision", &sk);
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn the_cut_equals_the_reference_on_constructed_sketches(
+        steps in proptest::collection::vec(step(), 1..14)
+    ) {
+        let Some(sk) = build(&steps) else { return Ok(()); };
+        assert_cut_is_the_reference("constructed", &sk);
+    }
+
+    #[test]
+    fn the_cut_equals_the_reference_on_the_corpus_strategy(
+        sk in laman_debug::strategy::sketch(14)
+    ) {
+        let sk: Sketch = serde_json::from_str(&serde_json::to_string(&sk).unwrap()).unwrap();
+        assert_cut_is_the_reference("strategy", &sk);
+    }
+}

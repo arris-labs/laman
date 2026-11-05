@@ -107,17 +107,100 @@ pub(crate) fn support_at(system: &System<'_>, eq: &Equation, own: &Coordinates) 
     // stands: read its structure at a fixed generic position instead, and
     // failing that, all it could read.
     let mut keys = keys_at(own)
-        .or_else(|| {
-            let mut generic = sk.coordinates();
-            for (i, value) in generic.values_mut().enumerate() {
-                *value = 1.0 + (i * GENERIC_STRIDE % GENERIC_PERIOD) as f64 * GENERIC_SPACING;
-            }
-            keys_at(&generic)
-        })
+        .or_else(|| keys_at(&generic_position(sk)))
         .unwrap_or_else(|| tolerance::dependencies(sk, eq.source));
     keys.sort();
     keys.dedup();
     keys
+}
+
+/// The equations of one source at some coordinates, read once for all of its
+/// rows.
+enum Evaluated {
+    One(residual::Equation),
+    Many(residual::Equations),
+}
+
+impl Evaluated {
+    fn get(&self, index: usize) -> Option<residual::Equation> {
+        match self {
+            Evaluated::One(e) => (index == 0).then_some(*e),
+            Evaluated::Many(es) => es.as_slice().get(index).copied(),
+        }
+    }
+}
+
+/// [`support_at`] for the rows of one cut: a source's equations are
+/// evaluated once at the coordinates (not once per equation), and the
+/// generic position is built once (not once per degenerate row). It returns
+/// what `support_at` returns for the same row.
+struct Supports<'a> {
+    system: &'a System<'a>,
+    own: Coordinates,
+    at_own: Option<(Source, Option<Evaluated>)>,
+    generic: Option<Coordinates>,
+    at_generic: Option<(Source, Option<Evaluated>)>,
+}
+
+impl<'a> Supports<'a> {
+    fn new(system: &'a System<'a>) -> Self {
+        Self {
+            system,
+            own: system.sketch.coordinates(),
+            at_own: None,
+            generic: None,
+            at_generic: None,
+        }
+    }
+
+    fn evaluate(
+        sketch: &crate::model::Sketch,
+        values: &Coordinates,
+        source: Source,
+    ) -> Option<Evaluated> {
+        match source {
+            Source::Arc(id) => residual::intrinsic(sketch, values, id).map(Evaluated::One),
+            Source::Constraint(id) => residual::equations(sketch, values, id).map(Evaluated::Many),
+        }
+    }
+
+    fn keys(
+        cache: &mut Option<(Source, Option<Evaluated>)>,
+        sketch: &crate::model::Sketch,
+        values: &Coordinates,
+        eq: &Equation,
+    ) -> Option<Vec<Param>> {
+        if cache.as_ref().is_none_or(|(s, _)| *s != eq.source) {
+            *cache = Some((eq.source, Self::evaluate(sketch, values, eq.source)));
+        }
+        let equation = cache.as_ref()?.1.as_ref()?.get(eq.index)?;
+        (!equation.is_degenerate()).then(|| equation.terms().iter().map(|t| t.0).collect())
+    }
+
+    fn support(&mut self, eq: &Equation) -> Vec<Param> {
+        if eq.contact.is_some() {
+            return support_at(self.system, eq, &self.own);
+        }
+        let sk = self.system.sketch;
+        let mut keys = Self::keys(&mut self.at_own, sk, &self.own, eq)
+            .or_else(|| {
+                let generic = self.generic.get_or_insert_with(|| generic_position(sk));
+                Self::keys(&mut self.at_generic, sk, generic, eq)
+            })
+            .unwrap_or_else(|| tolerance::dependencies(sk, eq.source));
+        keys.sort();
+        keys.dedup();
+        keys
+    }
+}
+
+/// The sketch's parameters at the fixed generic position (`support_at`).
+fn generic_position(sk: &crate::model::Sketch) -> Coordinates {
+    let mut generic = sk.coordinates();
+    for (i, value) in generic.values_mut().enumerate() {
+        *value = 1.0 + (i * GENERIC_STRIDE % GENERIC_PERIOD) as f64 * GENERIC_SPACING;
+    }
+    generic
 }
 
 /// The decompositions of a system's components, kept for a system compiled
@@ -178,29 +261,72 @@ pub(crate) fn decompose(system: &System<'_>, component: &Component) -> Decomposi
 fn cut(system: &System<'_>, component: &Component) -> Decomposition {
     #[cfg(test)]
     CUTS.with(|n| n.set(n.get() + 1));
-    let rows = system.rows_of(component);
+    let (rows, cols) = (system.rows_of(component), columns(component));
+    let col_of: BTreeMap<Param, usize> = cols.iter().enumerate().map(|(i, p)| (*p, i)).collect();
+    let mut supports = Supports::new(system);
+    let adj = rows
+        .iter()
+        .map(|&r| {
+            adjacency(
+                system.equations.get(r).map(|e| supports.support(e)),
+                &col_of,
+            )
+        })
+        .collect();
+    cut_from(system, rows, cols, adj, true)
+}
+
+/// [`cut`] as it was before the shared evaluations and the greedy first
+/// pass: the reference it is held equal to.
+#[cfg(test)]
+fn cut_reference(system: &System<'_>, component: &Component) -> Decomposition {
+    let (rows, cols) = (system.rows_of(component), columns(component));
+    let col_of: BTreeMap<Param, usize> = cols.iter().enumerate().map(|(i, p)| (*p, i)).collect();
     let own = system.sketch.coordinates();
+    let adj = rows
+        .iter()
+        .map(|&r| {
+            adjacency(
+                system.equations.get(r).map(|e| support_at(system, e, &own)),
+                &col_of,
+            )
+        })
+        .collect();
+    cut_from(system, rows, cols, adj, false)
+}
+
+/// The component's parameters, sorted and distinct.
+fn columns(component: &Component) -> Vec<Param> {
     let mut cols: Vec<Param> = component.params.clone();
     cols.sort();
     cols.dedup();
-    let col_of: BTreeMap<Param, usize> = cols.iter().enumerate().map(|(i, p)| (*p, i)).collect();
-    let (nr, nc) = (rows.len(), cols.len());
-    let adj: Vec<Vec<usize>> = rows
+    cols
+}
+
+/// A row's column indices, ascending, from the parameters it reads.
+fn adjacency(support: Option<Vec<Param>>, col_of: &BTreeMap<Param, usize>) -> Vec<usize> {
+    let mut a: Vec<usize> = support
+        .unwrap_or_default()
         .iter()
-        .map(|&r| {
-            let mut a: Vec<usize> = system
-                .equations
-                .get(r)
-                .map(|e| support_at(system, e, &own))
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|p| col_of.get(p).copied())
-                .collect();
-            a.sort_unstable();
-            a.dedup();
-            a
-        })
+        .filter_map(|p| col_of.get(p).copied())
         .collect();
+    a.sort_unstable();
+    a.dedup();
+    a
+}
+
+/// The decomposition of the bipartite graph `adj` (rows by `rows`, columns
+/// `cols`). `greedy` matches each row to its first free column before the
+/// augmenting paths; the coarse split and the strongly connected components
+/// of its middle do not depend on which maximum matching is found.
+fn cut_from(
+    system: &System<'_>,
+    rows: Vec<usize>,
+    cols: Vec<Param>,
+    adj: Vec<Vec<usize>>,
+    greedy: bool,
+) -> Decomposition {
+    let (nr, nc) = (rows.len(), cols.len());
     let mut radj: Vec<Vec<usize>> = vec![vec![]; nc];
     for (r, a) in adj.iter().enumerate() {
         for &c in a {
@@ -214,6 +340,13 @@ fn cut(system: &System<'_>, component: &Component) -> Decomposition {
     let mut seen = vec![0_usize; nc];
     let mut path = Path::default();
     for r in 0..nr {
+        if greedy {
+            if let Some(&c) = adj[r].iter().find(|&&c| match_col[c].is_none()) {
+                match_row[r] = Some(c);
+                match_col[c] = Some(r);
+                continue;
+            }
+        }
         augment(
             r,
             &adj,

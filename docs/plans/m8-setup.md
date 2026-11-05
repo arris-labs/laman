@@ -97,7 +97,7 @@ Grades are tiers (`.agents/tiers.md`): **[1]** routine, **[2]** careful,
 - [x] Step 3 **[1]**: parts come out in one pass, as in the deltas
   (`decompose` borrowing struck: its clone is 0.3-2.9 %). Test: `parts_of` equals the reference on the C1
   fixtures, every family and size, and the corpus proptest strategies.
-- [ ] Step 4 **[2]**: The cut's own work (kept: 8-15 % of an edit after
+- [x] Step 4 **[2]**: The cut's own work (kept: 8-15 % of an edit after
   sharing); the greedy first pass only for the triangles (see *Profile*). Test:
   `cut` equals the reference (parts, kinds, order, `matched`, rank) on
   the same set, degenerate starts included (coincident ends, the generic
