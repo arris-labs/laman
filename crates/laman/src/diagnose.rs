@@ -29,8 +29,10 @@
 //! up to three times at the same coordinates: the solve's acceptance of a
 //! staged result, the freedom, the redundancy candidates. [`StagedRanks`]
 //! makes it once for all of them (plans/m8-frame-budget).
+#[cfg(test)]
+use crate::model::Coordinates;
 use crate::model::tolerance::{self, Component, RANK, Source};
-use crate::model::{Coordinate, Coordinates, EntityId, Sketch};
+use crate::model::{Coordinate, EntityId, Sketch};
 use crate::solve::Path;
 use crate::stage::Decomposition;
 use crate::system::System;
@@ -60,25 +62,24 @@ pub(crate) struct Freedom {
 /// staged.
 #[cfg(test)]
 pub(crate) fn freedom(sketch: &Sketch, values: &Coordinates) -> Freedom {
-    freedom_of(&System::new(sketch), values)
+    freedom_of(&System::new(sketch), &merged(sketch, values))
 }
 
 /// The `dof` of [`freedom_on`] alone: the same ranks from the same
 /// factorizations, without the null basis or the per-entity counts, which
 /// is all redundancy needs and most of what a freedom costs.
-pub(crate) fn dof_only(sketch: &Sketch, values: &Coordinates, path: Path) -> usize {
+pub(crate) fn dof_only(sketch: &Sketch, coordinates: &(impl Values + ?Sized), path: Path) -> usize {
     let system = System::new(sketch);
-    let coordinates = merged(sketch, values);
     system
         .components
         .iter()
         .map(|component| {
             let rank = match path {
-                Path::Staged => staged(&system, component, &coordinates, false),
+                Path::Staged => staged(&system, component, coordinates, false),
                 Path::Whole => None,
             }
             .map_or_else(
-                || rank_of(&system, component, &coordinates),
+                || rank_of(&system, component, coordinates),
                 |(rank, _)| rank,
             );
             component.params.len() - rank
@@ -96,16 +97,15 @@ pub(crate) fn dof_only(sketch: &Sketch, values: &Coordinates, path: Path) -> usi
 /// constraints are not tested.
 pub(crate) fn head_constraints(
     system: &System<'_>,
-    values: &Coordinates,
+    coordinates: &(impl Values + ?Sized),
     path: Path,
     ranks: &StagedRanks,
 ) -> std::collections::BTreeSet<crate::model::ConstraintId> {
-    let coordinates = merged(system.sketch, values);
     let mut out = std::collections::BTreeSet::new();
     for component in &system.components {
         let heads: Option<std::collections::BTreeSet<usize>> = match path {
             Path::Staged => ranks
-                .read(system, component, &coordinates, false, true)
+                .read(system, component, coordinates, false, true)
                 .map(|_| {
                     crate::stage::decompose(system, component)
                         .parts
@@ -131,7 +131,10 @@ pub(crate) fn head_constraints(
     out
 }
 
-/// The sketch's coordinates with `values` laid over them.
+/// The sketch's coordinates with `values` laid over them: what a caller with
+/// a partial map gives the functions above, which read every coordinate from
+/// their `values`.
+#[cfg(test)]
 fn merged(sketch: &Sketch, values: &Coordinates) -> Coordinates {
     let mut coordinates = sketch.coordinates();
     for (key, value) in coordinates.iter_mut() {
@@ -144,27 +147,28 @@ fn merged(sketch: &Sketch, values: &Coordinates) -> Coordinates {
 
 /// [`Freedom`] of an already compiled system, staged.
 #[cfg(test)]
-pub(crate) fn freedom_of(system: &System<'_>, values: &Coordinates) -> Freedom {
+pub(crate) fn freedom_of(system: &System<'_>, values: &(impl Values + ?Sized)) -> Freedom {
     freedom_on(system, values, Path::Staged, &StagedRanks::default())
 }
 
 /// [`Freedom`] of an already compiled system, by `path`, its staged
-/// factorizations read from `ranks`.
+/// factorizations read from `ranks`. `coordinates` holds every coordinate of
+/// the sketch (a solve's does); none is read from the sketch itself
+/// (plans/m8-dense-rank step 8).
 pub(crate) fn freedom_on(
     system: &System<'_>,
-    values: &Coordinates,
+    coordinates: &(impl Values + ?Sized),
     path: Path,
     ranks: &StagedRanks,
 ) -> Freedom {
-    let coordinates = merged(system.sketch, values);
     let mut dof = 0;
     let mut basis: Vec<Vec<(Param, f64)>> = Vec::new();
     for component in &system.components {
         let (rank, vectors) = match path {
-            Path::Staged => ranks.read(system, component, &coordinates, true, false),
+            Path::Staged => ranks.read(system, component, coordinates, true, false),
             Path::Whole => None,
         }
-        .unwrap_or_else(|| null_space(system, component, &coordinates));
+        .unwrap_or_else(|| null_space(system, component, coordinates));
         dof += component.params.len() - rank;
         basis.extend(vectors.into_iter().map(|v| {
             component

@@ -23,6 +23,7 @@ use crate::model::tolerance::{Component, FrameTolerances, STATIONARY, Source, To
 use crate::model::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
 use crate::solve::{Algorithm, Options, Outcome, Path, satisfied, solve};
 use crate::system::System;
+use crate::values::Values;
 use std::collections::BTreeSet;
 
 /// Re-solves one analysis may spend in all, across the conflict search of
@@ -148,8 +149,7 @@ pub(crate) fn analyse_under(
     kept: Option<&crate::stage::Decompositions>,
     tolerances: &FrameTolerances,
 ) -> Diagnosis {
-    let owned = outcome.coordinates.to_coordinates();
-    let values = &owned;
+    let values = &outcome.coordinates;
     let mut system = System::under(sketch, &tolerances.frozen);
     system.decompositions = kept;
     let mut solves = 0;
@@ -165,16 +165,13 @@ pub(crate) fn analyse_under(
         failed = true;
         // The caller's solve shares one budget across components, so a
         // component it never reached is re-solved alone before it is judged.
+        // The conflict analysis keeps its maps (`Solution`'s shape), made
+        // here and only for a failed component.
+        let map = values.to_coordinates();
         if certified(&system, component, values)
-            || test(sketch, values, &members, options, &mut solves) == Verdict::Unsatisfiable
+            || test(sketch, &map, &members, options, &mut solves) == Verdict::Unsatisfiable
         {
-            conflicts.extend(conflict_sets(
-                sketch,
-                values,
-                &members,
-                options,
-                &mut solves,
-            ));
+            conflicts.extend(conflict_sets(sketch, &map, &members, options, &mut solves));
         }
     }
     let freedom = freedom_on(&system, values, options.path, &outcome.staged);
@@ -227,7 +224,7 @@ fn constraints_of(component: &Component) -> Vec<ConstraintId> {
 /// A radius at 0 that `Jᵀf` presses below it reads the projected gradient,
 /// its component dropped (ADR-0010). An invalid evaluation (degenerate,
 /// non-finite, off the stored contact side) certifies nothing.
-fn certified(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
+fn certified(system: &System<'_>, component: &Component, values: &(impl Values + ?Sized)) -> bool {
     let e = system.evaluate(component, values);
     if !e.valid || satisfied(system, component, values) {
         return false;
@@ -249,7 +246,7 @@ fn certified(system: &System<'_>, component: &Component, values: &Coordinates) -
     // gradient's (ADR-0010): a component pressing a radius below 0 cannot
     // follow it, so that component is dropped.
     for (g, p) in gradient.iter_mut().zip(&component.params) {
-        let held = p.1 == Coordinate::R && values.get(p).is_some_and(|r| *r <= 0.0);
+        let held = p.1 == Coordinate::R && values.get(*p).is_some_and(|r| r <= 0.0);
         if held && *g > 0.0 {
             *g = 0.0;
         }
@@ -362,7 +359,7 @@ fn test(
         certificate |= system
             .components
             .iter()
-            .any(|c| certified(&system, c, &out.coordinates.to_coordinates()));
+            .any(|c| certified(&system, c, &out.coordinates));
     }
     if certificate {
         Verdict::Unsatisfiable
@@ -375,14 +372,20 @@ fn test(
 /// whose removal keeps `dof`. Each one named stays removed for the next.
 fn redundant(
     system: &System<'_>,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     held: &BTreeSet<ConstraintId>,
     dof: usize,
     path: Path,
     ranks: &StagedRanks,
 ) -> Vec<ConstraintId> {
-    let mut working = system.sketch.clone();
-    working.place(values);
+    // The sketch at `values`, made when a constraint is first tried: a frame
+    // that names no candidate does not copy the sketch.
+    let mut working: Option<Sketch> = None;
+    let placed = || {
+        let mut sk = system.sketch.clone();
+        sk.place(&values.to_map());
+        sk
+    };
     let mut out = Vec::new();
     // Only a head constraint can be redundant (ADR-0009): the others are
     // skipped without a factorization. The first list is read on the
@@ -391,7 +394,12 @@ fn redundant(
     // `working`, so the list is read again there.
     #[cfg(test)]
     let first = if super::three_pass::active() {
-        head_constraints(&System::new(&working), values, path, ranks)
+        head_constraints(
+            &System::new(working.get_or_insert_with(placed)),
+            values,
+            path,
+            ranks,
+        )
     } else {
         head_constraints(system, values, path, ranks)
     };
@@ -402,19 +410,14 @@ fn redundant(
         if !tested.contains(id) {
             continue;
         }
-        let mut less = working.clone();
+        let mut less = working.get_or_insert_with(placed).clone();
         if less.remove_constraint(*id).is_err() {
             continue;
         }
         if dof_only(&less, values, path) == dof {
             out.push(*id);
-            working = less;
-            tested = head_constraints(
-                &System::new(&working),
-                values,
-                path,
-                &StagedRanks::default(),
-            );
+            let kept = working.insert(less);
+            tested = head_constraints(&System::new(kept), values, path, &StagedRanks::default());
         }
     }
     out.sort();
@@ -424,11 +427,11 @@ fn redundant(
 fn degeneracy(
     sketch: &Sketch,
     system: &System<'_>,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     tolerances: &Tolerances,
 ) -> (Vec<Degenerate>, Vec<Source>) {
     let xy = |id: EntityId| {
-        let get = |c| values.get(&(id, c)).copied().unwrap_or(f64::NAN);
+        let get = |c| values.get((id, c)).unwrap_or(f64::NAN);
         [get(Coordinate::X), get(Coordinate::Y)]
     };
     let gap = |a: [f64; 2], b: [f64; 2]| libm::hypot(b[0] - a[0], b[1] - a[1]);
@@ -440,10 +443,7 @@ fn degeneracy(
             Entity::Line { a, b } => vec![(Collapse::ZeroLengthLine, gap(xy(a.id()), xy(b.id())))],
             Entity::Circle { .. } => vec![(
                 Collapse::ZeroRadius,
-                values
-                    .get(&(id, Coordinate::R))
-                    .copied()
-                    .unwrap_or(f64::NAN),
+                values.get((id, Coordinate::R)).unwrap_or(f64::NAN),
             )],
             Entity::Arc { c, s, e } => vec![
                 (Collapse::ZeroRadiusArc, gap(xy(c.id()), xy(s.id()))),
@@ -470,8 +470,8 @@ fn degeneracy(
     let mut ill = Vec::new();
     for eq in &system.equations {
         let original = match eq.source {
-            Source::Arc(id) => crate::residual::intrinsic(sketch, values, id),
-            Source::Constraint(id) => crate::residual::equations(sketch, values, id)
+            Source::Arc(id) => crate::residual::intrinsic_in(sketch, values, id),
+            Source::Constraint(id) => crate::residual::equations_in(sketch, values, id)
                 .and_then(|e| e.as_slice().get(eq.index).copied()),
         };
         let bad = original.is_none_or(|o| {

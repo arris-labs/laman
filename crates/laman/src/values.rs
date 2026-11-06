@@ -17,11 +17,18 @@ use std::sync::Arc;
 pub(crate) trait Values {
     /// The value of `p`, if this source holds one.
     fn get(&self, p: Param) -> Option<f64>;
+
+    /// The values as the map the public API carries.
+    fn to_map(&self) -> Coordinates;
 }
 
 impl Values for Coordinates {
     fn get(&self, p: Param) -> Option<f64> {
         BTreeMap::get(self, &p).copied()
+    }
+
+    fn to_map(&self) -> Coordinates {
+        self.clone()
     }
 }
 
@@ -148,6 +155,10 @@ impl Values for Dense {
             .slot(p)
             .and_then(|s| self.values.get(s))
             .copied()
+    }
+
+    fn to_map(&self) -> Coordinates {
+        self.to_coordinates()
     }
 }
 

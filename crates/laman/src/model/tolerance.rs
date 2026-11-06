@@ -724,11 +724,11 @@ impl Tolerances {
     /// The same components measured at `values` (the sketch's own
     /// coordinates where it lacks one): what [`Tolerances::at`] returns for
     /// the same sketch and values, without finding the components again.
-    pub(crate) fn remeasured(&self, sk: &Sketch, values: &Coordinates) -> Self {
+    pub(crate) fn remeasured(&self, sk: &Sketch, values: &(impl Values + ?Sized)) -> Self {
         let mut again = self.clone();
         again.measure(values);
         if !again.lone.is_empty() {
-            let coords = merged(&sk.coordinates(), values);
+            let coords = merged(&sk.coordinates(), &values.to_map());
             again.measure_lone(sk, &coords);
         }
         again
@@ -736,7 +736,7 @@ impl Tolerances {
 
     /// Each component's scale and origin at `values`, and the thresholds of
     /// its constraints and entities.
-    fn measure(&mut self, values: &Coordinates) {
+    fn measure(&mut self, values: &(impl Values + ?Sized)) {
         self.constraints.clear();
         self.entities.clear();
         for (component, ids) in self.components.iter_mut().zip(&self.members) {

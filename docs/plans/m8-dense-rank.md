@@ -91,7 +91,7 @@ on what is left.
   (`descend`, `continued`, `pursue`, a descent's in-place trial), a
   `Coordinates` made at the boundary. Test: the solve suites, the locality
   test by bits, digests unchanged.
-- [ ] Step 8 **[2]**: The diagnosis, drag and branch observation read
+- [x] Step 8 **[2]**: The diagnosis, drag and branch observation read
   `Dense`, `merged` off the frame's path. Test: the staged-against-whole
   properties at `PROPTEST_CASES=1024`; digests unchanged, native and
   wasm32-wasip1.

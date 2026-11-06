@@ -8,11 +8,12 @@
 //! known branch is carried, so a crossing spread over two solves is still a
 //! [`Flip`].
 
+#[cfg(any(test, feature = "reference"))]
+use crate::model::Coordinates;
 use crate::model::tolerance::{ANGLE, MAX_SWEEP_STEP, Tolerances};
-use crate::model::{
-    Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Line, Point, Sketch,
-};
+use crate::model::{Constraint, ConstraintId, Coordinate, Entity, EntityId, Line, Point, Sketch};
 use crate::residual::unit_vector;
+use crate::values::Values;
 use std::collections::BTreeMap;
 use std::f64::consts::{PI, TAU};
 
@@ -82,7 +83,11 @@ impl Observations {
 
     /// [`Self::at`] with the tolerances of `sketch` at `values` given
     /// (`tolerances`, which must be [`Tolerances::at`] of both).
-    pub(crate) fn under(sketch: &Sketch, values: &Coordinates, tolerances: &Tolerances) -> Self {
+    pub(crate) fn under(
+        sketch: &Sketch,
+        values: &(impl Values + ?Sized),
+        tolerances: &Tolerances,
+    ) -> Self {
         observe_under(sketch, values, tolerances, None)
     }
 
@@ -99,7 +104,7 @@ impl Observations {
     pub(crate) fn next_under(
         &self,
         sketch: &Sketch,
-        values: &Coordinates,
+        values: &(impl Values + ?Sized),
         reached: &Tolerances,
     ) -> Self {
         observe_under(sketch, values, reached, Some(self))
@@ -152,7 +157,7 @@ fn observe(sketch: &Sketch, values: &Coordinates, last: Option<&Observations>) -
 
 fn observe_under(
     sketch: &Sketch,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     tolerances: &Tolerances,
     last: Option<&Observations>,
 ) -> Observations {
@@ -183,7 +188,7 @@ fn observe_under(
         match *entity {
             Entity::Point { .. } | Entity::Line { .. } => {}
             Entity::Circle { r, .. } => {
-                let r = values.get(&(id, Coordinate::R)).copied().unwrap_or(r);
+                let r = values.get((id, Coordinate::R)).unwrap_or(r);
                 record(subject, sign(r, margin));
             }
             Entity::Arc { c, s, e } => {
@@ -238,7 +243,12 @@ fn sign(value: f64, margin: f64) -> Reading {
 /// non-finite `before` reads it in `[0, 2π)`). Known when neither the
 /// radius nor the chord `|e − s|` is below `margin`, the lengths that make
 /// the arc degenerate (DATA-MODEL.md §Diagnostics).
-fn arc(rd: &Reader<'_>, (c, s, e): (Point, Point, Point), before: f64, margin: f64) -> Reading {
+fn arc(
+    rd: &Reader<'_, impl Values + ?Sized>,
+    (c, s, e): (Point, Point, Point),
+    before: f64,
+    margin: f64,
+) -> Reading {
     let (pc, ps, pe) = (rd.xy(c), rd.xy(s), rd.xy(e));
     let (radius, us, _) = unit_vector(diff(pc, ps));
     let (_, ue, _) = unit_vector(diff(pc, pe));
@@ -275,7 +285,7 @@ fn arc(rd: &Reader<'_>, (c, s, e): (Point, Point, Point), before: f64, margin: f
 /// their degeneracy length and the quantity is beyond [`ANGLE`], the
 /// angular distance at which the two roots of the constraint meet.
 fn lines(
-    rd: &Reader<'_>,
+    rd: &Reader<'_, impl Values + ?Sized>,
     tolerances: &Tolerances,
     (l1, l2): (Line, Line),
     (ca, cb): (f64, f64),
@@ -298,12 +308,12 @@ fn lines(
 
 /// Reads a point's coordinates from the values, then from the sketch;
 /// NaN where neither has them.
-struct Reader<'a> {
+struct Reader<'a, V: Values + ?Sized> {
     sketch: &'a Sketch,
-    values: &'a Coordinates,
+    values: &'a V,
 }
 
-impl Reader<'_> {
+impl<V: Values + ?Sized> Reader<'_, V> {
     fn xy(&self, p: Point) -> [f64; 2] {
         let id = p.id();
         let own = match self.sketch.entity(id) {
@@ -312,7 +322,7 @@ impl Reader<'_> {
                 [f64::NAN; 2]
             }
         };
-        let get = |c, o: f64| self.values.get(&(id, c)).copied().unwrap_or(o);
+        let get = |c, o: f64| self.values.get((id, c)).unwrap_or(o);
         [get(Coordinate::X, own[0]), get(Coordinate::Y, own[1])]
     }
 

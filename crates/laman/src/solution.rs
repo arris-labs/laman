@@ -359,9 +359,8 @@ pub(crate) fn attempt(
     frozen: Tolerances,
 ) -> Attempt {
     let outcome = solve::solve_under(sketch, goals, options.internal_on(path), kept, &frozen);
-    let map = outcome.coordinates.to_coordinates();
-    let reached = frozen.remeasured(sketch, &map);
-    let observed = before.next_under(sketch, &map, &reached);
+    let reached = frozen.remeasured(sketch, &outcome.coordinates);
+    let observed = before.next_under(sketch, &outcome.coordinates, &reached);
     let flips = before.flips(&observed);
     Attempt {
         outcome,
@@ -427,13 +426,17 @@ pub(crate) fn diagnose_on(
     path: Path,
 ) -> Solution {
     let before = Observations::at(sketch, &sketch.coordinates());
-    let outcome = Outcome::start(coordinates.clone());
+    // The diagnosis reads the table with no overlay, so it holds every
+    // coordinate: `coordinates` laid over the sketch's own.
+    let mut full = sketch.coordinates();
+    for (key, value) in full.iter_mut() {
+        if let Some(v) = coordinates.get(key) {
+            *value = *v;
+        }
+    }
+    let outcome = Outcome::start(full);
     let tolerances = FrameTolerances::of(sketch, &outcome.coordinates.to_coordinates());
-    let observed = before.next_under(
-        sketch,
-        &outcome.coordinates.to_coordinates(),
-        &tolerances.reached,
-    );
+    let observed = before.next_under(sketch, &outcome.coordinates, &tolerances.reached);
     let flips = before.flips(&observed);
     let attempt = Attempt {
         outcome,
