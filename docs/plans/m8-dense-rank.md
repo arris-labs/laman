@@ -76,7 +76,7 @@ on what is left.
 - [x] Step 3 **[2]**: Satisfaction once. Test: a `cfg(test)` count of one
   test per component in an edit, and a drag whose pursuit moved the
   coordinates still computes afresh; statuses and digests unchanged.
-- [ ] Step 4 **[1]**: Reads once. Test: `Component::reads` equals a fresh
+- [x] Step 4 **[1]**: Reads once. Test: `Component::reads` equals a fresh
   `component_reads` on the C1 fixtures and every family.
 - [ ] Step 5 **[1]**: Run the six edits and the slot drag through `bench_c2`
   and record them under *Profile*, with `Frame::terms`' and the map search's

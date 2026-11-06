@@ -369,6 +369,7 @@ impl<'c> Scope<'c> {
             scale: whole.scale,
             origin: whole.origin,
             frame: std::sync::Arc::new(frame),
+            reads: Default::default(),
         }
     }
 
@@ -469,7 +470,7 @@ fn solve_staged(
 /// each part's parameters and sources in the component's order, with the
 /// component's frozen scale and origin. `None` for a component of one part,
 /// which is solved whole.
-fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>> {
+pub(crate) fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>> {
     let decomposition = crate::stage::decompose(system, component);
     if decomposition.parts.len() < 2 {
         return None;
@@ -478,12 +479,17 @@ fn parts_of(system: &System<'_>, component: &Component) -> Option<Vec<Component>
         decomposition
             .parts
             .iter()
-            .map(|part| Component {
-                params: part.params.clone(),
-                sources: part.sources.clone(),
-                scale: component.scale,
-                origin: component.origin,
-                frame: component.frame.clone(),
+            .map(|part| {
+                let mut part = Component {
+                    params: part.params.clone(),
+                    sources: part.sources.clone(),
+                    scale: component.scale,
+                    origin: component.origin,
+                    frame: component.frame.clone(),
+                    reads: Default::default(),
+                };
+                part.reads = crate::model::tolerance::component_reads(system.sketch, &part);
+                part
             })
             .collect(),
     )
@@ -508,7 +514,7 @@ fn parts_of_filtered(system: &System<'_>, component: &Component) -> Option<Vec<C
                 .iter()
                 .filter_map(|row| system.equations.get(*row).map(|e| e.source))
                 .collect();
-            Component {
+            let mut part = Component {
                 params: component
                     .params
                     .iter()
@@ -524,7 +530,10 @@ fn parts_of_filtered(system: &System<'_>, component: &Component) -> Option<Vec<C
                 scale: component.scale,
                 origin: component.origin,
                 frame: component.frame.clone(),
-            }
+                reads: Default::default(),
+            };
+            part.reads = crate::model::tolerance::component_reads(system.sketch, &part);
+            part
         })
         .collect();
     Some(parts)

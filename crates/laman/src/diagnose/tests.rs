@@ -676,3 +676,53 @@ fn a_static_solve_tests_each_component_once_and_a_moved_drag_frame_again() {
     let _ = session.to(drag.drag.targets[0]);
     assert_eq!(three_pass::tested(), 3);
 }
+
+/// `Component::reads` is what a fresh `component_reads` gives, for the
+/// tolerance components and the parts a solve splits them into
+/// (plans/m8-dense-rank step 4).
+fn assert_reads_are_fresh(name: &str, sk: &Sketch) {
+    let system = System::new(sk);
+    let tolerances = crate::model::tolerance::Tolerances::new(sk);
+    for component in &tolerances.components {
+        let fresh = tolerance::component_reads(sk, component);
+        assert_eq!(*component.reads, *fresh, "{name}");
+        for part in crate::solve::parts_of(&system, component).unwrap_or_default() {
+            assert_eq!(
+                *part.reads,
+                *tolerance::component_reads(sk, &part),
+                "{name}"
+            );
+        }
+    }
+}
+
+#[test]
+fn component_reads_are_the_fresh_ones_on_c1_and_every_family() {
+    use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+    for slug in [
+        "sss-triangle",
+        "belt",
+        "slotted-plate",
+        "sss-triangle-conflicting",
+        "slotted-plate-drag",
+    ] {
+        assert_reads_are_fresh(slug, &load(slug).0);
+    }
+    let mut staged_parts = 0;
+    for (name, case) in [
+        ("rect-chain-19", rect_chain(19)),
+        ("slot-grid-3x3", slot_grid(3, 3)),
+        ("triangle-strip-32", triangle_strip(32)),
+    ] {
+        let sk = ours(&case.unwrap().sketch);
+        assert_reads_are_fresh(name, &sk);
+        let system = System::new(&sk);
+        for c in &crate::model::tolerance::Tolerances::new(&sk).components {
+            staged_parts += crate::solve::parts_of(&system, c).map_or(0, |p| p.len());
+        }
+    }
+    assert!(
+        staged_parts > 1,
+        "no component split: the parts are untested"
+    );
+}

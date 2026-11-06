@@ -325,7 +325,7 @@ impl StagedRanks {
             return None;
         }
         let parts = crate::stage::decompose(system, component);
-        let (reads, scale) = key(system, component, values);
+        let (reads, scale) = key(component, values);
         let mut entries = self.entries.borrow_mut();
         let found = entries
             .iter()
@@ -396,7 +396,7 @@ impl StagedRanks {
             return None;
         }
         let parts = crate::stage::decompose(system, component);
-        let (reads, scale) = key(system, component, values);
+        let (reads, scale) = key(component, values);
         self.entries
             .borrow()
             .iter()
@@ -407,14 +407,11 @@ impl StagedRanks {
 
 /// What an [`Entry`] is keyed by besides the component's own fields: the
 /// bits of every coordinate it can read in `values`, and its scale's bits.
-fn key(
-    system: &System<'_>,
-    component: &Component,
-    values: &Coordinates,
-) -> (Vec<(Param, Option<u64>)>, u64) {
-    let reads = tolerance::component_reads(system.sketch, component)
-        .into_iter()
-        .map(|p| (p, values.get(&p).map(|v| v.to_bits())))
+fn key(component: &Component, values: &Coordinates) -> (Vec<(Param, Option<u64>)>, u64) {
+    let reads = component
+        .reads
+        .iter()
+        .map(|p| (*p, values.get(p).map(|v| v.to_bits())))
         .collect();
     (reads, component.scale.to_bits())
 }

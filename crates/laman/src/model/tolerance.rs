@@ -97,6 +97,9 @@ pub(crate) struct Component {
     /// What the component's scale is measured over, found once so that
     /// measuring it again at other coordinates reads the component alone.
     pub frame: std::sync::Arc<Frame>,
+    /// Every coordinate the component's equations and its frame can read
+    /// ([`component_reads`]), made where the component is.
+    pub reads: std::sync::Arc<[Param]>,
 }
 
 /// The structure [`extent`] measures a component over: its points, circle
@@ -668,6 +671,7 @@ impl Tolerances {
                     scale: 0.0,
                     origin: [0.0; 2],
                     frame: Default::default(),
+                    reads: Default::default(),
                 })
                 .params
                 .push(*p);
@@ -685,6 +689,7 @@ impl Tolerances {
                     scale: 0.0,
                     origin: [0.0; 2],
                     frame: Default::default(),
+                    reads: Default::default(),
                 })
                 .sources
                 .push(*s);
@@ -694,6 +699,7 @@ impl Tolerances {
         for component in &mut components {
             let ids = component_entities(sk, component);
             component.frame = std::sync::Arc::new(Frame::of(sk, own, &ids, &component.sources));
+            component.reads = reads_of(sk, &ids);
             members.push(ids.into_iter().collect());
         }
         let mut tolerances = Self {
@@ -827,14 +833,15 @@ pub(crate) fn scale_at(component: &Component, values: &Coordinates) -> f64 {
 
 /// Every coordinate `component`'s equations and its frame can read: the
 /// parameters of its entities, fixed ones included, in order.
-pub(crate) fn component_reads(sk: &Sketch, component: &Component) -> Vec<Param> {
-    let mut reads: Vec<Param> = component_entities(sk, component)
-        .into_iter()
-        .flat_map(|id| entity_params(sk, id))
-        .collect();
+pub(crate) fn component_reads(sk: &Sketch, component: &Component) -> std::sync::Arc<[Param]> {
+    reads_of(sk, &component_entities(sk, component))
+}
+
+fn reads_of(sk: &Sketch, ids: &BTreeSet<EntityId>) -> std::sync::Arc<[Param]> {
+    let mut reads: Vec<Param> = ids.iter().flat_map(|id| entity_params(sk, *id)).collect();
     reads.sort();
     reads.dedup();
-    reads
+    reads.into()
 }
 
 fn component_entities(sk: &Sketch, component: &Component) -> BTreeSet<EntityId> {
