@@ -95,7 +95,7 @@ on what is left.
   `Dense`, `merged` off the frame's path. Test: the staged-against-whole
   properties at `PROPTEST_CASES=1024`; digests unchanged, native and
   wasm32-wasip1.
-- [ ] Step 9 **[2]**: Re-profile by the method under *Profile*. Remove any
+- [x] Step 9 **[2]**: Re-profile by the method under *Profile*. Remove any
   source left ≥ 5 % that is not the solve's arithmetic, with its own equality
   test, or split it off as 9a, `Tolerances::build` first if an edit misses.
 - [ ] Step 10 **[1]**: Run `bench_c2` in full; replace the table in
@@ -173,8 +173,59 @@ median / worst of five, ms:
 Only the slots LM edit's worst (4.24) misses 4 ms. The shares of
 `Frame::terms` and the map search are **not measured**: `perf` is refused on
 this machine (`kernel.perf_event_paranoid` is 4, even for user-only
-`cpu-clock:u`), and the setting is the human's. Step 9 needs it lowered, or
-a profile from the human.
+`cpu-clock:u`), and the setting is the human's. Step 9 measured by
+instrumentation instead (below).
+
+After steps 7-8 (02f3114), 2026-11-07, step 9. `bench_c2` in full, twice,
+interleaved with a build of 6916645 (step 6), median ms, same machine: every
+cell is faster (the machine drifts between runs, so only the interleaved pairs
+compare). Slots 498 edit LM 4.29 / 3.74 → 3.15 / 3.26, DogLeg 3.95 / 4.00 →
+3.06 / 3.07; rectangles 498 edit 3.83 / 3.76 → 2.62 / 2.61 (DogLeg 2.59 /
+2.53); triangles 501 edit 2.56 / 2.64 → 2.00 / 2.02; slots 498 drag LM 4.99 /
+4.44 → 3.32 / 3.44; rectangles 498 drag 15.7 / 14.7 → 13.2 / 13.2; slots
+bisect 10.8 / 10.5 → 7.0 / 7.0; every 98/99 and 248/249 cell is faster.
+In the single full run the worst of five was 3.80 (slots LM edit) and at most
+3.2 elsewhere among the six edits.
+
+Method, without `perf`: a scratch copy (not committed) with an `Instant` guard
+per phase, summed over 100 samples of `bench_c2 --worker` and divided, only
+over the timed region. Inclusive, so spans overlap; at most ~200 guards a
+frame, a few tenths of a point. Percent of the median sample, LM:
+
+| inclusive % | slots edit | rect edit | tri edit | slots drag | rect drag | bisect |
+|---|---:|---:|---:|---:|---:|---:|
+| `Tolerances::new` | 17.9 | 14.9 | 16.3 | | | |
+| of it reads and union-find | 8.6 | 3.9 | 4.2 | | | |
+| of it frames and `reads_of` | 6.3 | 7.8 | 3.2 | | | |
+| `parts_of` | 19.7 | 19.5 | 17.0 | 4.3 | | 6.1 |
+| of it the cut (`Decompositions::of`) | 14.9 | 13.2 | 12.9 | | | |
+| of it the parts built | 4.0 | 5.1 | 3.2 | | | |
+| `stageable` | 15.6 | 9.5 | 11.0 | 15.1 | 6.2 | 20.8 |
+| of it rows, satisfaction, `staged_parts` | 3.6, 3.2, 6.4 | | | | | |
+| `split` + `Scope::measured` | 6.2 | 11.1 | 3.1 | 5.8 | 1.4 | 8.1 |
+| `descend` of the parts | 9.2 | 11.7 | 24.4 | 8.0 | 1.1 | 11.0 |
+| `analyse_under` | 10.8 | 14.4 | 10.6 | 32.1 | 9.3 | 15.3 |
+| of it `freedom_on` | 2.4 | 5.4 | 3.8 | 16.7 | 7.0 | 8.0 |
+| `remeasured` | 1.3 | 1.8 | 8.7 | 1.3 | 0.3 | 1.9 |
+| `pursue` | | | | 3.7 | 75.5 | 15.5 |
+
+(The bisect's solve runs three frames.) In the drags `freedom_on` misses the
+kept factorization, the pursuit having moved the coordinates, and makes it
+again: rows, satisfaction and Qr, 14 % of the slot drag.
+
+Not measured: `Frame::terms` and the map search separately (thousands of calls
+of tens of nanoseconds: a guard costs more than they do), and rows against
+`Qr::new` inside `staged_parts` and `freedom_on`.
+
+What step 9 does with it, by the rule. No edit misses 4 ms, so
+`Tolerances::build` does not go first. Left at 5 % or more, none of it the
+solve's arithmetic, and not removed here: the cut (13-15 %, structural; a
+`DragSession` keeps it, a one-shot `solve` needs it, a cache is S2, a
+non-goal); `Tolerances::build` (15-18 %; union-find over the sources 8.6 % and
+the frames 6-8 %); `split` + `measured` (6-11 %, already a tree); the parts
+built, `remeasured` in the triangles (8.7 %: the lone entities). Split off as
+**9a**, to run only if a cell needs it: `Tolerances::build` and the per-part
+split, each with its own equality test.
 
 ## Open questions
 - ⚠ OPEN (agent, step 10): the slots LM edit's worst sample was 6.05 ms
