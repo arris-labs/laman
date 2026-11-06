@@ -11,6 +11,7 @@
 use crate::model::tolerance::{Component, Frame, LENGTH_FLOOR, Source, Splitter, Tolerances};
 use crate::model::{Constraint, Coordinate, Coordinates, Sketch};
 use crate::system::{Evaluation, Goal, System};
+use crate::values::{Dense, Values};
 use nalgebra::{DMatrix, DVector};
 
 // Dimensionless damping and hard global budgets, measured in ARCHITECTURE.md. Damping
@@ -137,7 +138,7 @@ impl Default for Options {
 
 #[derive(Debug)]
 pub(crate) struct Outcome {
-    pub coordinates: Coordinates,
+    pub coordinates: Dense,
     pub converged: bool,
     pub iterations: usize,
     pub evaluations: usize,
@@ -162,7 +163,7 @@ pub(crate) struct Outcome {
 impl Outcome {
     pub(crate) fn start(coordinates: Coordinates) -> Self {
         Self {
-            coordinates,
+            coordinates: Dense::of(&coordinates),
             converged: true,
             iterations: 0,
             evaluations: 0,
@@ -172,6 +173,12 @@ impl Outcome {
             staged: crate::diagnose::StagedRanks::default(),
             cut: None,
         }
+    }
+
+    /// The coordinates as the map the public API carries, for the tests.
+    #[cfg(test)]
+    pub(crate) fn map(&self) -> Coordinates {
+        self.coordinates.to_coordinates()
     }
 
     fn iterations_left(&self, options: &Options) -> bool {
@@ -344,7 +351,7 @@ struct Scope<'c> {
     accepts: &'c Component,
     /// Where a staged part was last solved: the component's start, from which
     /// a stage moved only by its earlier parts is continued ([`continued`]).
-    solved: Option<&'c Coordinates>,
+    solved: Option<&'c Dense>,
 }
 
 impl<'c> Scope<'c> {
@@ -610,10 +617,10 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
             let before: Vec<Option<f64>> = component
                 .params
                 .iter()
-                .map(|key| out.coordinates.get(key).copied())
+                .map(|key| out.coordinates.get(*key))
                 .collect();
             for (key, value) in component.params.iter().zip(&moved) {
-                out.coordinates.insert(*key, *value);
+                out.coordinates.set(*key, *value);
             }
             let mut next =
                 system.evaluate_part(component, scope.accepts, &out.coordinates, SOLVE_TARGET);
@@ -636,13 +643,8 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
                 continue;
             }
             for (key, old) in component.params.iter().zip(before) {
-                match old {
-                    Some(v) => {
-                        out.coordinates.insert(*key, v);
-                    }
-                    None => {
-                        out.coordinates.remove(key);
-                    }
+                if let Some(v) = old {
+                    out.coordinates.set(*key, v);
                 }
             }
         }
@@ -676,10 +678,10 @@ fn descend(system: &System<'_>, scope: Scope<'_>, options: &Options, out: &mut O
 fn continued(
     system: &System<'_>,
     scope: Scope<'_>,
-    solved: &Coordinates,
+    solved: &Dense,
     options: &Options,
     out: &mut Outcome,
-) -> Option<Coordinates> {
+) -> Option<Dense> {
     let part = scope.part;
     if !out.evaluations_left(options) {
         return None;
@@ -707,7 +709,7 @@ fn continued(
             if part.params.contains(p) {
                 continue;
             }
-            let (Some(now), Some(then)) = (out.coordinates.get(p), solved.get(p)) else {
+            let (Some(now), Some(then)) = (out.coordinates.get(*p), solved.get(*p)) else {
                 continue;
             };
             if now.to_bits() != then.to_bits() {
@@ -931,11 +933,11 @@ struct Pursuit<'s, 'a> {
 impl Pursuit<'_, '_> {
     /// The goals' residuals at `values` in normalized units; None when one
     /// is unreadable or non-finite.
-    fn residuals(&self, values: &Coordinates) -> Option<Vec<f64>> {
+    fn residuals(&self, values: &(impl Values + ?Sized)) -> Option<Vec<f64>> {
         self.goals
             .iter()
             .map(|g| {
-                let r = (values.get(&g.param)? - g.target) / self.scale;
+                let r = (values.get(g.param)? - g.target) / self.scale;
                 r.is_finite().then_some(r)
             })
             .collect()
@@ -1043,10 +1045,10 @@ impl Pursuit<'_, '_> {
     fn probe(
         &self,
         out: &mut Outcome,
-        start: &Coordinates,
+        start: &Dense,
         position: &[f64],
         step: &[f64],
-    ) -> Option<Option<Coordinates>> {
+    ) -> Option<Option<Dense>> {
         if !out.iterations_left(self.options) || !out.evaluations_left(self.options) {
             return None;
         }
@@ -1077,15 +1079,15 @@ impl Pursuit<'_, '_> {
     /// anywhere within acceptance of the required equations, and near a
     /// stationary point the true decrease is smaller than that; refusing such
     /// a step would stall the reduced Newton iteration short of stationarity.
-    fn decreased(&self, start: &Coordinates, g: &[f64], next: &Coordinates) -> Option<bool> {
+    fn decreased(&self, start: &Dense, g: &[f64], next: &Dense) -> Option<bool> {
         let acceptance = self.system.acceptance(self.scope.accepts, next) / self.scale;
         let change = self
             .goals
             .iter()
             .zip(g)
             .try_fold((0.0, 0.0), |(sum, margin), (goal, r)| {
-                let before = start.get(&goal.param)?;
-                let after = next.get(&goal.param)?;
+                let before = start.get(goal.param)?;
+                let after = next.get(goal.param)?;
                 let delta = (after - before) / self.scale;
                 let r_next = (after - goal.target) / self.scale;
                 Some((sum + delta * (r_next + r), margin + (r_next + r).abs()))
@@ -1099,7 +1101,11 @@ impl Pursuit<'_, '_> {
 /// Whether every equation of `component` holds at `values` with geometric
 /// acceptance: the test that lets a satisfied input take no step, and the one
 /// the analysis reads.
-pub(crate) fn satisfied(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
+pub(crate) fn satisfied(
+    system: &System<'_>,
+    component: &Component,
+    values: &(impl Values + ?Sized),
+) -> bool {
     let (rows, flagged, valid) = system.rows(component, component, values, 1.0);
     satisfied_over(system, component, values, &rows, flagged && valid)
 }
@@ -1111,7 +1117,7 @@ pub(crate) fn satisfied(system: &System<'_>, component: &Component, values: &Coo
 pub(crate) fn satisfied_over(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     rows: &[crate::system::Row],
     holds: bool,
 ) -> bool {
@@ -1141,7 +1147,7 @@ fn sparse_satisfied(component: &Component, rows: &[crate::system::Row], holds: b
 pub(crate) fn dense_satisfied(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
 ) -> bool {
     system.evaluate(component, values).satisfied
 }
@@ -1152,7 +1158,7 @@ pub(crate) fn dense_satisfied(
 fn vector_acceptance(
     system: &System<'_>,
     scope: Scope<'_>,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     target: f64,
 ) -> bool {
     let sketch = system.sketch;
@@ -1163,7 +1169,7 @@ fn vector_acceptance(
         let Source::Constraint(id) = source else {
             return true;
         };
-        let Some(equations) = crate::residual::equations(sketch, values, *id) else {
+        let Some(equations) = crate::residual::equations_in(sketch, values, *id) else {
             return false;
         };
         let [a, b] = equations.as_slice() else {
@@ -1184,7 +1190,7 @@ fn objective(e: &Evaluation) -> f64 {
     e.values.iter().fold(0.0, |sum, v| sum + v * v)
 }
 
-fn normalized(component: &Component, values: &Coordinates) -> Option<Vec<f64>> {
+fn normalized(component: &Component, values: &(impl Values + ?Sized)) -> Option<Vec<f64>> {
     let scale = component.scale.max(LENGTH_FLOOR);
     component
         .params
@@ -1195,7 +1201,7 @@ fn normalized(component: &Component, values: &Coordinates) -> Option<Vec<f64>> {
                 Coordinate::Y => component.origin[1],
                 Coordinate::R => 0.0,
             };
-            let value = (values.get(p)? - origin) / scale;
+            let value = (values.get(*p)? - origin) / scale;
             value.is_finite().then_some(value)
         })
         .collect()
@@ -1285,14 +1291,14 @@ fn pressed(e: &Evaluation, i: usize) -> f64 {
 
 fn trial(
     component: &Component,
-    values: &Coordinates,
+    values: &Dense,
     position: &[f64],
     step: &[f64],
-) -> Option<(Coordinates, Vec<f64>)> {
+) -> Option<(Dense, Vec<f64>)> {
     let (moved, next) = trial_values(component, values, position, step)?;
     let mut coordinates = values.clone();
     for (key, value) in component.params.iter().zip(moved) {
-        coordinates.insert(*key, value);
+        coordinates.set(*key, value);
     }
     Some((coordinates, next))
 }
@@ -1301,7 +1307,7 @@ fn trial(
 /// new values in `component.params` order, and the normalized position.
 fn trial_values(
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     position: &[f64],
     step: &[f64],
 ) -> Option<(Vec<f64>, Vec<f64>)> {
@@ -1322,7 +1328,7 @@ fn trial_values(
         };
         // Do not round-trip an unchanged parameter through normalization.
         let value = if *delta == 0.0 {
-            *values.get(key)?
+            values.get(*key)?
         } else {
             origin + x * scale
         };

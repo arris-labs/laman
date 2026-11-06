@@ -87,7 +87,7 @@ on what is left.
   `Dense` reads what the map reads, ids at 0, `u32::MAX`, holes after a
   removal and non-finite values included; a file with one huge id allocates
   by its entity count; `Frame::terms` equal on both (closes the backlog gap).
-- [ ] Step 7 **[2]**: `Outcome::coordinates` dense through the solve
+- [x] Step 7 **[2]**: `Outcome::coordinates` dense through the solve
   (`descend`, `continued`, `pursue`, a descent's in-place trial), a
   `Coordinates` made at the boundary. Test: the solve suites, the locality
   test by bits, digests unchanged.

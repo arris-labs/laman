@@ -89,7 +89,7 @@ fn c1_bases_and_twins_have_their_construction_dof() {
         // The solver's own solution has the same freedom as the closed form.
         let out = solve(&sk, Options::default());
         assert!(out.converged, "{slug}");
-        let solved = freedom(&sk, &out.coordinates);
+        let solved = freedom(&sk, &out.map());
         assert_eq!(solved.dof, want, "{slug}");
         assert_eq!(solved.entities, f.entities, "{slug}");
     }
@@ -421,7 +421,7 @@ fn a_row_dependent_on_earlier_parts_adds_no_rank() {
     sk.vertical(l).unwrap();
     let out = solve(&sk, Options::default());
     assert!(out.converged);
-    let values = out.coordinates;
+    let values = out.map();
     let (s, w) = staged_and_whole(&sk, &values);
     assert_eq!(s.dof, 3);
     assert_eq!((s.dof, &s.entities), (w.dof, &w.entities));

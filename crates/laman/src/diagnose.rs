@@ -34,6 +34,7 @@ use crate::model::{Coordinate, Coordinates, EntityId, Sketch};
 use crate::solve::Path;
 use crate::stage::Decomposition;
 use crate::system::System;
+use crate::values::Values;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -210,7 +211,7 @@ pub(crate) fn freedom_on(
 pub(crate) fn null_space(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
 ) -> (usize, Vec<Vec<f64>>) {
     if component.params.is_empty() {
         return (0, vec![]);
@@ -220,7 +221,7 @@ pub(crate) fn null_space(
 }
 
 /// A component's rank alone: [`null_space`]'s, without the basis.
-fn rank_of(system: &System<'_>, component: &Component, values: &Coordinates) -> usize {
+fn rank_of(system: &System<'_>, component: &Component, values: &(impl Values + ?Sized)) -> usize {
     if component.params.is_empty() {
         return 0;
     }
@@ -238,7 +239,7 @@ fn rank_of(system: &System<'_>, component: &Component, values: &Coordinates) -> 
 fn staged(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     basis: bool,
 ) -> Option<(usize, Vec<Vec<f64>>)> {
     #[cfg(test)]
@@ -259,17 +260,13 @@ fn staged(
 pub(crate) fn stageable(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     ranks: &StagedRanks,
 ) -> bool {
+    // `values` holds every coordinate of the sketch (a solve's), so no
+    // overlay on the sketch's own is needed (plans/m8-dense-rank step 7).
     ranks
-        .read(
-            system,
-            component,
-            &merged(system.sketch, values),
-            false,
-            false,
-        )
+        .read(system, component, values, false, false)
         .is_some()
 }
 
@@ -313,7 +310,7 @@ impl StagedRanks {
         &self,
         system: &System<'_>,
         component: &Component,
-        values: &Coordinates,
+        values: &(impl Values + ?Sized),
         basis: bool,
         independent: bool,
     ) -> Option<(usize, Vec<Vec<f64>>)> {
@@ -368,7 +365,7 @@ impl StagedRanks {
         &self,
         system: &System<'_>,
         component: &Component,
-        values: &Coordinates,
+        values: &(impl Values + ?Sized),
     ) -> bool {
         // The reference tests afresh, as it factorizes.
         #[cfg(test)]
@@ -390,7 +387,7 @@ impl StagedRanks {
         &self,
         system: &System<'_>,
         component: &Component,
-        values: &Coordinates,
+        values: &(impl Values + ?Sized),
     ) -> Option<bool> {
         if component.params.is_empty() || component.sources.is_empty() {
             return None;
@@ -407,11 +404,11 @@ impl StagedRanks {
 
 /// What an [`Entry`] is keyed by besides the component's own fields: the
 /// bits of every coordinate it can read in `values`, and its scale's bits.
-fn key(component: &Component, values: &Coordinates) -> (Vec<(Param, Option<u64>)>, u64) {
+fn key(component: &Component, values: &(impl Values + ?Sized)) -> (Vec<(Param, Option<u64>)>, u64) {
     let reads = component
         .reads
         .iter()
-        .map(|p| (*p, values.get(p).map(|v| v.to_bits())))
+        .map(|p| (*p, values.get(*p).map(f64::to_bits)))
         .collect();
     (reads, component.scale.to_bits())
 }
@@ -485,7 +482,7 @@ impl Staged {
 fn factorize(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     parts: &Decomposition,
 ) -> (bool, Option<Staged>) {
     if component.params.is_empty() || component.sources.is_empty() {
@@ -704,7 +701,7 @@ pub(crate) mod three_pass {
 fn staged_checked(
     system: &System<'_>,
     component: &Component,
-    values: &Coordinates,
+    values: &(impl Values + ?Sized),
     basis: bool,
     independent: bool,
 ) -> Option<(usize, Vec<Vec<f64>>)> {
@@ -799,7 +796,7 @@ fn staged_checked(
 }
 
 /// The factorization of a component's unit-row Jacobian at `values`.
-fn component_qr(system: &System<'_>, component: &Component, values: &Coordinates) -> Qr {
+fn component_qr(system: &System<'_>, component: &Component, values: &(impl Values + ?Sized)) -> Qr {
     // A non-finite row (an unreadable configuration) contributes no rank:
     // the DoF is then an upper estimate, and degeneracy is reported separately.
     let rows = if component.sources.is_empty() {

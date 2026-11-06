@@ -78,8 +78,8 @@ fn constraints(ids: &[ConstraintId]) -> Vec<Source> {
 /// Solve, check and diagnose: every solve here is checked independently.
 fn run(sk: &Sketch, options: Options) -> (Outcome, laman_check::Report, Diagnosis) {
     let out = solve(sk, options);
-    assert!(out.coordinates.values().all(|x| x.is_finite()));
-    let report = check(sk, &out.coordinates);
+    assert!(out.map().values().all(|x| x.is_finite()));
+    let report = check(sk, &out.map());
     let d = analyse(sk, &out, &options);
     assert_eq!(d.status == Status::Unsatisfiable, !d.conflicts.is_empty());
     // A satisfied status is the checker's verdict too, whether or not the
@@ -110,13 +110,13 @@ fn assert_witnessed(sk: &Sketch, set: &[ConstraintId], options: Options) {
     let alone = only(sk, set);
     let out = solve(&alone, options);
     assert!(!out.converged, "{set:?}");
-    assert!(!violated(&check(&alone, &out.coordinates)).is_empty());
+    assert!(!violated(&check(&alone, &out.map())).is_empty());
     for m in set {
         let rest: Vec<_> = set.iter().copied().filter(|k| k != m).collect();
         let less = only(sk, &rest);
         let out = solve(&less, options);
         assert!(out.converged, "{set:?} without {m:?}");
-        assert!(check(&less, &out.coordinates).is_clean(), "without {m:?}");
+        assert!(check(&less, &out.map()).is_clean(), "without {m:?}");
     }
 }
 

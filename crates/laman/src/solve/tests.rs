@@ -47,7 +47,7 @@ fn inspect(sketch: &Sketch, out: &Outcome, slug: &str) {
         .join("../../target/inspect")
         .join(slug);
     std::fs::create_dir_all(&path).unwrap();
-    let f = fixture_at(sketch, &out.coordinates);
+    let f = fixture_at(sketch, &out.map());
     let report = laman_check::check(&f.sketch, &f.expected.coordinates);
     std::fs::write(
         path.join("solved.txt"),
@@ -81,17 +81,17 @@ fn analytic_distance_minimum_motion_and_zero_step() {
         let stray = sk.point(-0.0, 200.0).unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(out.converged, "{out:?}");
-        assert!(check(&sk, &out.coordinates).is_clean());
+        assert!(check(&sk, &out.map()).is_clean());
         for (id, xy) in [(a.id(), [-1.5, -2.0]), (b.id(), [4.5, 6.0])] {
             for (c, v) in [Coordinate::X, Coordinate::Y].into_iter().zip(xy) {
                 assert!(
-                    (out.coordinates[&(id, c)] - v).abs() < COORDINATE_ERROR,
+                    (out.map()[&(id, c)] - v).abs() < COORDINATE_ERROR,
                     "{algorithm:?} {out:?}"
                 );
             }
         }
         assert_eq!(
-            out.coordinates[&(stray.id(), Coordinate::X)].to_bits(),
+            out.map()[&(stray.id(), Coordinate::X)].to_bits(),
             (-0.0f64).to_bits()
         );
         inspect(&sk, &out, &format!("{algorithm:?}-distance"));
@@ -101,9 +101,9 @@ fn analytic_distance_minimum_motion_and_zero_step() {
         solved.distance(a, b, 10.0).unwrap();
         let out = solve(&solved, with(algorithm));
         assert!(out.converged);
-        assert!(check(&solved, &out.coordinates).is_clean());
+        assert!(check(&solved, &out.map()).is_clean());
         assert_eq!(out.iterations, 0);
-        assert_eq!(out.coordinates, solved.coordinates());
+        assert_eq!(out.map(), solved.coordinates());
     }
 }
 
@@ -125,27 +125,24 @@ fn c1_contacts_from_guesses() {
             );
             assert!(out.converged, "{slug}: {out:?}");
             assert!(
-                check(&sk, &out.coordinates).is_clean(),
+                check(&sk, &out.map()).is_clean(),
                 "{slug}: {:?}",
-                check(&sk, &out.coordinates)
+                check(&sk, &out.map())
             );
-            let solved = reseed(&sk, &out.coordinates);
+            let solved = reseed(&sk, &out.map());
             let again = solve(&solved, with(algorithm));
             assert!(again.converged);
-            assert!(check(&solved, &again.coordinates).is_clean());
+            assert!(check(&solved, &again.map()).is_clean());
             assert_eq!(again.iterations, 0);
             assert_eq!(
-                out.coordinates
-                    .values()
-                    .map(|x| x.to_bits())
-                    .collect::<Vec<_>>(),
+                out.map().values().map(|x| x.to_bits()).collect::<Vec<_>>(),
                 again
-                    .coordinates
+                    .map()
                     .values()
                     .map(|x| x.to_bits())
                     .collect::<Vec<_>>()
             );
-            let public = fixture_at(&sk, &out.coordinates);
+            let public = fixture_at(&sk, &out.map());
             for (key, want) in &fixture.expected.coordinates {
                 assert!(
                     (public.expected.coordinates[key] - want).abs() <= fixture.expected.tolerance,
@@ -204,11 +201,11 @@ fn budgets_fixed_only_and_finite_extremes() {
             assert!(!out.converged, "{algorithm:?} {options:?}");
             assert!(out.evaluations <= options.max_evaluations);
             assert!(out.iterations <= options.max_iterations);
-            let flagged = constraint_ids(check(&sk, &out.coordinates));
+            let flagged = constraint_ids(check(&sk, &out.map()));
             assert!(!flagged.is_empty() && flagged.iter().all(|id| ids.contains(id)));
-            assert!(out.coordinates.values().all(|x| x.is_finite()));
+            assert!(out.map().values().all(|x| x.is_finite()));
             // Best effort is never worse than the start.
-            assert!(residual_norm(&sk, &out.coordinates, p) <= start);
+            assert!(residual_norm(&sk, &out.map(), p) <= start);
         }
         for scale in [1e-300, 1e300] {
             let mut sk = Sketch::new();
@@ -217,7 +214,7 @@ fn budgets_fixed_only_and_finite_extremes() {
             sk.distance(a, b, 5.0 * scale).unwrap();
             let out = solve(&sk, with(algorithm));
             assert!(out.converged);
-            assert!(check(&sk, &out.coordinates).is_clean());
+            assert!(check(&sk, &out.map()).is_clean());
             assert_eq!(out.iterations, 0);
         }
         let mut sk = Sketch::new();
@@ -226,11 +223,11 @@ fn budgets_fixed_only_and_finite_extremes() {
         let id = sk.distance(a, b, 1.0).unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(!out.converged);
-        assert_eq!(out.coordinates, sk.coordinates());
-        assert_eq!(constraint_ids(check(&sk, &out.coordinates)), [id.0]);
+        assert_eq!(out.map(), sk.coordinates());
+        assert_eq!(constraint_ids(check(&sk, &out.map())), [id.0]);
         let out = solve(&Sketch::new(), with(algorithm));
         assert!(out.converged);
-        assert!(check(&Sketch::new(), &out.coordinates).is_clean());
+        assert!(check(&Sketch::new(), &out.map()).is_clean());
     }
 }
 
@@ -250,11 +247,11 @@ fn rejects_steps_and_retains_finite_best_effort() {
         assert!(out.rejected > 0);
         assert!(out.iterations <= MAX_ITERATIONS);
         assert!(
-            (out.coordinates[&(p.id(), Coordinate::X)] - 1.5).abs() < COORDINATE_ERROR,
+            (out.map()[&(p.id(), Coordinate::X)] - 1.5).abs() < COORDINATE_ERROR,
             "{:?}",
-            out.coordinates
+            out.map()
         );
-        assert_eq!(constraint_ids(check(&sk, &out.coordinates)), [a.0, b.0]);
+        assert_eq!(constraint_ids(check(&sk, &out.map())), [a.0, b.0]);
         inspect(&sk, &out, &format!("{algorithm:?}-conflicting-fixes"));
     }
 }
@@ -282,8 +279,8 @@ fn stopping_regression() {
         let sk: Sketch = serde_json::from_str(&serde_json::to_string(&f.sketch).unwrap()).unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(out.converged);
-        assert!(check(&sk, &out.coordinates).is_clean());
-        let actual = fixture_at(&sk, &out.coordinates);
+        assert!(check(&sk, &out.map()).is_clean());
+        let actual = fixture_at(&sk, &out.map());
         for (key, want) in &f.expected.coordinates {
             assert!((actual.expected.coordinates[key] - want).abs() <= f.expected.tolerance);
         }
@@ -327,8 +324,8 @@ fn original_tangent_sense_is_required() {
             .unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(!out.converged);
-        assert_eq!(out.coordinates, sk.coordinates());
-        assert_eq!(constraint_ids(check(&sk, &out.coordinates)), [id.0]);
+        assert_eq!(out.map(), sk.coordinates());
+        assert_eq!(constraint_ids(check(&sk, &out.map())), [id.0]);
         inspect(&sk, &out, &format!("{algorithm:?}-wrong-sense"));
     }
 }
@@ -343,16 +340,16 @@ fn extreme_nonzero_steps_and_nonfinite_transform() {
         let out = solve(&sk, with(algorithm));
         assert!(out.converged);
         assert!(out.iterations > 0);
-        assert!(check(&sk, &out.coordinates).is_clean());
-        assert!(out.coordinates.values().all(|x| x.is_finite()));
+        assert!(check(&sk, &out.map()).is_clean());
+        assert!(out.map().values().all(|x| x.is_finite()));
         let mut sk = Sketch::new();
         let a = sk.point_fixed(-f64::MAX, 0.0).unwrap();
         let b = sk.point(f64::MAX, 0.0).unwrap();
         let id = sk.distance(a, b, 1.0).unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(!out.converged);
-        assert_eq!(out.coordinates, sk.coordinates());
-        assert_eq!(constraint_ids(check(&sk, &out.coordinates)), [id.0]);
+        assert_eq!(out.map(), sk.coordinates());
+        assert_eq!(constraint_ids(check(&sk, &out.map())), [id.0]);
     }
 }
 
@@ -365,7 +362,7 @@ fn vector_acceptance_is_not_two_scalar_acceptances() {
         let sk: Sketch = serde_json::from_str(&serde_json::to_string(&f.sketch).unwrap()).unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(out.converged);
-        assert!(check(&sk, &out.coordinates).is_clean());
+        assert!(check(&sk, &out.map()).is_clean());
         assert!(out.iterations > 0);
     }
 }
@@ -383,9 +380,9 @@ proptest::proptest! {
         for algorithm in ALGORITHMS {
         let out=solve(&sk,with(algorithm));
         proptest::prop_assert!(out.converged);
-        proptest::prop_assert!(check(&sk,&out.coordinates).is_clean());
+        proptest::prop_assert!(check(&sk,&out.map()).is_clean());
         for (coordinate,want) in [(Coordinate::X,x*scale*multiplier),(Coordinate::Y,y*scale*multiplier)] {
-            proptest::prop_assert!((out.coordinates[&(b.id(),coordinate)]-want).abs()<COORDINATE_ERROR*scale.max(1.0));
+            proptest::prop_assert!((out.map()[&(b.id(),coordinate)]-want).abs()<COORDINATE_ERROR*scale.max(1.0));
         }
         }
     }
@@ -403,8 +400,8 @@ fn far_guess_does_not_loosen_acceptance() {
         let sk: Sketch = serde_json::from_str(&serde_json::to_string(&f.sketch).unwrap()).unwrap();
         let out = solve(&sk, with(algorithm));
         assert!(out.converged, "{out:?}");
-        assert!(check(&sk, &out.coordinates).is_clean());
-        let actual = fixture_at(&sk, &out.coordinates);
+        assert!(check(&sk, &out.map()).is_clean());
+        let actual = fixture_at(&sk, &out.map());
         for (key, want) in &f.expected.coordinates {
             let got = actual.expected.coordinates[key];
             assert!(
@@ -435,16 +432,16 @@ fn trust_region_rejects_overshoot() {
     );
     assert!(out.converged, "{out:?}");
     assert!(out.rejected > 0);
-    assert!(check(&sk, &out.coordinates).is_clean());
+    assert!(check(&sk, &out.map()).is_clean());
     // The branch the guess is on: y > 0.
     for (c, want) in [(Coordinate::X, 3.6), (Coordinate::Y, 4.8)] {
-        assert!((out.coordinates[&(p.id(), c)] - want).abs() < COORDINATE_ERROR);
+        assert!((out.map()[&(p.id(), c)] - want).abs() < COORDINATE_ERROR);
     }
     for algorithm in ALGORITHMS {
         let out = solve(&sk, with(algorithm));
         assert!(out.converged, "{algorithm:?} {out:?}");
-        assert!(check(&sk, &out.coordinates).is_clean());
-        assert!((out.coordinates[&(p.id(), Coordinate::Y)] - 4.8).abs() < COORDINATE_ERROR);
+        assert!(check(&sk, &out.map()).is_clean());
+        assert!((out.map()[&(p.id(), Coordinate::Y)] - 4.8).abs() < COORDINATE_ERROR);
     }
 }
 
@@ -458,9 +455,9 @@ fn singular_start_is_stagnation_not_convergence() {
     for algorithm in ALGORITHMS {
         let out = solve(&sk, with(algorithm));
         assert!(!out.converged, "{algorithm:?}");
-        assert_eq!(out.coordinates, sk.coordinates());
+        assert_eq!(out.map(), sk.coordinates());
         assert!(out.iterations <= MAX_ITERATIONS);
-        assert_eq!(constraint_ids(check(&sk, &out.coordinates)), ids);
+        assert_eq!(constraint_ids(check(&sk, &out.map())), ids);
     }
 }
 
@@ -533,12 +530,12 @@ fn c1_twins_under_both_engines() {
                 "{algorithm:?} {slug}: converged={} iterations={} evaluations={} rejected={}",
                 out.converged, out.iterations, out.evaluations, out.rejected
             );
-            assert!(out.coordinates.values().all(|x| x.is_finite()));
-            let report = check(&sk, &out.coordinates);
+            assert!(out.map().values().all(|x| x.is_finite()));
+            let report = check(&sk, &out.map());
             if slug.ends_with("redundant") {
                 assert!(out.converged, "{algorithm:?} {slug}");
                 assert!(report.is_clean(), "{algorithm:?} {slug}: {report:?}");
-                let public = fixture_at(&sk, &out.coordinates);
+                let public = fixture_at(&sk, &out.map());
                 for (key, want) in &fixture.expected.coordinates {
                     assert!(
                         (public.expected.coordinates[key] - want).abs()
@@ -610,12 +607,12 @@ fn goal_drags_the_slotted_plate_along_its_width() {
             let out = solve_toward(&sk, &goal_at(p2, *target), with(algorithm));
             assert!(out.converged, "{algorithm:?} step {}", k + 1);
             assert!(
-                check(&sk, &out.coordinates).is_clean(),
+                check(&sk, &out.map()).is_clean(),
                 "{algorithm:?} step {}",
                 k + 1
             );
             for (key, want) in &after.coordinates {
-                let got = out.coordinates[&ours(key.0.0, &key.1)];
+                let got = out.map()[&ours(key.0.0, &key.1)];
                 assert!(
                     (got - want).abs() <= fixture.expected.tolerance,
                     "{algorithm:?} step {}: {key:?} {got} != {want}",
@@ -624,12 +621,12 @@ fn goal_drags_the_slotted_plate_along_its_width() {
             }
             for c in [Coordinate::X, Coordinate::Y] {
                 assert_eq!(
-                    out.coordinates[&(q, c)].to_bits(),
+                    out.map()[&(q, c)].to_bits(),
                     base.coordinates()[&(q, c)].to_bits()
                 );
             }
             counts.push((out.iterations, out.evaluations, out.rejected));
-            sk.place(&out.coordinates);
+            sk.place(&out.map());
         }
         eprintln!(
             "{algorithm:?} fixture 4 per step (iterations, evaluations, rejected): {counts:?}"
@@ -658,7 +655,7 @@ fn unreachable_goal_converges_stationary_at_the_nearest_point() {
                 out.iterations, out.evaluations, out.rejected
             );
             assert!(out.converged, "{algorithm:?} {target:?}");
-            assert!(check(&sk, &out.coordinates).is_clean());
+            assert!(check(&sk, &out.map()).is_clean());
             let d = libm::hypot(target[0], target[1]);
             // At stationarity the first-order distance left is within the
             // polishing target of length acceptance (1e-12 of the scale here)
@@ -669,7 +666,7 @@ fn unreachable_goal_converges_stationary_at_the_nearest_point() {
                 (Coordinate::X, 10.0 * target[0] / d),
                 (Coordinate::Y, 10.0 * target[1] / d),
             ] {
-                let got = out.coordinates[&(p.id(), coordinate)];
+                let got = out.map()[&(p.id(), coordinate)];
                 assert!(
                     (got - want).abs() <= bound,
                     "{algorithm:?} {target:?} {got} {want}"
@@ -690,20 +687,20 @@ fn goals_on_free_fixed_and_met_points() {
         let other = sk.point(-0.0, 7.0).unwrap();
         let out = solve_toward(&sk, &goal_at(p, [4.0, -6.0]), with(algorithm));
         assert!(out.converged);
-        assert!((out.coordinates[&(p.id(), Coordinate::X)] - 4.0).abs() < COORDINATE_ERROR);
-        assert!((out.coordinates[&(p.id(), Coordinate::Y)] + 6.0).abs() < COORDINATE_ERROR);
-        assert!(out.coordinates[&(other.id(), Coordinate::X)].is_sign_negative());
+        assert!((out.map()[&(p.id(), Coordinate::X)] - 4.0).abs() < COORDINATE_ERROR);
+        assert!((out.map()[&(p.id(), Coordinate::Y)] + 6.0).abs() < COORDINATE_ERROR);
+        assert!(out.map()[&(other.id(), Coordinate::X)].is_sign_negative());
 
         sk.set_fixed(p.id(), Coordinate::X, true).unwrap();
         let out = solve_toward(&sk, &goal_at(p, [4.0, -6.0]), with(algorithm));
         assert!(out.converged);
-        assert_eq!(out.coordinates[&(p.id(), Coordinate::X)], 1.0);
-        assert!((out.coordinates[&(p.id(), Coordinate::Y)] + 6.0).abs() < COORDINATE_ERROR);
+        assert_eq!(out.map()[&(p.id(), Coordinate::X)], 1.0);
+        assert!((out.map()[&(p.id(), Coordinate::Y)] + 6.0).abs() < COORDINATE_ERROR);
 
         let out = solve_toward(&sk, &goal_at(p, [1.0, 2.0]), with(algorithm));
         assert!(out.converged);
         assert_eq!((out.iterations, out.evaluations), (0, 1));
-        assert_eq!(out.coordinates, sk.coordinates());
+        assert_eq!(out.map(), sk.coordinates());
 
         // One goal on a point free in both: the other coordinate stays.
         let q = sk.point(3.0, 5.0).unwrap();
@@ -713,8 +710,8 @@ fn goals_on_free_fixed_and_met_points() {
         }];
         let out = solve_toward(&sk, &only_x, with(algorithm));
         assert!(out.converged);
-        assert!((out.coordinates[&(q.id(), Coordinate::X)] + 2.0).abs() < COORDINATE_ERROR);
-        assert_eq!(out.coordinates[&(q.id(), Coordinate::Y)], 5.0);
+        assert!((out.map()[&(q.id(), Coordinate::X)] + 2.0).abs() < COORDINATE_ERROR);
+        assert_eq!(out.map()[&(q.id(), Coordinate::Y)], 5.0);
     }
 }
 
@@ -738,7 +735,7 @@ fn a_goal_step_lost_to_rounding_ends_the_pursuit() {
         let out = solve_toward(&sk, &goal, with(algorithm));
         assert!(!out.converged, "{algorithm:?}: {out:?}");
         assert!(out.iterations <= 8, "{algorithm:?}: {out:?}");
-        assert!(out.coordinates.values().all(|v| v.is_finite()));
+        assert!(out.map().values().all(|v| v.is_finite()));
     }
 }
 
@@ -755,7 +752,7 @@ fn goal_on_an_unsatisfiable_component_is_not_pursued() {
         let plain = solve(&sk, with(algorithm));
         let out = solve_toward(&sk, &goal_at(p, [5.0, 5.0]), with(algorithm));
         assert!(!out.converged);
-        assert_eq!(out.coordinates, plain.coordinates);
+        assert_eq!(out.map(), plain.map());
     }
 }
 
@@ -782,7 +779,7 @@ proptest::proptest! {
         let target = [b[0] + scale * dx, b[1] + scale * dy];
         for algorithm in ALGORITHMS {
             let out = solve_toward(&sk, &goal_at(pb, target), with(algorithm));
-            proptest::prop_assert!(check(&sk, &out.coordinates).is_clean());
+            proptest::prop_assert!(check(&sk, &out.map()).is_clean());
             proptest::prop_assert!(out.converged, "{algorithm:?}: {out:?}");
         }
     }
@@ -824,8 +821,7 @@ fn a_failed_part_sends_its_component_to_the_whole_solve_from_its_start() {
         assert!(!staged.converged, "{algorithm:?}");
         // Coordinates and counters as the whole solve's: the staged attempt
         // is forgotten, its budget restored.
-        let bits =
-            |o: &Outcome| -> Vec<u64> { o.coordinates.values().map(|v| v.to_bits()).collect() };
+        let bits = |o: &Outcome| -> Vec<u64> { o.map().values().map(|v| v.to_bits()).collect() };
         assert_eq!(bits(&staged), bits(&whole), "{algorithm:?}");
         assert_eq!(
             (staged.iterations, staged.evaluations, staged.rejected),
@@ -848,8 +844,7 @@ fn a_goal_on_an_earlier_part_is_stationary_and_one_on_the_last_is_pursued() {
         // `b` is determined: a goal on it moves nothing.
         let held = solve_toward(&sk, &goal_at(b, [5.0, 5.0]), with(algorithm));
         assert!(held.converged, "{algorithm:?}");
-        let bits =
-            |o: &Outcome| -> Vec<u64> { o.coordinates.values().map(|v| v.to_bits()).collect() };
+        let bits = |o: &Outcome| -> Vec<u64> { o.map().values().map(|v| v.to_bits()).collect() };
         assert_eq!(bits(&held), bits(&plain), "{algorithm:?}");
         // `c` swings on its circle about `b = (0, -3)` toward the target,
         // and `b` keeps its bits.
@@ -857,14 +852,11 @@ fn a_goal_on_an_earlier_part_is_stationary_and_one_on_the_last_is_pursued() {
         assert!(swung.converged, "{algorithm:?}");
         for k in [Coordinate::X, Coordinate::Y] {
             let key = (b.id(), k);
-            assert_eq!(
-                swung.coordinates[&key].to_bits(),
-                plain.coordinates[&key].to_bits()
-            );
+            assert_eq!(swung.map()[&key].to_bits(), plain.map()[&key].to_bits());
         }
         let (x, y) = (
-            swung.coordinates[&(c.id(), Coordinate::X)],
-            swung.coordinates[&(c.id(), Coordinate::Y)],
+            swung.map()[&(c.id(), Coordinate::X)],
+            swung.map()[&(c.id(), Coordinate::Y)],
         );
         assert!(
             x.abs() <= COORDINATE_ERROR && (y + 2.0).abs() <= COORDINATE_ERROR,
@@ -878,8 +870,7 @@ fn kept_decompositions_change_no_bit_of_a_solve_or_its_analysis() {
     let (sk, _, c) = two_stages(false);
     let kept = crate::stage::Decompositions::of(&System::new(&sk));
     for algorithm in ALGORITHMS {
-        let bits =
-            |o: &Outcome| -> Vec<u64> { o.coordinates.values().map(|v| v.to_bits()).collect() };
+        let bits = |o: &Outcome| -> Vec<u64> { o.map().values().map(|v| v.to_bits()).collect() };
         let goals = goal_at(c, [0.0, 5.0]);
         let fresh = solve_toward(&sk, &goals, with(algorithm));
         let reused = solve_kept(&sk, &goals, with(algorithm), Some(&kept));
@@ -918,7 +909,7 @@ fn a_stage_moved_by_its_parents_keeps_its_branch() {
     for algorithm in ALGORITHMS {
         let out = solve(&sk, with(algorithm));
         assert!(out.converged, "{algorithm:?}");
-        let at = |p: crate::model::Point, axis| out.coordinates[&(p.id(), axis)];
+        let at = |p: crate::model::Point, axis| out.map()[&(p.id(), axis)];
         let (x, y) = (at(c, Coordinate::X), at(c, Coordinate::Y));
         assert!(
             (x - 5.0).abs() <= COORDINATE_ERROR && (y - (rise + height)).abs() <= COORDINATE_ERROR,
@@ -962,6 +953,7 @@ fn a_continued_part_is_held_to_the_acceptance_of_the_whole_at_its_start() {
     moved.insert((d.id(), Coordinate::X), 1.0);
     moved.insert((d.id(), Coordinate::Y), 0.1);
     moved.insert((c.id(), Coordinate::Y), 0.1);
+    let start_dense = Dense::of(&start);
     let fresh = || Outcome::start(moved.clone());
     let mut splitter = Splitter::new(
         &component.frame,
@@ -977,7 +969,7 @@ fn a_continued_part_is_held_to_the_acceptance_of_the_whole_at_its_start() {
         part: &parts[k],
         whole: component,
         accepts: &accepts,
-        solved: Some(&start),
+        solved: Some(&start_dense),
     };
     let whole = Scope {
         accepts: component,
@@ -985,15 +977,15 @@ fn a_continued_part_is_held_to_the_acceptance_of_the_whole_at_its_start() {
     };
     for algorithm in ALGORITHMS {
         let options = with(algorithm);
-        let want = continued(&system, whole, &start, &options, &mut fresh());
-        let got = continued(&system, split, &start, &options, &mut fresh());
+        let want = continued(&system, whole, &start_dense, &options, &mut fresh());
+        let got = continued(&system, split, &start_dense, &options, &mut fresh());
         assert!(
             want.is_some(),
             "{algorithm:?}: the whole's acceptance holds the start"
         );
-        let bits = |v: &Option<Coordinates>| -> Option<Vec<u64>> {
+        let bits = |v: &Option<Dense>| -> Option<Vec<u64>> {
             v.as_ref()
-                .map(|v| v.values().map(|x| x.to_bits()).collect())
+                .map(|v| v.to_coordinates().values().map(|x| x.to_bits()).collect())
         };
         assert_eq!(bits(&got), bits(&want), "{algorithm:?}");
     }

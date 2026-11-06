@@ -104,14 +104,11 @@ impl Layout {
 /// layout. Setting a parameter the table lacks is refused, so the layout
 /// never changes under a clone.
 #[derive(Clone, Debug)]
-// Read by the tests only until the solve holds one (plans/m8-dense-rank step 7).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct Dense {
     layout: Arc<Layout>,
     values: Vec<f64>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 impl Dense {
     /// The table of `map`: its keys, in the map's order, with its values.
     pub(crate) fn of(map: &Coordinates) -> Self {

@@ -133,7 +133,7 @@ pub(crate) fn analyse_kept(
     options: &Options,
     kept: Option<&crate::stage::Decompositions>,
 ) -> Diagnosis {
-    let tolerances = FrameTolerances::of(sketch, &outcome.coordinates);
+    let tolerances = FrameTolerances::of(sketch, &outcome.coordinates.to_coordinates());
     analyse_under(sketch, outcome, options, kept, &tolerances)
 }
 
@@ -148,7 +148,8 @@ pub(crate) fn analyse_under(
     kept: Option<&crate::stage::Decompositions>,
     tolerances: &FrameTolerances,
 ) -> Diagnosis {
-    let values = &outcome.coordinates;
+    let owned = outcome.coordinates.to_coordinates();
+    let values = &owned;
     let mut system = System::under(sketch, &tolerances.frozen);
     system.decompositions = kept;
     let mut solves = 0;
@@ -361,7 +362,7 @@ fn test(
         certificate |= system
             .components
             .iter()
-            .any(|c| certified(&system, c, &out.coordinates));
+            .any(|c| certified(&system, c, &out.coordinates.to_coordinates()));
     }
     if certificate {
         Verdict::Unsatisfiable
