@@ -39,13 +39,12 @@ the Python gap, the checker and deterministic branch-keeping drag
 diagnosed by stages (ADR-0009), edits keep unreached bits; no radius below
 0 (ADR-0010), conflict sets equal on both paths, sweep-jump frames bisected
 and marked. M8's three plans (`plans/m8-frame-budget`, `-frame-floor`, `-setup`)
-brought the 500-entity cells to edit 2.9–6.1 ms worst (triangles and the
-rectangles LM edit inside 4 ms), drag 5.0 (slots) to 14.5 (rectangles),
-bisected frame 11.6; they still **miss** the 4 ms frame. **Next:** a fourth
-M8 plan from the profile in `docs/ARCHITECTURE.md` §Frame budget (the
-staged rank, 21–23 % of the slot edit; the coordinates as a dense slice for
-`Frame::terms`; rigid bodies in the remainder reach only the drags)
-(`docs/ROADMAP.md`).
+and `m8-dense-rank` (one row pass and one satisfaction test per staged
+component, reads once, the solve's coordinates in a dense table) bring all
+six 500-entity edits inside 4 ms (worst 1.95–3.78) and the slot drag to
+3.5–3.8; the rectangle drag (15.3 ms, pursuit 75 %) and the slot bisect
+(8.1) still **miss** the 4 ms frame. **Next:** the human decides whether
+those two cells stay in C2's *Accept* (`docs/ROADMAP.md`).
 
 ## Rules that are not derivable from the code
 

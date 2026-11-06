@@ -423,7 +423,20 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
   result before it pursues the goal. Each is made from the rows' sparse
   terms, not the component's dense Jacobian: a zero entry adds nothing to a
   row's maximum or sum of squares, so the blocks are the dense ones bit for
-  bit.
+  bit. The rows are read once: the factorization tests satisfaction on the
+  rows it keeps for its blocks, and the factorization keeps that answer, so
+  the analysis reads it back instead of testing again at the same
+  coordinates (a frame whose pursuit moved them misses the key and tests
+  afresh). A component's reads are made where the component is, not on
+  every lookup.
+- **Coordinates are dense inside a solve.** A solve and the analysis hold
+  every sketch parameter's value in a `Dense` table (a shared layout and a
+  vector) read through the `Values` trait, as the `Coordinates` map is. A
+  `Coordinates` is made once, where a `Solution` is, and for the conflict
+  analysis, which keeps its maps. Ids are the caller's `u32`s, so a table
+  indexed by raw id could be enormous: ids below a small multiple of the
+  entity count index a direct table, larger ones a sorted vector searched
+  by bisection. Which route an id takes never changes the value read.
 - **Conflicts**: for each failed component, a deletion filter in source
   order over its constraints. Each test re-solves a copy of the sketch that
   holds only the tested constraints, from the best effort and then from the
@@ -594,7 +607,9 @@ Same input, same bits, on Linux and macOS (x86_64 and aarch64), Windows
 (x86_64) and wasm32 (SEED.md §4, §9):
 
 - `BTreeMap` and `Vec` only where order reaches a result or an id; no
-  `HashMap` iteration.
+  `HashMap` iteration. A value read from the dense table is the value the
+  map holds: the route a lookup takes (direct slot or bisection) never
+  changes it.
 - Every sum over equations or parameters runs in the compiled order. No
   parallel reduction; no result depends on threads (laman starts none).
 - Transcendentals through `libm`, pinned exactly; `clippy.toml` refuses the
@@ -817,7 +832,7 @@ The rectangle drag is 14.5 / 14.9 (LM) and 14.6 / 15.8 ms (DogLeg), the slot
 drag 5.0 / 5.1: none slower than before. C1's bench holds its 1 ms budget
 (the drag steps take 0.29-0.30 ms).
 
-C2 after M8's dense-rank plan (`plans/m8-dense-rank`, 2026-11-07), same
+C2 after M8's dense-rank plan (2026-11-07), same
 command, machine and conventions (median / worst in ms, five samples). The
 plan's steps: one row pass and one satisfaction test per component in a
 frame, the satisfaction read back from the kept factorization when the
@@ -863,7 +878,7 @@ no slower, though this machine moved that cell by about 1.5 ms between runs
 (13.2 in step 9's interleaved pair).
 
 **Where the rest is (instrumented, 2026-11-07; the code is unchanged since
-02f3114).** Method in `plans/m8-dense-rank.md` §Profile: an `Instant` guard
+02f3114).** Method: an `Instant` guard
 per phase in a scratch copy, summed over 100 samples and divided over the
 timed region. Inclusive, so spans overlap; percent of the median sample, LM:
 
@@ -890,9 +905,8 @@ keeps it, a one-shot solve needs it, a cache is S2, a non-goal);
 edit and the frames 6–8 %); the per-part split (`split` and `measured`, 6–11
 %, already a tree); the parts built and `remeasured` in the triangles (8.7 %,
 the lone entities); and `freedom_on` re-factorizing a frame the pursuit moved
-(16.7 % of the slot drag, 7–8 % of the rectangle drag and the bisect). Step 9's
-9a (`Tolerances::build` and the per-part split) stays unscheduled: no edit
-misses 4 ms.
+(16.7 % of the slot drag, 7–8 % of the rectangle drag and the bisect). `Tolerances::build` and the per-part split are
+unscheduled: no edit misses 4 ms.
 
 **A's reach, restated (descent and pursuit split, instrumented, 2026-11-07).**
 Rigid bodies in the remainder reach the drags and the bisect only (every
@@ -912,7 +926,7 @@ are superseded: perf is refused on this machine, so the two methods are not
 compared on one run, and the instrumented share is the one for this code.
 Nothing in the profile names a further source for the 500-entity edits; the
 rectangle drag and the bisect remain open, and whether they stay in C2's
-*Accept* is the human's question (`plans/m8-dense-rank.md` §Open questions).
+*Accept* is the human's question (docs/ROADMAP.md §C2, M8).
 
 **Profile and the choice (M8 step 5; self time, `perf report
 --no-children`, the 500-entity cells, LM and DogLeg).** Steps 2-4 removed the

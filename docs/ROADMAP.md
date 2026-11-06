@@ -141,7 +141,7 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5, M6 and M7 done; M8's three plans done, and the frame budget is still missed.** M5: the generated
+**Status: M5, M6 and M7 done; M8's four plans done: the 500-entity edits and the slot drag are inside 4 ms, the rectangle drag and the slot bisect are not.** M5: the generated
 corpus, construction properties and bounded release benchmark. M6: every
 component solved and diagnosed by stages (ADR-0009); an edit keeps every
 bit outside its stage's downstream closure (`upstream-edit-drift`
@@ -169,7 +169,12 @@ diagnosis, parts read off the cut, the cut's evaluation once per source, a
 descent trial in place) took the edits to 2.9–6.1 ms worst: the triangles
 (3.3, 2.9) and the rectangles LM edit (3.9) are inside 4 ms; the rectangles
 DogLeg edit (4.2) and the slot edits (6.0, 4.7) are not. The first drag
-step is 14.5 ms (rectangles) and 5.0 (slots), the bisected frame 11.6.
+step is 14.5 ms (rectangles) and 5.0 (slots), the bisected frame 11.6. M8's
+fourth plan (`plans/m8-dense-rank`: one row pass and one satisfaction test
+per staged component, each component's reads once, the solve's and the
+diagnosis's coordinates in a dense table) took all six 500-entity edits
+inside 4 ms (worst 1.95–3.78 ms) and the slot drag to 3.5–3.8 ms. Over: the
+rectangle drag (15.3 ms, pursuit 75 % of it) and the slot bisect (8.1 ms).
 
 - **M7 — drag robustness and conflicts**: done (status line).
 - **M8 — the frame budget at 500 entities**: profile the 500-entity edit
@@ -177,13 +182,13 @@ step is 14.5 ms (rectangles) and 5.0 (slots), the bisected frame 11.6.
   measurement, the diagnosis's recompile and re-cut of the placed sketch,
   repeated linear scans), one path, no public type. Accept: every
   500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
-  *Accept*). They still miss after three plans: the set-up is done (edits 2.9–6.1 ms
-  worst, three of six inside 4 ms; first drag step 5.0 and 14.5 ms, bisected
-  frame 11.6 ms). The slot edit is held by the staged rank (21–23 %), which
-  is not set-up. Next, from the profile: the coordinates as a dense slice
-  (`Frame::terms`, 6–14 %) and a cheaper staged rank; rigid bodies in the
-  remainder (option A, ARCHITECTURE.md §Frame budget) reach only the drag
-  and bisect cells and cannot close M8 alone.
+  *Accept*). After four plans every 500-entity edit (worst 1.95–3.78 ms) and the slot
+  drag's first step (3.5–3.8 ms) are inside 4 ms; the rectangle drag (15.3 ms)
+  and the slot bisect (8.1 ms) are not. Rigid bodies in the remainder
+  (option A, ARCHITECTURE.md §Frame budget) could close the rectangle drag
+  only by taking 97 % of its pursuit and cannot close the bisect. Whether
+  those two cells stay in C2's *Accept* or move to a later cycle is the
+  human's question.
 
 The risk this cycle retires is locality: that a decomposition into stages
 makes a local edit cost a local solve, without changing a diagnostic or a
