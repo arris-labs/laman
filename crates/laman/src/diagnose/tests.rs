@@ -489,6 +489,16 @@ fn frames(
 /// The shared staged factorizations against the three-pass reference: the
 /// same solutions, bit for bit (plans/m8-frame-budget step 2).
 fn assert_shared_is_three_pass(name: &str, case: &laman_debug::corpus::Case) {
+    let staged = shared_is_three_pass(name, case);
+    assert!(
+        staged > 0,
+        "{name}: no component was staged, the comparison is vacuous"
+    );
+}
+
+/// The comparison of [`assert_shared_is_three_pass`], returning how many
+/// staged factorizations the shared run made.
+fn shared_is_three_pass(name: &str, case: &laman_debug::corpus::Case) -> usize {
     let sketch = ours(&case.sketch);
     let drag = case.drag.as_ref().map(|d| {
         (
@@ -504,7 +514,9 @@ fn assert_shared_is_three_pass(name: &str, case: &laman_debug::corpus::Case) {
             drag.as_ref().map(|(s, p, t)| (s, *p, t.as_slice())),
         )
     };
+    let _ = three_pass::staged_made();
     let shared = run();
+    let staged = three_pass::staged_made();
     let reference = three_pass::run(run);
     assert_eq!(shared.len(), reference.len(), "{name}");
     for (i, (s, r)) in shared.iter().zip(&reference).enumerate() {
@@ -513,6 +525,7 @@ fn assert_shared_is_three_pass(name: &str, case: &laman_debug::corpus::Case) {
             "{name}: frame {i} differs from the three-pass reference"
         );
     }
+    staged
 }
 
 #[test]
@@ -573,20 +586,20 @@ fn shared_ranks_are_the_three_pass_ones_at_the_extremes_of_f64() {
     // The sparse rows (plans/m8-frame-floor step 2) against the dense
     // reference where a row's entries underflow, overflow and square to
     // nothing: sketches at 1e±150 and 1e±300.
-    let mut built = 0;
+    // A sketch at 1e-300 may underflow to a degenerate component the staged
+    // path leaves whole; each scale must still stage one of its three.
     for scale in [1e-300, 1e-150, 1e150, 1e300] {
-        let case = laman_debug::corpus::rect_chain_with(3, 20.0 * scale, 10.0 * scale);
-        if let Ok(case) = case {
-            built += 1;
-            assert_shared_is_three_pass(&format!("rectangles at {scale:e}"), &case);
-        }
-        let case = laman_debug::corpus::slot_grid_with(2, 2, 40.0 * scale, 5.0 * scale);
-        if let Ok(case) = case {
-            built += 1;
-            assert_shared_is_three_pass(&format!("slots at {scale:e}"), &case);
-        }
+        let rects = laman_debug::corpus::rect_chain_with(3, 20.0 * scale, 10.0 * scale);
+        let slots = laman_debug::corpus::slot_grid_with(2, 2, 40.0 * scale, 5.0 * scale);
+        let tris = laman_debug::corpus::triangle_strip_with(6, 20.0 * scale);
+        let staged = shared_is_three_pass(&format!("rectangles at {scale:e}"), &rects.unwrap())
+            + shared_is_three_pass(&format!("slots at {scale:e}"), &slots.unwrap())
+            + shared_is_three_pass(&format!("triangles at {scale:e}"), &tris.unwrap());
+        assert!(
+            staged > 0,
+            "nothing staged at {scale:e}: a vacuous comparison"
+        );
     }
-    assert!(built > 0, "no extreme case was built");
 }
 
 proptest::proptest! {

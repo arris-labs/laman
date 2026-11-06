@@ -339,6 +339,8 @@ impl StagedRanks {
             Some(index) => index,
             None => {
                 let staged = factorize(system, component, values, &parts);
+                #[cfg(test)]
+                three_pass::count_staged(staged.is_some());
                 entries.push(Entry {
                     params: component.params.clone(),
                     sources: component.sources.clone(),
@@ -548,6 +550,19 @@ pub(crate) mod three_pass {
     thread_local! {
         static ACTIVE: Cell<bool> = const { Cell::new(false) };
         static READS: Cell<[usize; 2]> = const { Cell::new([0; 2]) };
+        static STAGED: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// Counts a new factorization that came out staged (`made`).
+    pub(crate) fn count_staged(made: bool) {
+        STAGED.with(|s| s.set(s.get() + usize::from(made)));
+    }
+
+    /// The staged factorizations made on this thread since the last call,
+    /// which resets the count: a test's proof that a comparison was not
+    /// between two whole-component paths.
+    pub(crate) fn staged_made() -> usize {
+        STAGED.with(|s| s.replace(0))
     }
 
     /// Counts one read of a kept factorization (`hit`) or a new one.
