@@ -33,6 +33,7 @@ pub const LENGTH: f64 = 1e-9;
 pub const ANGLE: f64 = 1e-12;
 
 use super::{Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Sketch};
+use crate::values::Values;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Absolute floor in caller units; features below this cannot be resolved.
@@ -192,7 +193,7 @@ impl Frame {
 
     /// The scale and origin at `values`, a coordinate it lacks read from the
     /// sketch the frame was made from.
-    pub(crate) fn measure(&self, values: &Coordinates) -> (f64, [f64; 2]) {
+    pub(crate) fn measure(&self, values: &(impl Values + ?Sized)) -> (f64, [f64; 2]) {
         let mut terms = self.terms(values);
         if let Some(outside) = &self.outside {
             terms.join(outside);
@@ -204,24 +205,20 @@ impl Frame {
     /// is not the part's own measured once at `values` and kept. See
     /// [`Splitter`], of which this is the case of one part.
     #[cfg(test)]
-    pub(crate) fn split(&self, own: &[Param], values: &Coordinates) -> Frame {
+    pub(crate) fn split(&self, own: &[Param], values: &(impl Values + ?Sized)) -> Frame {
         Splitter::new(self, &[own]).split(0, values)
     }
 
     /// Everything a measure takes a maximum or an extent of, before the
     /// extent is turned into a length.
-    fn terms(&self, values: &Coordinates) -> Terms {
+    fn terms(&self, values: &(impl Values + ?Sized)) -> Terms {
         let xy = |id: EntityId, own: [f64; 2]| {
-            let at = |c, own| values.get(&(id, c)).copied().unwrap_or(own);
+            let at = |c, own| values.get((id, c)).unwrap_or(own);
             [at(Coordinate::X, own[0]), at(Coordinate::Y, own[1])]
         };
         let mut terms = Terms::default();
         for (id, own) in &self.radii {
-            let r = values
-                .get(&(*id, Coordinate::R))
-                .copied()
-                .unwrap_or(*own)
-                .abs();
+            let r = values.get((*id, Coordinate::R)).unwrap_or(*own).abs();
             if r.is_finite() {
                 terms.scale = terms.scale.max(r);
             }
@@ -359,7 +356,7 @@ impl Splitter {
     /// The frame of part `k` solved from `values`: its own entities, and
     /// everything else measured at `values` (cached for the parts not moved
     /// since).
-    pub(crate) fn split(&mut self, k: usize, values: &Coordinates) -> Frame {
+    pub(crate) fn split(&mut self, k: usize, values: &(impl Values + ?Sized)) -> Frame {
         let (fixed, before) = (&self.fixed, &self.before);
         let mut kept = self
             .fixed_terms
@@ -827,7 +824,7 @@ fn merged(own: &Coordinates, values: &Coordinates) -> Coordinates {
 }
 
 /// The scale of `component` at `values`, measured as [`Tolerances::at`] does.
-pub(crate) fn scale_at(component: &Component, values: &Coordinates) -> f64 {
+pub(crate) fn scale_at(component: &Component, values: &(impl Values + ?Sized)) -> f64 {
     component.frame.measure(values).0
 }
 
@@ -1015,6 +1012,15 @@ mod tests {
                 let got = component.frame.measure(values);
                 assert_eq!(got.0.to_bits(), want.0.to_bits());
                 assert_eq!(got.1.map(f64::to_bits), want.1.map(f64::to_bits));
+                let dense = crate::values::Dense::of(values);
+                let again = component.frame.measure(&dense);
+                assert_eq!(again.0.to_bits(), want.0.to_bits());
+                assert_eq!(again.1.map(f64::to_bits), want.1.map(f64::to_bits));
+                // Frame::terms, before its maximum and extent are taken.
+                assert_eq!(
+                    format!("{:?}", component.frame.terms(&dense)),
+                    format!("{:?}", component.frame.terms(values)),
+                );
             }
         }
     }

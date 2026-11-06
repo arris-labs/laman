@@ -27,6 +27,7 @@ use crate::model::{
     Constraint, ConstraintId, Contact, Coordinate, Coordinates, Entity, EntityId, Line, Point,
     Round, Sketch, Span,
 };
+use crate::values::Values;
 
 /// One parameter of the sketch: an entity and which of its coordinates.
 pub type Param = (EntityId, Coordinate);
@@ -212,20 +213,20 @@ impl Raw {
 }
 
 /// Reads parameters from a map, then from the sketch.
-struct Reader<'a> {
+struct Reader<'a, V: Values + ?Sized> {
     sketch: &'a Sketch,
-    values: &'a Coordinates,
+    values: &'a V,
 }
 
-impl Reader<'_> {
+impl<V: Values + ?Sized> Reader<'_, V> {
     fn xy(&self, p: Point) -> Option<[f64; 2]> {
         let id = p.id();
         let own = || match self.sketch.entity(id) {
             Some(Entity::Point { x, y }) => Some([*x, *y]),
             Some(Entity::Line { .. } | Entity::Circle { .. } | Entity::Arc { .. }) | None => None,
         };
-        let x = self.values.get(&(id, Coordinate::X)).copied();
-        let y = self.values.get(&(id, Coordinate::Y)).copied();
+        let x = self.values.get((id, Coordinate::X));
+        let y = self.values.get((id, Coordinate::Y));
         match (x, y) {
             (Some(x), Some(y)) => Some([x, y]),
             (x, y) => {
@@ -256,13 +257,13 @@ enum Radius {
     Start(Point),
 }
 
-impl Reader<'_> {
+impl<V: Values + ?Sized> Reader<'_, V> {
     /// The centre of a circle or arc, and where its radius comes from.
     fn round(&self, round: Round) -> Option<(Point, Radius)> {
         let id = round.id();
         match self.sketch.entity(id)? {
             Entity::Circle { c, r } => {
-                let r = self.values.get(&(id, Coordinate::R)).copied().unwrap_or(*r);
+                let r = self.values.get((id, Coordinate::R)).unwrap_or(*r);
                 Some((*c, Radius::Param(id, r)))
             }
             Entity::Arc { c, s, .. } => Some((*c, Radius::Start(*s))),
@@ -273,8 +274,8 @@ impl Reader<'_> {
 
 /// A radius as an equation term: its value, and its gradient pushed onto
 /// `raw` scaled by `k`; whether an arc's start sat exactly on its centre.
-fn push_radius(
-    rd: &Reader<'_>,
+fn push_radius<V: Values + ?Sized>(
+    rd: &Reader<'_, V>,
     raw: &mut Raw,
     centre: Point,
     radius: Radius,
@@ -365,7 +366,12 @@ fn diff(from: [f64; 2], to: [f64; 2]) -> [f64; 2] {
 
 /// The equation `(A cross(u1, u2) + B dot(u1, u2)) / (|u1| |u2|)` of two
 /// lines, dimensionless (`parallel`, `perpendicular`, `angle`).
-fn ratio_of_lines(rd: &Reader<'_>, l1: Line, l2: Line, coeffs: (f64, f64)) -> Option<Equations> {
+fn ratio_of_lines<V: Values + ?Sized>(
+    rd: &Reader<'_, V>,
+    l1: Line,
+    l2: Line,
+    coeffs: (f64, f64),
+) -> Option<Equations> {
     let (first, second) = (rd.ends(Span::Line(l1))?, rd.ends(Span::Line(l2))?);
     let at = [
         rd.xy(first.0)?,
@@ -421,7 +427,11 @@ fn quotient_of_lines(
 
 /// `horizontal` / `vertical`: the span's ends agree on `axis`, whose index
 /// in an `[x, y]` pair is the second element.
-fn axis_aligned(rd: &Reader<'_>, span: Span, (axis, i): (Coordinate, usize)) -> Option<Equations> {
+fn axis_aligned<V: Values + ?Sized>(
+    rd: &Reader<'_, V>,
+    span: Span,
+    (axis, i): (Coordinate, usize),
+) -> Option<Equations> {
     let (a, b) = rd.ends(span)?;
     let (pa, pb) = (rd.xy(a)?, rd.xy(b)?);
     let mut raw = Raw::new();
@@ -459,6 +469,15 @@ fn axis_aligned(rd: &Reader<'_>, span: Span, (axis, i): (Coordinate, usize)) -> 
 /// # Ok::<(), laman::model::ModelError>(())
 /// ```
 pub fn equations(sketch: &Sketch, values: &Coordinates, id: ConstraintId) -> Option<Equations> {
+    equations_in(sketch, values, id)
+}
+
+/// [`equations`] over any source of values (plans/m8-dense-rank step 6).
+pub(crate) fn equations_in<V: Values + ?Sized>(
+    sketch: &Sketch,
+    values: &V,
+    id: ConstraintId,
+) -> Option<Equations> {
     let rd = Reader { sketch, values };
     let c = sketch.constraint(id)?;
     let length = |value: f64, raw: &Raw| Equation::new(value, Unit::Length, false, raw);
@@ -683,6 +702,15 @@ pub fn equations(sketch: &Sketch, values: &Coordinates, id: ConstraintId) -> Opt
 /// # Ok::<(), laman::model::ModelError>(())
 /// ```
 pub fn intrinsic(sketch: &Sketch, values: &Coordinates, id: EntityId) -> Option<Equation> {
+    intrinsic_in(sketch, values, id)
+}
+
+/// [`intrinsic`] over any source of values (plans/m8-dense-rank step 6).
+pub(crate) fn intrinsic_in<V: Values + ?Sized>(
+    sketch: &Sketch,
+    values: &V,
+    id: EntityId,
+) -> Option<Equation> {
     let rd = Reader { sketch, values };
     match sketch.entity(id)? {
         Entity::Arc { c, s, e } => {

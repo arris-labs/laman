@@ -3,10 +3,9 @@
 #![allow(dead_code)]
 
 use crate::model::tolerance::{self, Component, Source, Tolerances};
-use crate::model::{
-    Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, Point, Sketch,
-};
+use crate::model::{Constraint, ConstraintId, Coordinate, Entity, EntityId, Point, Sketch};
 use crate::residual::{self, Param, Unit};
+use crate::values::Values;
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -209,19 +208,23 @@ impl<'a> System<'a> {
     /// Length acceptance at `coordinates`: the frozen input tolerance, tightened
     /// to the one the checker measures there (ADR-0004). It never loosens, so a
     /// solve cannot shrink or grow its way past the checker.
-    pub fn acceptance(&self, component: &Component, coordinates: &Coordinates) -> f64 {
+    pub fn acceptance(&self, component: &Component, coordinates: &(impl Values + ?Sized)) -> f64 {
         let here = tolerance::scale_at(component, coordinates);
         tolerance::length(component.scale).min(tolerance::length(here))
     }
 
-    pub fn evaluate(&self, component: &Component, coordinates: &Coordinates) -> Evaluation {
+    pub fn evaluate(
+        &self,
+        component: &Component,
+        coordinates: &(impl Values + ?Sized),
+    ) -> Evaluation {
         self.evaluate_to(component, coordinates, 1.0)
     }
 
     pub fn evaluate_to(
         &self,
         component: &Component,
-        coordinates: &Coordinates,
+        coordinates: &(impl Values + ?Sized),
         target: f64,
     ) -> Evaluation {
         self.evaluate_indexed(component, coordinates, target).0
@@ -233,7 +236,7 @@ impl<'a> System<'a> {
     pub fn evaluate_indexed(
         &self,
         component: &Component,
-        coordinates: &Coordinates,
+        coordinates: &(impl Values + ?Sized),
         target: f64,
     ) -> (Evaluation, Vec<usize>) {
         self.evaluate_within(component, component, coordinates, target)
@@ -247,7 +250,7 @@ impl<'a> System<'a> {
         &self,
         part: &Component,
         whole: &Component,
-        coordinates: &Coordinates,
+        coordinates: &(impl Values + ?Sized),
         target: f64,
     ) -> Evaluation {
         self.evaluate_within(part, whole, coordinates, target).0
@@ -257,7 +260,7 @@ impl<'a> System<'a> {
         &self,
         component: &Component,
         whole: &Component,
-        coordinates: &Coordinates,
+        coordinates: &(impl Values + ?Sized),
         target: f64,
     ) -> (Evaluation, Vec<usize>) {
         let (rows, satisfied, valid) = self.rows(component, whole, coordinates, target);
@@ -307,7 +310,7 @@ impl<'a> System<'a> {
         &self,
         component: &Component,
         whole: &Component,
-        coordinates: &Coordinates,
+        coordinates: &(impl Values + ?Sized),
         target: f64,
     ) -> (Vec<Row>, bool, bool) {
         let scale = component.scale.max(tolerance::LENGTH_FLOOR);
@@ -319,8 +322,8 @@ impl<'a> System<'a> {
                 continue;
             };
             let original = match eq.source {
-                Source::Arc(id) => residual::intrinsic(self.sketch, coordinates, id),
-                Source::Constraint(id) => residual::equations(self.sketch, coordinates, id)
+                Source::Arc(id) => residual::intrinsic_in(self.sketch, coordinates, id),
+                Source::Constraint(id) => residual::equations_in(self.sketch, coordinates, id)
                     .and_then(|e| e.as_slice().get(eq.index).copied()),
             };
             let Some(original) = original else {
@@ -407,17 +410,15 @@ fn recognize(
 }
 
 impl Contact {
-    fn evaluate(&self, values: &Coordinates, tolerance: f64) -> (f64, BTreeMap<Param, f64>, bool) {
+    fn evaluate(
+        &self,
+        values: &(impl Values + ?Sized),
+        tolerance: f64,
+    ) -> (f64, BTreeMap<Param, f64>, bool) {
         let xy = |p: Point| {
             [
-                values
-                    .get(&(p.id(), Coordinate::X))
-                    .copied()
-                    .unwrap_or(f64::NAN),
-                values
-                    .get(&(p.id(), Coordinate::Y))
-                    .copied()
-                    .unwrap_or(f64::NAN),
+                values.get((p.id(), Coordinate::X)).unwrap_or(f64::NAN),
+                values.get((p.id(), Coordinate::Y)).unwrap_or(f64::NAN),
             ]
         };
         let a = xy(self.a);
@@ -453,6 +454,28 @@ impl Contact {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rows_on_a_dense_table_are_the_rows_on_the_map() {
+        let mut sk = Sketch::new();
+        let a = sk.point_fixed(0.0, 0.0).unwrap();
+        let b = sk.point(3.0, 4.5).unwrap();
+        let c = sk.point(-1.0, 2.0).unwrap();
+        sk.distance(a, b, 5.0).unwrap();
+        sk.distance(b, c, 2.0).unwrap();
+        let sys = System::new(&sk);
+        let mut map = sk.coordinates();
+        map.insert((b.id(), Coordinate::X), 3.25);
+        let dense = crate::values::Dense::of(&map);
+        assert!(!sys.components.is_empty());
+        for component in &sys.components {
+            let want = sys.rows(component, component, &map, 1.0);
+            let got = sys.rows(component, component, &dense, 1.0);
+            assert_eq!(format!("{want:?}"), format!("{got:?}"));
+            assert!(!want.0.is_empty() || component.sources.is_empty());
+        }
+    }
+
     #[test]
     fn empty_fixed_isolated_and_zero_derivatives() {
         assert!(System::new(&Sketch::new()).components.is_empty());

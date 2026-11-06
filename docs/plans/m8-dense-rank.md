@@ -50,7 +50,7 @@ reads the same numbers in the same order, held by equality and the digests.
   holds every sketch parameter's slot; a clone is a `memcpy`. **Ids are the
   caller's `u32`s**: `from_form` takes any, and removal leaves holes, so a
   table indexed by raw id could allocate 96 GB from a small file. A direct
-  table covers ids below a named `DIRECT_SPAN` (a multiple of the entity
+  table covers ids below a named `DIRECT_SPAN` (`DIRECT_FACTOR` times of the entity
   count, measured by step 6), and ids past it go through a sorted vector
   searched by binary search. Which route an id takes never changes the value
   read. A key the sketch lacks reads `None`, as the map does.
@@ -81,7 +81,7 @@ on what is left.
 - [x] Step 5 **[1]**: Run the six edits and the slot drag through `bench_c2`
   and record them under *Profile*, with `Frame::terms`' and the map search's
   shares now. Commit: `docs(plan)`.
-- [ ] Step 6 **[2]**: `Values` and `Dense`, the read paths generic
+- [x] Step 6 **[2]**: `Values` and `Dense`, the read paths generic
   (`Reader`, `Contact::evaluate`, `Frame::terms`, `Splitter`, `System::rows`),
   callers still on maps. `DIRECT_SPAN` measured here. Test: a proptest that
   `Dense` reads what the map reads, ids at 0, `u32::MAX`, holes after a
@@ -182,7 +182,10 @@ a profile from the human.
   is 4.7 if the outlier is real. Five samples are the acceptance, so step 10
   reports what they give; a repeated outlier goes to step 9's profile, and
   the bar is not moved.
-- ⚠ OPEN (agent, step 6): `DIRECT_SPAN`, measured.
+- Settled (step 6): the span is `DIRECT_FACTOR` = 4 times the entity count
+  (`values.rs`). Measured: the 498- and 501-entity families have max id + 1 =
+  entity count (ratio 1), so 4 leaves room for a sketch that lost three
+  quarters of its entities, at 12 bytes per covered id at most.
 - ⚠ OPEN (human, before the next M8 plan; not needed to start this one):
   whether the rectangle drag and the bisect stay in C2's *Accept* or move to
   a later cycle, since A was estimated at about three plans and its ceiling

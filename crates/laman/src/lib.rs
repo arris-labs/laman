@@ -32,6 +32,7 @@ pub mod solution;
 mod solve;
 mod stage;
 mod system;
+mod values;
 
 pub use rigidity::{Rigidity, RigidityError, rigidity};
 
