@@ -78,7 +78,7 @@ on what is left.
   coordinates still computes afresh; statuses and digests unchanged.
 - [x] Step 4 **[1]**: Reads once. Test: `Component::reads` equals a fresh
   `component_reads` on the C1 fixtures and every family.
-- [ ] Step 5 **[1]**: Run the six edits and the slot drag through `bench_c2`
+- [x] Step 5 **[1]**: Run the six edits and the slot drag through `bench_c2`
   and record them under *Profile*, with `Frame::terms`' and the map search's
   shares now. Commit: `docs(plan)`.
 - [ ] Step 6 **[2]**: `Values` and `Dense`, the read paths generic
@@ -156,6 +156,25 @@ Reach, estimated, on the slot edit: one row pass and one satisfaction about
 -13 points, reads once -4 to -6, dense -5 (`Frame::terms`, and the map
 searches the first two leave). That is about -23 %: 4.87 → 3.7 ms median and
 4.60 → 3.5 (DogLeg). The rectangles and triangles gain most from dense.
+
+After steps 2-4 (b090ff2), 2026-11-07, the same machine, `bench_c2` in full,
+median / worst of five, ms:
+
+| cell | before (planning) | now |
+|---|---|---|
+| rectangles 498 edit LM / DogLeg | worst 4.2-6.1 range | 3.48 / 3.67, 3.49 / 3.51 |
+| slots 498 edit LM | 4.87 / 6.05 | 3.87 / 4.24 |
+| slots 498 edit DogLeg | 4.60 / 4.66 | 3.78 / 3.79 |
+| triangles 501 edit LM / DogLeg | (inside 4) | 2.54 / 2.75, 2.53 / 2.61 |
+| slots 498 drag LM / DogLeg | 5.0 | 4.34 / 5.04, 4.63 / 4.65 |
+| rectangles 498 drag LM / DogLeg | 14.5 | 14.21 / 14.29, 14.87 / 15.21 |
+| slots 498 bisect LM | 11.6 | 10.43 / 10.44 |
+
+Only the slots LM edit's worst (4.24) misses 4 ms. The shares of
+`Frame::terms` and the map search are **not measured**: `perf` is refused on
+this machine (`kernel.perf_event_paranoid` is 4, even for user-only
+`cpu-clock:u`), and the setting is the human's. Step 9 needs it lowered, or
+a profile from the human.
 
 ## Open questions
 - ⚠ OPEN (agent, step 10): the slots LM edit's worst sample was 6.05 ms
