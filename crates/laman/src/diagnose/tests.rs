@@ -655,3 +655,24 @@ fn a_frame_factorizes_each_staged_component_once_at_its_coordinates() {
     let _ = session.to(drag.drag.targets[0]);
     assert_eq!(three_pass::reads(), [2, 1]);
 }
+
+#[test]
+fn a_static_solve_tests_each_component_once_and_a_moved_drag_frame_again() {
+    // The slot grid is one staged component. A static solve's acceptance
+    // tests its satisfaction as it factorizes, and the diagnosis reads that
+    // answer. A drag frame whose pursuit moved the coordinates misses the
+    // key: its diagnosis tests afresh, and the freedom's factorization
+    // there tests once more (plans/m8-dense-rank step 3).
+    let case = laman_debug::corpus::slot_grid(3, 3).unwrap();
+    let options = crate::solution::SolverOptions::default();
+    let _ = three_pass::tested();
+    let _ = ours(&case.sketch).solve(&options);
+    assert_eq!(three_pass::tested(), 1);
+    let drag = case.drag.unwrap();
+    let mut session = ours(&drag.sketch)
+        .drag(EntityId(drag.drag.dragged.0), &options)
+        .unwrap();
+    let _ = three_pass::tested();
+    let _ = session.to(drag.drag.targets[0]);
+    assert_eq!(three_pass::tested(), 3);
+}

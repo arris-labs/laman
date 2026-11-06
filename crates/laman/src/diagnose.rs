@@ -246,7 +246,9 @@ fn staged(
         return staged_checked(system, component, values, basis, false);
     }
     let parts = crate::stage::decompose(system, component);
-    factorize(system, component, values, &parts)?.read(basis, false)
+    factorize(system, component, values, &parts)
+        .1?
+        .read(basis, false)
 }
 
 /// Whether `component` is analysed by parts at `values`: satisfied there,
@@ -297,6 +299,9 @@ struct Entry {
     /// Every coordinate the component can read ([`tolerance::component_reads`])
     /// and its bits.
     reads: Vec<(Param, Option<u64>)>,
+    /// Whether the component is satisfied there ([`crate::solve::satisfied`]),
+    /// which [`factorize`] tests first (plans/m8-dense-rank step 3).
+    satisfied: bool,
     staged: Option<Staged>,
 }
 
@@ -320,25 +325,17 @@ impl StagedRanks {
             return None;
         }
         let parts = crate::stage::decompose(system, component);
-        let reads: Vec<(Param, Option<u64>)> = tolerance::component_reads(system.sketch, component)
-            .into_iter()
-            .map(|p| (p, values.get(&p).map(|v| v.to_bits())))
-            .collect();
-        let scale = component.scale.to_bits();
+        let (reads, scale) = key(system, component, values);
         let mut entries = self.entries.borrow_mut();
-        let found = entries.iter().position(|e| {
-            e.params == component.params
-                && e.sources == component.sources
-                && e.scale == scale
-                && e.reads == reads
-                && e.parts == parts
-        });
+        let found = entries
+            .iter()
+            .position(|e| e.is_for(component, scale, &reads, &parts));
         #[cfg(test)]
         three_pass::count(found.is_some());
         let index = match found {
             Some(index) => index,
             None => {
-                let staged = factorize(system, component, values, &parts);
+                let (satisfied, staged) = factorize(system, component, values, &parts);
                 #[cfg(test)]
                 three_pass::count_staged(staged.is_some());
                 entries.push(Entry {
@@ -347,6 +344,7 @@ impl StagedRanks {
                     scale,
                     parts,
                     reads,
+                    satisfied,
                     staged,
                 });
                 entries.len() - 1
@@ -357,6 +355,84 @@ impl StagedRanks {
             .staged
             .as_ref()?
             .read(basis, independent)
+    }
+}
+
+impl StagedRanks {
+    /// [`crate::solve::satisfied`] for `component` at `values`, from the
+    /// entry a [`stageable`] test made at these coordinates, which tested it
+    /// already, or computed afresh (and not kept) when there is none: an
+    /// empty component, or coordinates the factorizations were not made at
+    /// (plans/m8-dense-rank step 3).
+    pub(crate) fn satisfied(
+        &self,
+        system: &System<'_>,
+        component: &Component,
+        values: &Coordinates,
+    ) -> bool {
+        // The reference tests afresh, as it factorizes.
+        #[cfg(test)]
+        let kept = !three_pass::active();
+        #[cfg(not(test))]
+        let kept = true;
+        if kept {
+            if let Some(known) = self.known(system, component, values) {
+                return known;
+            }
+        }
+        #[cfg(test)]
+        three_pass::count_tested();
+        crate::solve::satisfied(system, component, values)
+    }
+
+    /// The kept answer at exactly these coordinates, if any.
+    fn known(
+        &self,
+        system: &System<'_>,
+        component: &Component,
+        values: &Coordinates,
+    ) -> Option<bool> {
+        if component.params.is_empty() || component.sources.is_empty() {
+            return None;
+        }
+        let parts = crate::stage::decompose(system, component);
+        let (reads, scale) = key(system, component, values);
+        self.entries
+            .borrow()
+            .iter()
+            .find(|e| e.is_for(component, scale, &reads, &parts))
+            .map(|e| e.satisfied)
+    }
+}
+
+/// What an [`Entry`] is keyed by besides the component's own fields: the
+/// bits of every coordinate it can read in `values`, and its scale's bits.
+fn key(
+    system: &System<'_>,
+    component: &Component,
+    values: &Coordinates,
+) -> (Vec<(Param, Option<u64>)>, u64) {
+    let reads = tolerance::component_reads(system.sketch, component)
+        .into_iter()
+        .map(|p| (p, values.get(&p).map(|v| v.to_bits())))
+        .collect();
+    (reads, component.scale.to_bits())
+}
+
+impl Entry {
+    /// Whether this entry was made for `component` with this key.
+    fn is_for(
+        &self,
+        component: &Component,
+        scale: u64,
+        reads: &[(Param, Option<u64>)],
+        parts: &Decomposition,
+    ) -> bool {
+        self.params == component.params
+            && self.sources == component.sources
+            && self.scale == scale
+            && self.reads == reads
+            && self.parts == *parts
     }
 }
 
@@ -414,18 +490,29 @@ fn factorize(
     component: &Component,
     values: &Coordinates,
     parts: &Decomposition,
-) -> Option<Staged> {
+) -> (bool, Option<Staged>) {
     if component.params.is_empty() || component.sources.is_empty() {
-        return None;
+        return (false, None);
     }
     // A failed or degenerate component is the whole path's, as its solve
-    // and its conflict search are: only a satisfied one is staged.
-    // The rows are read once, for the test and for the blocks
-    // (plans/m8-dense-rank step 2).
+    // and its conflict search are: only a satisfied one is staged. The rows
+    // are read once, for the test and for the blocks (plans/m8-dense-rank
+    // step 2), and the answer is kept for the diagnosis (step 3).
     let (rows, flagged, valid) = system.rows(component, component, values, 1.0);
+    #[cfg(test)]
+    three_pass::count_tested();
     if !crate::solve::satisfied_over(system, component, values, &rows, flagged && valid) {
-        return None;
+        return (false, None);
     }
+    (true, staged_parts(component, parts, rows))
+}
+
+/// [`factorize`] of a satisfied component, over its `rows`.
+fn staged_parts(
+    component: &Component,
+    parts: &Decomposition,
+    rows: Vec<crate::system::Row>,
+) -> Option<Staged> {
     if parts.parts.len() < 2 {
         return None;
     }
@@ -553,6 +640,21 @@ pub(crate) mod three_pass {
         static ACTIVE: Cell<bool> = const { Cell::new(false) };
         static READS: Cell<[usize; 2]> = const { Cell::new([0; 2]) };
         static STAGED: Cell<usize> = const { Cell::new(0) };
+    }
+
+    thread_local! {
+        static TESTED: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// Counts one test of a component's satisfaction on the diagnosis's path.
+    pub(crate) fn count_tested() {
+        TESTED.with(|t| t.set(t.get() + 1));
+    }
+
+    /// The satisfaction tests on this thread since the last call, which
+    /// resets the count.
+    pub(crate) fn tested() -> usize {
+        TESTED.with(|t| t.replace(0))
     }
 
     /// Counts a new factorization that came out staged (`made`).

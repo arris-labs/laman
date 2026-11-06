@@ -73,7 +73,7 @@ on what is left.
 - [x] Step 2 **[2]**: One row pass, as in the deltas. Test: `StagedRanks`
   bit-equal to `three_pass` on the C1 fixtures and every family; a failed or
   degenerate component still goes whole; digests unchanged.
-- [ ] Step 3 **[2]**: Satisfaction once. Test: a `cfg(test)` count of one
+- [x] Step 3 **[2]**: Satisfaction once. Test: a `cfg(test)` count of one
   test per component in an edit, and a drag whose pursuit moved the
   coordinates still computes afresh; statuses and digests unchanged.
 - [ ] Step 4 **[1]**: Reads once. Test: `Component::reads` equals a fresh

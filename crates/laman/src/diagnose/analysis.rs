@@ -157,7 +157,7 @@ pub(crate) fn analyse_under(
     let mut held: BTreeSet<ConstraintId> = BTreeSet::new();
     for component in &system.components {
         let members = constraints_of(component);
-        if component.sources.is_empty() || satisfied(&system, component, values) {
+        if component.sources.is_empty() || outcome.staged.satisfied(&system, component, values) {
             held.extend(members);
             continue;
         }
