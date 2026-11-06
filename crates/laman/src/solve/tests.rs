@@ -1065,8 +1065,9 @@ fn satisfaction_without_a_jacobian_equals_the_dense_one() {
         for (label, values) in &variants {
             for component in &system.components {
                 let dense = dense_satisfied(&system, component, values);
+                let (rows, flagged, valid) = system.rows(component, component, values, 1.0);
                 assert_eq!(
-                    sparse_satisfied(&system, component, values),
+                    sparse_satisfied(component, &rows, flagged && valid),
                     dense,
                     "{name} at {label}"
                 );

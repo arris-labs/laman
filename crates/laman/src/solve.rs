@@ -1091,20 +1091,33 @@ impl Pursuit<'_, '_> {
 /// acceptance: the test that lets a satisfied input take no step, and the one
 /// the analysis reads.
 pub(crate) fn satisfied(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
-    sparse_satisfied(system, component, values)
+    let (rows, flagged, valid) = system.rows(component, component, values, 1.0);
+    satisfied_over(system, component, values, &rows, flagged && valid)
+}
+
+/// [`satisfied`] over rows already read by `system.rows(component,
+/// component, values, 1.0)`, `holds` being the conjunction of the flags it
+/// returned with them (plans/m8-dense-rank step 2): one row pass for a
+/// caller that also needs the rows.
+pub(crate) fn satisfied_over(
+    system: &System<'_>,
+    component: &Component,
+    values: &Coordinates,
+    rows: &[crate::system::Row],
+    holds: bool,
+) -> bool {
+    sparse_satisfied(component, rows, holds)
         && vector_acceptance(system, Scope::whole(component), values, 1.0)
 }
 
 /// `system.evaluate(component, values).satisfied` read from the sparse rows,
 /// without the dense Jacobian (plans/m8-frame-floor step 3): the rows'
-/// flags, and every row's value and every entry finite. A dense entry is a
-/// term in the component's columns times the row's factor, and the entries
-/// it does not read are +0, so only those terms need testing.
-fn sparse_satisfied(system: &System<'_>, component: &Component, values: &Coordinates) -> bool {
-    let (rows, satisfied, valid) = system.rows(component, component, values, 1.0);
+/// flags (`holds`), and every row's value and every entry finite. A dense
+/// entry is a term in the component's columns times the row's factor, and
+/// the entries it does not read are +0, so only those terms need testing.
+fn sparse_satisfied(component: &Component, rows: &[crate::system::Row], holds: bool) -> bool {
     let columns: std::collections::BTreeSet<_> = component.params.iter().collect();
-    satisfied
-        && valid
+    holds
         && rows.iter().all(|row| {
             row.value.is_finite()
                 && row

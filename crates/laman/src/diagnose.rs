@@ -420,7 +420,10 @@ fn factorize(
     }
     // A failed or degenerate component is the whole path's, as its solve
     // and its conflict search are: only a satisfied one is staged.
-    if !crate::solve::satisfied(system, component, values) {
+    // The rows are read once, for the test and for the blocks
+    // (plans/m8-dense-rank step 2).
+    let (rows, flagged, valid) = system.rows(component, component, values, 1.0);
+    if !crate::solve::satisfied_over(system, component, values, &rows, flagged && valid) {
         return None;
     }
     if parts.parts.len() < 2 {
@@ -466,7 +469,6 @@ fn factorize(
     // squares and is visited last in neither, so the unit row and the
     // triangular test over the nonzero entries in column order equal the
     // dense ones bit for bit.
-    let (rows, _, _) = system.rows(component, component, values, 1.0);
     let mut blocks: Vec<Vec<Vec<f64>>> = vec![vec![]; parts.parts.len()];
     for row in rows {
         let p = *row_part.get(&row.index)?;

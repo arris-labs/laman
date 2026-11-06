@@ -70,7 +70,7 @@ on what is left.
 - [x] Step 1 **[1]**: Make the staged-rank proptest bite before `factorize`
   changes: add triangles, and assert the components are staged, not
   vacuously whole (the `if let Ok` / `built > 0` of `diagnose/tests.rs`).
-- [ ] Step 2 **[2]**: One row pass, as in the deltas. Test: `StagedRanks`
+- [x] Step 2 **[2]**: One row pass, as in the deltas. Test: `StagedRanks`
   bit-equal to `three_pass` on the C1 fixtures and every family; a failed or
   degenerate component still goes whole; digests unchanged.
 - [ ] Step 3 **[2]**: Satisfaction once. Test: a `cfg(test)` count of one
