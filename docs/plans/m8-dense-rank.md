@@ -98,7 +98,7 @@ on what is left.
 - [x] Step 9 **[2]**: Re-profile by the method under *Profile*. Remove any
   source left ≥ 5 % that is not the solve's arithmetic, with its own equality
   test, or split it off as 9a, `Tolerances::build` first if an edit misses.
-- [ ] Step 10 **[1]**: Run `bench_c2` in full; replace the table in
+- [x] Step 10 **[1]**: Run `bench_c2` in full; replace the table in
   ARCHITECTURE.md §Frame budget with the attribution and A's ceiling
   restated. A cell of *Acceptance* that misses is recorded with what the
   profile names next. Commit: `docs`.
@@ -225,14 +225,31 @@ non-goal); `Tolerances::build` (15-18 %; union-find over the sources 8.6 % and
 the frames 6-8 %); `split` + `measured` (6-11 %, already a tree); the parts
 built, `remeasured` in the triangles (8.7 %: the lone entities). Split off as
 **9a**, to run only if a cell needs it: `Tolerances::build` and the per-part
-split, each with its own equality test.
+split, each with its own equality test. **Settled (conductor, step 10): 9a
+stays unscheduled**, since no edit misses 4 ms.
+
+After step 9 (`bench_c2` in full, step 10, 2026-11-07, the same machine and
+code as 02f3114), median / worst of five, ms: every 500-entity edit's worst
+sample is under 4: rectangles 3.11 LM / 3.05 DogLeg, slots 3.78 / 3.37,
+triangles 1.95 / 2.00. The slot drag's first step is 3.75 / 3.46 (under 4,
+recorded only). Still over: the rectangle drag 15.27 / 15.27, the slot bisect
+8.10 LM / 7.19 DogLeg, and the slot grid's static solve 5.50 / 5.30. The 98
+and 248 cells are under 4. The full table is in `docs/ARCHITECTURE.md`
+§Frame budget, with the attribution and A's ceiling restated.
+
+Remaining sources at 5 % or more, for the backlog at retirement (none is
+the solve's arithmetic): the cut (`Decompositions::of`, 13–15 % of each
+edit; structural, a non-goal); `Tolerances::build` (15–18 %); the per-part
+split (`split` and `Scope::measured`, 6–11 %); the parts built and
+`remeasured` in the triangles (8.7 %); `freedom_on` re-factorizing a frame
+the pursuit moved (16.7 % of the slot drag, 7–8 % of the rectangle drag and
+the bisect). A's ceiling on the rectangle drag is 3.7 ms only if it takes
+97 % of the pursuit, and on the bisect it cannot close the cell.
 
 ## Open questions
-- ⚠ OPEN (agent, step 10): the slots LM edit's worst sample was 6.05 ms
-  against a 4.87 median, and DogLeg's 4.66 against 4.60. At -23 % that worst
-  is 4.7 if the outlier is real. Five samples are the acceptance, so step 10
-  reports what they give; a repeated outlier goes to step 9's profile, and
-  the bar is not moved.
+- Settled (step 10): the slots LM edit's worst sample is 3.78 ms (median
+  3.48) on the step 10 run, against 6.05 before this plan. No repeated
+  outlier, so nothing goes to a profile and the bar is not moved.
 - Settled (step 6): the span is `DIRECT_FACTOR` = 4 times the entity count
   (`values.rs`). Measured: the 498- and 501-entity families have max id + 1 =
   entity count (ratio 1), so 4 leaves room for a sketch that lost three

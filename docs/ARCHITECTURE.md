@@ -817,36 +817,102 @@ The rectangle drag is 14.5 / 14.9 (LM) and 14.6 / 15.8 ms (DogLeg), the slot
 drag 5.0 / 5.1: none slower than before. C1's bench holds its 1 ms budget
 (the drag steps take 0.29-0.30 ms).
 
-**Where the rest is (LM, `perf record` of the 500-entity workers, inclusive
-shares of all samples, 2026-11-05).** The edits: `stage::cut`, now once a
-frame, 7-11 %; `Frame::terms` 6-14 % (the coordinate map's lookups);
-`stageable`, the staged rank of the diagnosis, 10-23 %; malloc/free 12-17 %.
-`parts_of` is that cut and nothing else (its filter 0-1 %). The `Coordinates`
-copies are 0.2-2.6 %. Nothing left is a set-up step: the staged rank is the
-diagnosis proper, and `Frame::terms` is the dense `Coordinates` plan, whose
-lookups would also serve the bisect (11 %). The slot edit misses because
-its staged rank is 21-23 % of it, the rectangle DogLeg edit by 4 % at its
-worst sample.
+C2 after M8's dense-rank plan (`plans/m8-dense-rank`, 2026-11-07), same
+command, machine and conventions (median / worst in ms, five samples). The
+plan's steps: one row pass and one satisfaction test per component in a
+frame, the satisfaction read back from the kept factorization when the
+pursuit has not moved the coordinates; each component's reads made once,
+where it is built; the solve's and the diagnosis's coordinates held in a
+dense table (the `Values` trait), made into a `Coordinates` map only at the
+boundary. **Under 4 ms, worst sample: every 98-, 99-, 248- and 249-entity
+cell, and all six 500-entity edits: rectangles 3.11 (LM) and 3.05 (DogLeg),
+slots 3.78 and 3.37, triangles 1.95 and 2.00. That is the plan's acceptance,
+met for the first time. The slot drag's first step is also under 4 ms (3.75
+and 3.46; recorded, not asserted). Over: the rectangle drag (15.3 and 15.3
+ms), the slot bisect (8.1 and 7.2 ms) and the slot grid's static solve (5.5
+and 5.3; static solves are reported, not budgeted).** The rectangle static
+solve is under (3.7 and 3.3).
 
-**A's reach, measured (descent and pursuit split).** Rigid bodies in the
-remainder cannot reach the edits (DoF 0, no remainder) and reach a drag or
-bisect cell only through its descent and pursuit:
+| Family | Actual entities | Algorithm | Static | Edit | First drag step |
+|---|---:|---|---:|---:|---:|
+| rectangles | 98 | LM | 0.575 / 0.801 | 0.481 / 0.515 | 0.651 / 0.707 |
+| rectangles | 98 | DogLeg | 0.522 / 0.629 | 0.475 / 0.504 | 0.644 / 0.691 |
+| rectangles | 248 | LM | 1.547 / 1.702 | 1.318 / 1.332 | 2.925 / 3.003 |
+| rectangles | 248 | DogLeg | 1.470 / 1.923 | 1.302 / 1.307 | 2.938 / 2.989 |
+| rectangles | 498 | LM | 3.343 / 3.692 | 2.852 / 3.110 | 14.952 / 15.273 |
+| rectangles | 498 | DogLeg | 3.087 / 3.317 | 2.789 / 3.052 | 14.917 / 15.268 |
+| slots | 98 | LM | 0.897 / 1.010 | 0.657 / 0.677 | 0.753 / 0.778 |
+| slots | 98 | DogLeg | 0.912 / 1.016 | 0.656 / 0.682 | 0.762 / 0.776 |
+| slots | 248 | LM | 2.353 / 2.516 | 1.720 / 1.896 | 1.826 / 1.847 |
+| slots | 248 | DogLeg | 2.466 / 2.799 | 1.703 / 1.982 | 1.836 / 1.916 |
+| slots | 498 | LM | 5.090 / 5.502 | 3.482 / 3.775 | 3.683 / 3.751 |
+| slots | 498 | DogLeg | 5.113 / 5.301 | 3.241 / 3.373 | 3.174 / 3.458 |
+| triangles | 99 | LM | 0.392 / 0.475 | 0.363 / 0.384 | N/A |
+| triangles | 99 | DogLeg | 0.421 / 0.502 | 0.380 / 0.408 | N/A |
+| triangles | 249 | LM | 1.038 / 1.145 | 0.980 / 1.274 | N/A |
+| triangles | 249 | DogLeg | 1.102 / 1.219 | 0.974 / 0.989 | N/A |
+| triangles | 501 | LM | 2.100 / 2.240 | 1.936 / 1.952 | N/A |
+| triangles | 501 | DogLeg | 2.282 / 2.512 | 1.975 / 2.002 | N/A |
 
-| Cell (LM) | ms | pursuit | descent (head, stages, remainder) | diagnosis | `parts_of` |
-|---|---:|---:|---:|---:|---:|
-| rectangles 498 drag | 14.5 | 60 % (`Qr::new` 27 %; inclusive) | 3 % | 13 % | 0.3 % |
-| slots 498 drag | 5.0 | 4 % | 9 % | 30 % | 0.4 % |
-| slots 498 bisect | 11.6 | 19 % | 15 % | 19 % | 0.4 % |
+The slot bisect is 7.92 / 8.10 ms LM and 7.02 / 7.19 ms DogLeg. Against the
+set-up plan's table, the 500-entity edits went 1.3–1.7× faster (slots LM 6.05
+to 3.78, slots DogLeg 4.66 to 3.37, triangles LM 3.26 to 1.95, rectangles
+DogLeg 4.17 to 3.05), the slot drag from 5.0 to 3.5–3.8 and the bisect from
+11.6 to 7.0–8.1. The rectangle drag is 14.9–15.3 against 14.5–15.8 before:
+no slower, though this machine moved that cell by about 1.5 ms between runs
+(13.2 in step 9's interleaved pair).
 
-The shares are inclusive (a function and everything it calls) and overlap.
-A's ceiling is the time left were the pursuit free, which is all A can reach
-in principle (its descent shares are small beside it and A does not remove
-them): 14.5 x 0.40 = 5.8 ms on the rectangle drag, 5.0 x 0.96 = 4.8 ms on the
-slot drag and 11.6 x 0.81 = 9.4 ms on the bisect. A alone closes none of the
-three at 4 ms: the slot drag and the bisect are dominated by the diagnosis
-(the staged rank, 20-24 %) and `Frame::terms` (5-11 %), the same sources as
-the slot edit. What the profile names next is the dense `Coordinates` plan
-(`Frame::terms`) and a cheaper staged rank before A.
+**Where the rest is (instrumented, 2026-11-07; the code is unchanged since
+02f3114).** Method in `plans/m8-dense-rank.md` §Profile: an `Instant` guard
+per phase in a scratch copy, summed over 100 samples and divided over the
+timed region. Inclusive, so spans overlap; percent of the median sample, LM:
+
+| inclusive % | slots edit | rect edit | tri edit | slots drag | rect drag | bisect |
+|---|---:|---:|---:|---:|---:|---:|
+| `Tolerances::new` | 17.9 | 14.9 | 16.3 | | | |
+| of it reads and union-find | 8.6 | 3.9 | 4.2 | | | |
+| of it frames and `reads_of` | 6.3 | 7.8 | 3.2 | | | |
+| `parts_of` | 19.7 | 19.5 | 17.0 | 4.3 | | 6.1 |
+| of it the cut (`Decompositions::of`) | 14.9 | 13.2 | 12.9 | | | |
+| of it the parts built | 4.0 | 5.1 | 3.2 | | | |
+| `stageable` | 15.6 | 9.5 | 11.0 | 15.1 | 6.2 | 20.8 |
+| `split` + `Scope::measured` | 6.2 | 11.1 | 3.1 | 5.8 | 1.4 | 8.1 |
+| `descend` of the parts | 9.2 | 11.7 | 24.4 | 8.0 | 1.1 | 11.0 |
+| `analyse_under` | 10.8 | 14.4 | 10.6 | 32.1 | 9.3 | 15.3 |
+| of it `freedom_on` | 2.4 | 5.4 | 3.8 | 16.7 | 7.0 | 8.0 |
+| `remeasured` | 1.3 | 1.8 | 8.7 | 1.3 | 0.3 | 1.9 |
+| `pursue` | | | | 3.7 | 75.5 | 15.5 |
+
+What is left at 5 % or more, none of it the solve's arithmetic: the cut
+(`Decompositions::of`, 13–15 % of each edit, structural: a `DragSession`
+keeps it, a one-shot solve needs it, a cache is S2, a non-goal);
+`Tolerances::build` (15–18 %, union-find over the sources 8.6 % of the slot
+edit and the frames 6–8 %); the per-part split (`split` and `measured`, 6–11
+%, already a tree); the parts built and `remeasured` in the triangles (8.7 %,
+the lone entities); and `freedom_on` re-factorizing a frame the pursuit moved
+(16.7 % of the slot drag, 7–8 % of the rectangle drag and the bisect). Step 9's
+9a (`Tolerances::build` and the per-part split) stays unscheduled: no edit
+misses 4 ms.
+
+**A's reach, restated (descent and pursuit split, instrumented, 2026-11-07).**
+Rigid bodies in the remainder reach the drags and the bisect only (every
+edit is DoF 0 with no remainder). The ceiling is the median with the pursuit
+free, that is median × (1 − pursuit share), LM:
+
+| Cell (LM) | median / worst ms | pursuit | ceiling | what 4 ms needs of the pursuit |
+|---|---:|---:|---:|---|
+| rectangles 498 drag | 14.95 / 15.27 | 75.5 % | 3.7 ms | removing 73 % of the cell, 97 % of its pursuit |
+| slots 498 drag | 3.68 / 3.75 | 3.7 % | 3.5 ms | already under 4 ms |
+| slots 498 bisect | 7.92 / 8.10 | 15.5 % | 6.7 ms | removing 49 % of the cell, about three times its pursuit: not reachable |
+
+So A alone can close the rectangle drag only by taking nearly all of its
+pursuit, and cannot close the bisect; the slot drag needs nothing more. The
+M8 step 5 figures (perf, pursuit 60 % of the rectangle drag, ceiling 5.8 ms)
+are superseded: perf is refused on this machine, so the two methods are not
+compared on one run, and the instrumented share is the one for this code.
+Nothing in the profile names a further source for the 500-entity edits; the
+rectangle drag and the bisect remain open, and whether they stay in C2's
+*Accept* is the human's question (`plans/m8-dense-rank.md` §Open questions).
 
 **Profile and the choice (M8 step 5; self time, `perf report
 --no-children`, the 500-entity cells, LM and DogLeg).** Steps 2-4 removed the
