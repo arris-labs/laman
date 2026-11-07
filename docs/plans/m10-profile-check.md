@@ -94,7 +94,7 @@ established here, or a rule the design leaves open.
 - [x] Step 4 **[2]** — Containment (D4): rays against lines and arcs, the
   half-open rule at vertices, the undecided band. `plate-island` and the nested
   property shapes held.
-- [ ] Step 5 **[2]** — Broken twins: a table of mutations over the fixtures
+- [x] Step 5 **[2]** — Broken twins: a table of mutations over the fixtures
   in `tests/c3_review.rs`, each naming the variant it must raise (area nudged,
   a loop reversed, a hole moved to the wrong parent, an edge dropped or
   repeated, a stale id, an empty loop, values moved after extraction).

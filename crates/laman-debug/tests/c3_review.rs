@@ -3,9 +3,13 @@
 //! the end points of the edges.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
+use laman::model::profile::{Loop, Profiles};
 use laman::model::tolerance::Tolerances;
-use laman::model::{Coordinate, Point, Sketch};
+use laman::model::{Coordinate, Coordinates, Entity, EntityId, Point, Sketch};
 use laman::profile::{ProfileError, profiles};
+use laman_check::{Missing, ProfileViolation, check_profiles};
+use laman_debug::fixture::Fixture;
+use std::path::PathBuf;
 
 /// A closed rectangle over `[x0, x1] x [y0, y1]`, counter-clockwise, and its
 /// corner points.
@@ -173,5 +177,253 @@ fn a_non_finite_point_coordinate_is_refused_by_id() {
             profiles(&sk, &values),
             Err(ProfileError::NonFinite { entity: a.id() })
         );
+    }
+}
+
+// ---- Broken twins of the C3 fixtures (plans/m10-profile-check step 5) ----
+//
+// Each takes a fixture's own extraction at its expected coordinates, which
+// the checker holds clean (`c3.rs`), breaks it one way and names the
+// violations the checker must raise, in report order.
+
+/// A violation's variant, without its numbers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    Area,
+    Orientation,
+    NotChained,
+    OpenJoin,
+    ArcOffRadius,
+    NotAnEdge,
+    Repeated,
+    Uncovered,
+    Containment,
+}
+
+fn kind(v: &ProfileViolation) -> Kind {
+    match v {
+        ProfileViolation::Area { .. } => Kind::Area,
+        ProfileViolation::Orientation { .. } => Kind::Orientation,
+        ProfileViolation::NotChained { .. } => Kind::NotChained,
+        ProfileViolation::OpenJoin { .. } => Kind::OpenJoin,
+        ProfileViolation::ArcOffRadius { .. } => Kind::ArcOffRadius,
+        ProfileViolation::NotAnEdge { .. } => Kind::NotAnEdge,
+        ProfileViolation::Repeated { .. } => Kind::Repeated,
+        ProfileViolation::Uncovered { .. } => Kind::Uncovered,
+        ProfileViolation::Containment { .. } => Kind::Containment,
+    }
+}
+
+/// A fixture with its expected coordinates and the profiles extracted there.
+struct Twin {
+    sketch: Sketch,
+    values: Coordinates,
+    found: Profiles,
+}
+
+fn twin(name: &str) -> Twin {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/c3")
+        .join(name);
+    let fixture = Fixture::load(&dir).unwrap();
+    let mut values = fixture.sketch.coordinates();
+    for (key, value) in &fixture.expected.coordinates {
+        values.insert(*key, *value);
+    }
+    let found = profiles(&fixture.sketch, &values).unwrap();
+    let control = check_profiles(&fixture.sketch, &values, &found);
+    assert!(control.is_clean(), "{name}: {control:#?}");
+    Twin {
+        sketch: fixture.sketch,
+        values,
+        found,
+    }
+}
+
+impl Twin {
+    fn kinds(&self) -> Vec<Kind> {
+        let report = check_profiles(&self.sketch, &self.values, &self.found);
+        assert!(report.missing.is_empty(), "{report:#?}");
+        report.violations.iter().map(kind).collect()
+    }
+
+    /// The end points of an edge, as the sketch draws them.
+    fn ends(&self, edge: EntityId) -> Vec<Point> {
+        match self.sketch.entity(edge) {
+            Some(Entity::Line { a, b }) => vec![*a, *b],
+            Some(Entity::Arc { c, s, e }) => vec![*s, *e, *c],
+            Some(Entity::Point { .. } | Entity::Circle { .. }) | None => Vec::new(),
+        }
+    }
+
+    fn shift(&mut self, p: Point, coordinate: Coordinate, by: f64) {
+        *self.values.get_mut(&(p.id(), coordinate)).unwrap() += by;
+    }
+}
+
+/// The loop traversed the other way: edges reversed in order and sense.
+fn turned_round(l: &mut Loop) {
+    l.edges.reverse();
+    for t in &mut l.edges {
+        t.reversed = !t.reversed;
+    }
+}
+
+#[test]
+fn an_area_nudged_past_the_allowance_is_named() {
+    let mut t = twin("rectangle");
+    t.found.profiles[0].outer.signed_area *= 1.001;
+    assert_eq!(t.kinds(), [Kind::Area]);
+
+    let mut t = twin("slotted-plate");
+    t.found.profiles[0].holes[0].signed_area *= 1.01;
+    assert_eq!(t.kinds(), [Kind::Area]);
+}
+
+#[test]
+fn a_loop_reversed_is_named_by_its_orientation() {
+    // Edges and area turned together: only the role is wrong.
+    let mut t = twin("slotted-plate");
+    let outer = &mut t.found.profiles[0].outer;
+    turned_round(outer);
+    outer.signed_area = -outer.signed_area;
+    assert_eq!(t.kinds(), [Kind::Orientation]);
+
+    // Edges turned and the area left: the area is wrong as well.
+    let mut t = twin("slotted-plate");
+    turned_round(&mut t.found.profiles[0].holes[0]);
+    assert_eq!(t.kinds(), [Kind::Area, Kind::Orientation]);
+}
+
+#[test]
+fn a_hole_moved_to_the_wrong_parent_is_named() {
+    // The plate's hole given to the island, which lies inside it: the hole
+    // is outside the island, and the island is inside a plate with no hole.
+    let mut t = twin("plate-island");
+    assert_eq!(t.found.profiles.len(), 2);
+    let holes = std::mem::take(&mut t.found.profiles[0].holes);
+    t.found.profiles[1].holes = holes;
+    assert_eq!(t.kinds(), [Kind::Containment, Kind::Containment]);
+
+    // The island listed as a second hole of the plate: inside, but turning
+    // the wrong way for a hole.
+    let mut t = twin("plate-island");
+    let island = t.found.profiles.pop().unwrap().outer;
+    t.found.profiles[0].holes.push(island);
+    assert_eq!(t.kinds(), [Kind::Orientation]);
+}
+
+#[test]
+fn an_edge_dropped_or_repeated_is_named() {
+    let mut t = twin("dangling-edge");
+    t.found.dangling.clear();
+    assert_eq!(t.kinds(), [Kind::Uncovered]);
+
+    let mut t = twin("dangling-edge");
+    let dangling = t.found.dangling.clone();
+    t.found.open_chains.push(dangling);
+    assert_eq!(t.kinds(), [Kind::Repeated]);
+
+    // Out of a loop: it no longer closes, and the edge is in no list.
+    let mut t = twin("rectangle");
+    t.found.profiles[0].outer.edges.pop();
+    assert_eq!(t.kinds(), [Kind::NotChained, Kind::Uncovered]);
+
+    let mut t = twin("rectangle");
+    let again = t.found.profiles[0].outer.edges[0];
+    t.found.profiles[0].outer.edges.push(again);
+    assert_eq!(t.kinds(), [Kind::NotChained, Kind::Repeated]);
+}
+
+#[test]
+fn a_stale_id_or_a_wrong_kind_is_named() {
+    let mut t = twin("rectangle");
+    t.found.profiles[0].outer.edges[1].entity = EntityId(9999);
+    assert_eq!(t.kinds(), [Kind::NotAnEdge, Kind::Uncovered]);
+
+    let mut t = twin("rectangle");
+    let point = t
+        .sketch
+        .entities()
+        .find_map(|(id, e)| matches!(e, Entity::Point { .. }).then_some(id))
+        .unwrap();
+    t.found.profiles[0].outer.edges[2].entity = point;
+    assert_eq!(t.kinds(), [Kind::NotAnEdge, Kind::Uncovered]);
+
+    let mut t = twin("dangling-edge");
+    t.found.open_chains.push(vec![EntityId(9999)]);
+    assert_eq!(t.kinds(), [Kind::NotAnEdge]);
+}
+
+#[test]
+fn an_empty_loop_is_named_and_never_panics() {
+    let mut t = twin("rectangle");
+    t.found.profiles[0].holes.push(Loop {
+        edges: Vec::new(),
+        signed_area: -1.0,
+        joins: Vec::new(),
+    });
+    assert_eq!(t.kinds(), [Kind::NotChained]);
+}
+
+#[test]
+fn values_moved_after_extraction_are_named() {
+    // A corner moved: the area is no longer the reported one.
+    let mut t = twin("rectangle");
+    let corner = t.ends(t.found.profiles[0].outer.edges[0].entity)[1];
+    t.shift(corner, Coordinate::X, 10.0);
+    assert_eq!(t.kinds(), [Kind::Area]);
+
+    // One end of a joining coincident moved away: the join is open and the
+    // loop's area is not compared.
+    let mut t = twin("slotted-plate-coincident");
+    let hole = &t.found.profiles[0].holes[0];
+    let lines: Vec<EntityId> = hole
+        .edges
+        .iter()
+        .map(|e| e.entity)
+        .filter(|e| matches!(t.sketch.entity(*e), Some(Entity::Line { .. })))
+        .collect();
+    let end = t.ends(lines[0])[0];
+    t.shift(end, Coordinate::X, 5.0);
+    assert_eq!(t.kinds(), [Kind::OpenJoin]);
+
+    // An arc's centre moved off its bisector: its ends are at two radii.
+    let mut t = twin("slotted-plate");
+    let arc = t.found.profiles[0].holes[0]
+        .edges
+        .iter()
+        .map(|e| e.entity)
+        .find(|e| matches!(t.sketch.entity(*e), Some(Entity::Arc { .. })))
+        .unwrap();
+    let centre = t.ends(arc)[2];
+    t.shift(centre, Coordinate::X, 1.0);
+    t.shift(centre, Coordinate::Y, 0.7);
+    assert_eq!(t.kinds(), [Kind::ArcOffRadius]);
+}
+
+#[test]
+fn a_coordinate_the_values_lack_is_listed_never_judged() {
+    for bad in [None, Some(f64::NAN), Some(f64::INFINITY)] {
+        let mut t = twin("rectangle");
+        let corner = t.ends(t.found.profiles[0].outer.edges[0].entity)[0];
+        let key = (corner.id(), Coordinate::Y);
+        match bad {
+            None => {
+                t.values.remove(&key);
+            }
+            Some(v) => {
+                t.values.insert(key, v);
+            }
+        }
+        let report = check_profiles(&t.sketch, &t.values, &t.found);
+        assert_eq!(
+            report.missing,
+            [Missing {
+                id: corner.id(),
+                coordinate: Some(Coordinate::Y)
+            }]
+        );
+        assert!(report.violations.is_empty(), "{report:#?}");
     }
 }
