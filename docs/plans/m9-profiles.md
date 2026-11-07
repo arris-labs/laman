@@ -51,8 +51,10 @@ left out.
 `½∮(x dy − y dx)` in loop order, on coordinates translated to the loop's
 first join and scaled by an exact power of two. A line gives its cross
 product; an arc gives chord plus segment `r²(θ − sin θ)/2`, θ the
-DATA-MODEL sweep, negated when reversed. A small-θ form takes over below a
-threshold measured by step 2. Orientation is the scaled sum's sign. The area
+DATA-MODEL sweep, negated when reversed. Below a sweep of 1 rad, `θ − sin θ`
+is its eight-term Taylor series (*Settled* in step 2: measured against a
+double-double reference, the series is within 1.6 ulps below 1, the direct
+form within 1.2 from 1 up and 33 ulps at 0.25). Orientation is the scaled sum's sign. The area
 saturates at ±`f64::MAX`, never non-finite. Containment: the winding number
 at the midpoint of the inner loop's first edge, from each edge's subtended
 angle (`libm::atan2`), plus 2π for an arc when the point lies between its
@@ -93,7 +95,7 @@ algorithm whose robustness or bound is established here.
 - [x] Step 1 **[2]** — ADR-0012 (D1–D4). Close ROADMAP §C3's join ⚠ OPEN.
   GLOSSARY: *Join* points at the ADR; add *Profile*, *Loop*, *Edge*,
   *Open chain*, *Dangling edge*, *Branched*.
-- [ ] Step 2 **[3]** — The D3 kernel on directed edge lists: area, orientation
+- [x] Step 2 **[3]** — The D3 kernel on directed edge lists: area, orientation
   and winding number. Tests: closed forms for a rectangle, a slot, a circle, a
   D shape, and an arc at sweeps near 0, π and 2π. Scales 1e-6 to 1e6,
   translations up to 1e4 times the scale, magnitudes near 1e±300, and
@@ -148,8 +150,8 @@ size. Step 8 passes, 1e±300 included. C1 digests are unchanged.
 
 ## Open questions
 
-- ⚠ OPEN: the small-θ threshold for the segment area. The agent measures it
-  in step 2 and records it in D3.
+- *Settled* (step 2): the small-θ threshold for the segment area is 1 rad,
+  measured and recorded in D3 (`SMALL_SWEEP` in `laman::profile`'s kernel).
 - ⚠ OPEN: whether a branched core is reported (D2, this plan) or split into
   faces. The agent picked reporting, because the roadmap names self-touching
   loops as reported, and faces need angular ordering of curved edges at a
