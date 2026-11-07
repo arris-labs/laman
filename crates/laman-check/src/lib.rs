@@ -27,6 +27,15 @@
 //! ```
 #![forbid(unsafe_code)]
 
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "check_profiles calls it (plans/m10-profile-check step 3)"
+    )
+)]
+mod area;
+
 use laman::model::tolerance::{ANGLE, Tolerances};
 use laman::model::{
     Constraint, ConstraintId, ConstraintKind, Contact, Coordinate, Coordinates, Entity, EntityId,

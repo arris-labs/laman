@@ -64,7 +64,8 @@ The allowance gets a rounding term only if step 2 measures one past it,
 and then a named constant in `laman-check` whose comment gives that
 measurement. Sector cancellation on a near-straight arc of radius `R` is
 of order `ε·R·chord`. Radii enter the extent `L` is scaled by (ADR-0003),
-so `L·P` is expected to cover it; step 2 tests this.
+so `L·P` is expected to cover it; step 2 tests this. (Settled by step
+2: a rounding term is needed, see *Addendum*.)
 
 `|measured − reported|` above the allowance is `Area`. A measured area
 within the allowance of 0 has no sign: orientation is undecided, never a
@@ -130,3 +131,28 @@ plate, is `Containment`.
   at 1e±300; the second is zero for a loop of zero area, and arbitrary
   where a large outer minus holes is small. Rejected for one scaled by the
   sketch's own tolerance (ADR-0003).
+
+## Addendum: the rounding term (2026-11-08, `plans/m10-profile-check` step 2)
+
+Measured against closed forms in `laman-check`'s `area` module. The
+allowance is `L·P + ½·D·Σg + ROUNDING·M`.
+
+- `L` is not the loop's scale. A component is the parameters linked by shared
+  equations (ADR-0003), so on a loop no equation reads each edge is measured
+  alone, and `L` is its longest edge's tolerance. The expectation in D2
+  holds for the near-straight arc all the same: an arc's own extent counts
+  its centre. Worst error 1.6e-6 of `L·P`, radii 1e3 to 1e15, the arc up to
+  1e6 from the origin.
+- It fails on a long loop. Each cross product rounds by `ε` of its two
+  products, of order `D²` however thin its triangle, so the error grows
+  with the edge count and `L·P` does not. A regular polygon of
+  unconstrained lines: 2.8e-3 of `L·P` at 500 edges, 2.2 at 50 000.
+- So the allowance adds `ROUNDING = 4ε` times the sum's magnitude `M`:
+  half the sizes of every product and partial sum the measure accumulates.
+  About `ε·M` bounds one measure to first order; twice covers extraction's
+  sum, whose terms are no larger, and twice again the second order and the
+  two frames' exponents. Worst error measured: 0.070 of `ROUNDING·M` (the
+  near-straight arc), 1.8e-4 on the 50 000-edge polygon.
+- The term is relative to the measure's own sums, so it scales with the
+  sketch as `L` does and holds at 1e±300. It loosens the check by about
+  `4ε·n` of the area on an `n`-edge loop: 4e-13 at 500 edges.

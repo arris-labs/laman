@@ -368,8 +368,9 @@ _Avoid_: validator, verifier
 
 **Allowance**:
 How far the profile check's area may differ from extraction's and still
-agree, `L·P + ½·D·Σg` (loop tolerance, perimeter, extent, join
-separations). An area within it of 0 has an undecided sign (ADR-0013 D2).
+agree, `L·P + ½·D·Σg + ROUNDING·M` (loop tolerance, perimeter, extent,
+join separations, and the rounding of the area sum's magnitude). An area
+within it of 0 has an undecided sign (ADR-0013 D2 and its addendum).
 _Avoid_: slack, margin (a margin is ADR-0006's, for branches)
 
 **Fixture**:

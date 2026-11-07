@@ -34,10 +34,11 @@ violate still closes its loop (ADR-0012 D1): `profiles` measures from its
 first join, the check from elsewhere, and neither is wrong. Likewise an arc
 whose ends sit at different radii, since extraction reads `r` from the start.
 Such a loop gets `OpenJoin` or `ArcOffRadius`, and its area is not compared.
-Below that threshold, the allowance is `L·P + ½·D·Σg`: `L` the loop's largest
-`Tolerances::at` entity tolerance, `P` the perimeter, `D` the extent, `g` each
-join's separation. Any rounding term is a named constant, measured by step 2. Under the
-allowance the sign is undecided, not a violation.
+Below that threshold, the allowance is `L·P + ½·D·Σg + ROUNDING·M`: `L` the
+loop's largest `Tolerances::at` entity tolerance, `P` the perimeter, `D` the
+extent, `g` each join's separation, `M` the area sum's magnitude, `ROUNDING`
+`4ε` (step 2, ADR-0013 *Addendum*). Under the allowance the sign is
+undecided, not a violation.
 
 **D3. Extremes.** Compared in the frame, never in caller units: a reported
 `±f64::MAX` agrees with a measure at or past it of the same sign, and a
@@ -83,7 +84,7 @@ established here, or a rule the design leaves open.
 - [x] Step 1 **[3]** — ADR-0013: D1 to D4, with the alternatives (turning
   number, flattening to a polygon, comparing such loops at extraction's
   origin). Its glossary entries in the same commit.
-- [ ] Step 2 **[3]** — The measure in `laman-check`, private: frame, area,
+- [x] Step 2 **[3]** — The measure in `laman-check`, private: frame, area,
   join separations. Held to closed forms (rectangle, slot, circle, a near-straight
   arc of huge radius, a sweep past π), at 1e±300, and on a small loop far from
   the origin. Fixes the rounding term, if one is needed.
@@ -149,5 +150,9 @@ established here, or a rule the design leaves open.
   correct extraction would fail its check; the signed count costs the same
   ray. Also settled there: an arc's sector reads `r² = |s − c|·|e − c|`, and
   a non-finite coordinate is listed in `missing` like an absent one (D3).
-- ⚠ OPEN: the rounding term in D2, if one is needed at all. The agent, by
-  step 2, from the near-straight arc and the 500-edge loop.
+- Settled (step 2, ADR-0013 *Addendum*): a rounding term is needed, though
+  not for the near-straight arc (1.6e-6 of `L·P`, the arc's own extent
+  holding its centre). On a loop no equation reads, `L` is the longest
+  edge's, and cross-product rounding grows with the edge count: 2.8e-3 of
+  `L·P` at 500 edges, 2.2 at 50 000. `ROUNDING·M`, `4ε` times the sum's
+  magnitude, covers both with the worst at 0.070 of it.
