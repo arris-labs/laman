@@ -91,7 +91,7 @@ established here, or a rule the design leaves open.
 - [x] Step 3 **[2]** — `check_profiles` and `ProfileReport` (D5) without
   containment: join walk, closure, coverage, area, orientation. `c3.rs` runs it
   on every fixture at solved and expected coordinates, slot grids included.
-- [ ] Step 4 **[2]** — Containment (D4): rays against lines and arcs, the
+- [x] Step 4 **[2]** — Containment (D4): rays against lines and arcs, the
   half-open rule at vertices, the undecided band. `plate-island` and the nested
   property shapes held.
 - [ ] Step 5 **[2]** — Broken twins: a table of mutations over the fixtures

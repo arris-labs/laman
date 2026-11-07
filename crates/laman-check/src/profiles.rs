@@ -8,6 +8,7 @@
 
 use super::Missing;
 use super::area::{Measured, Piece, Shape, measure};
+use super::contain::{Seg, Standing, standing};
 use laman::model::profile::{Loop, Profiles, Traversal};
 use laman::model::tolerance::Tolerances;
 use laman::model::{Constraint, Coordinate, Coordinates, Entity, EntityId, Point, Sketch};
@@ -149,28 +150,16 @@ pub fn check_profiles(sketch: &Sketch, values: &Coordinates, found: &Profiles) -
     let tolerances = Tolerances::at(sketch, values);
     let classes = Classes::of(sketch);
     let mut report = ProfileReport::default();
+    let mut plates = Vec::with_capacity(found.profiles.len());
     for profile in &found.profiles {
-        check_loop(
-            sketch,
-            values,
-            &tolerances,
-            &classes,
-            &profile.outer,
-            true,
-            &mut report,
-        );
-        for hole in &profile.holes {
-            check_loop(
-                sketch,
-                values,
-                &tolerances,
-                &classes,
-                hole,
-                false,
-                &mut report,
-            );
-        }
+        let mut check = |l: &Loop, outer: bool| {
+            check_loop(sketch, values, &tolerances, &classes, l, outer, &mut report)
+        };
+        let outer = check(&profile.outer, true);
+        let holes = profile.holes.iter().map(|h| check(h, false)).collect();
+        plates.push(Plate { outer, holes });
     }
+    containment(&plates, &mut report);
     coverage(sketch, found, &mut report);
     report.missing.sort();
     report.missing.dedup();
@@ -298,14 +287,23 @@ fn chained(classes: &Classes, edges: &[(Traversal, Edge)]) -> bool {
 }
 
 /// The loop's pieces or circle at `values`, or what it lacks.
-fn shape(values: &Coordinates, edges: &[(Traversal, Edge)]) -> Result<Measured, Missing> {
+fn shape(
+    values: &Coordinates,
+    edges: &[(Traversal, Edge)],
+) -> Result<(Measured, Vec<Seg>), Missing> {
     if let [(t, Edge::Circle { c })] = edges {
-        at(values, *c)?;
+        let c = at(values, *c)?;
         let r = value(values, t.entity, Coordinate::R)?;
-        return Ok(measure(Shape::Circle {
+        let m = measure(Shape::Circle {
             r,
             reversed: t.reversed,
-        }));
+        });
+        let seg = Seg::Circle {
+            c,
+            r,
+            reversed: t.reversed,
+        };
+        return Ok((m, vec![seg]));
     }
     let mut pieces = Vec::with_capacity(edges.len());
     for (t, e) in edges {
@@ -333,7 +331,14 @@ fn shape(values: &Coordinates, edges: &[(Traversal, Edge)]) -> Result<Measured, 
             }
         });
     }
-    Ok(measure(Shape::Pieces(&pieces)))
+    let segs = pieces
+        .iter()
+        .map(|p| match *p {
+            Piece::Line { from, to } => Seg::Line { from, to },
+            Piece::Arc { c, s, e, reversed } => Seg::Arc { c, s, e, reversed },
+        })
+        .collect();
+    Ok((measure(Shape::Pieces(&pieces)), segs))
 }
 
 /// `a` as an area in the caller's units, saturated to `±f64::MAX`.
@@ -370,7 +375,7 @@ fn check_loop(
     l: &Loop,
     outer: bool,
     report: &mut ProfileReport,
-) {
+) -> Option<Bound> {
     let first = l.edges.first().map(|t| t.entity);
     let edges = match resolve(sketch, l) {
         Ok(r) => r.edges,
@@ -380,25 +385,30 @@ fn check_loop(
                     .violations
                     .push(ProfileViolation::NotAnEdge { entity });
             }
-            return;
+            return None;
         }
     };
     if !chained(classes, &edges) {
         report
             .violations
             .push(ProfileViolation::NotChained { first });
-        return;
+        return None;
     }
-    let m = match shape(values, &edges) {
+    let (m, segs) = match shape(values, &edges) {
         Ok(m) => m,
         Err(gap) => {
             report.missing.push(gap);
-            return;
+            return None;
         }
     };
     let tolerance = edges
         .iter()
         .fold(0.0_f64, |t, (e, _)| t.max(tolerances.entity(e.entity)));
+    let bound = Some(Bound {
+        first,
+        tolerance,
+        segs,
+    });
     let slack = m.length(tolerance);
     let mut skipped = false;
     if m.gaps.iter().any(|g| *g > slack) {
@@ -412,7 +422,7 @@ fn check_loop(
         skipped = true;
     }
     if skipped {
-        return;
+        return bound;
     }
     let allowance = m.allowance(tolerance);
     if !agrees(&m, l.signed_area, allowance) {
@@ -427,6 +437,102 @@ fn check_loop(
         report
             .violations
             .push(ProfileViolation::Orientation { first });
+    }
+    bound
+}
+
+/// A loop the check could measure, as containment needs it.
+struct Bound {
+    first: Option<EntityId>,
+    /// The loop's largest entity tolerance, in the caller's units.
+    tolerance: f64,
+    segs: Vec<Seg>,
+}
+
+/// A profile's loops that could be measured, `None` for one that could not.
+struct Plate {
+    outer: Option<Bound>,
+    holes: Vec<Option<Bound>>,
+}
+
+/// A boundary in the one frame all of containment runs in.
+struct Framed {
+    first: Option<EntityId>,
+    tolerance: f64,
+    segs: Vec<Seg>,
+    probe: Option<(f64, f64)>,
+}
+
+fn framed(b: &Bound, k: i32) -> Framed {
+    let segs: Vec<Seg> = b.segs.iter().map(|s| s.scaled(k)).collect();
+    Framed {
+        first: b.first,
+        tolerance: libm::scalbn(b.tolerance, k),
+        probe: segs.first().map(Seg::midpoint),
+        segs,
+    }
+}
+
+/// Each hole inside its own profile's outer loop, and each profile's outer
+/// loop outside every other profile's plate (ADR-0013 D4). A probe within a
+/// boundary's tolerance of it is undecided.
+fn containment(plates: &[Plate], report: &mut ProfileReport) {
+    let largest = plates
+        .iter()
+        .flat_map(|p| p.outer.iter().chain(p.holes.iter().flatten()))
+        .flat_map(|b| &b.segs)
+        .fold(0.0_f64, |m, s| m.max(s.largest()));
+    let k = if largest.is_finite() && largest > 0.0 {
+        -libm::frexp(largest).1
+    } else {
+        0
+    };
+    let frame: Vec<(Option<Framed>, Vec<Option<Framed>>)> = plates
+        .iter()
+        .map(|p| {
+            (
+                p.outer.as_ref().map(|b| framed(b, k)),
+                p.holes
+                    .iter()
+                    .map(|h| h.as_ref().map(|b| framed(b, k)))
+                    .collect(),
+            )
+        })
+        .collect();
+    let against = |b: &Framed, probe| standing(&b.segs, b.tolerance, probe);
+    for (outer, holes) in &frame {
+        let Some(outer) = outer else { continue };
+        for hole in holes.iter().flatten() {
+            if let Some(probe) = hole.probe
+                && against(outer, probe) == Standing::Outside
+            {
+                report
+                    .violations
+                    .push(ProfileViolation::Containment { first: hole.first });
+            }
+        }
+    }
+    for (i, (outer, _)) in frame.iter().enumerate() {
+        let Some((outer, Some(probe))) = outer.as_ref().map(|o| (o, o.probe)) else {
+            continue;
+        };
+        let inside_other = frame.iter().enumerate().any(|(j, (other, holes))| {
+            let Some(other) = other else { return false };
+            if i == j || against(other, probe) != Standing::Inside {
+                return false;
+            }
+            // Inside the plate unless inside a hole; a hole not measured or
+            // too near leaves it undecided.
+            holes.iter().all(|h| {
+                h.as_ref()
+                    .is_some_and(|h| against(h, probe) == Standing::Outside)
+            })
+        });
+        if inside_other {
+            report
+                .violations
+                .push(ProfileViolation::Containment { first: outer.first });
+        }
     }
 }
 

@@ -261,6 +261,9 @@ fn check(chains: &[Chain], t: &Transform) -> Result<(), TestCaseError> {
     prop_assert!(found.branched.is_empty());
     prop_assert!(found.degenerate.is_empty());
     prop_assert!(found.unjoined.is_empty());
+    // The checker's own measure, nesting included, agrees with the report.
+    let report = laman_check::check_profiles(&sk, &sk.coordinates(), &found);
+    prop_assert!(report.is_clean(), "{report:#?}");
 
     let s2 = t.scale * t.scale;
     let mut at = found.profiles.iter();

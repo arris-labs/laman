@@ -28,6 +28,7 @@
 #![forbid(unsafe_code)]
 
 mod area;
+mod contain;
 mod profiles;
 
 pub use profiles::{ProfileReport, ProfileViolation, check_profiles};
