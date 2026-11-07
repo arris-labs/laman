@@ -90,6 +90,25 @@ the budget per try (a frame's cost is its tries, up to 9, so no per-frame number
 holds; the frames after one take 2.4 ms; it weakens what M7 wrote, on
 purpose), the stop rule, and why rigid bodies lost.
 
+*Settled by step 5:* one profile, a scratch copy with timers (worker `0 2 LM
+drag`, medians over 12 samples, 5.0 ms a frame; 5.0 to 5.6 worst of 30 with
+steps 1 to 3 in). Split in ms: pursuit 2.3; the head and stages' descents 0.4
+and cutting the parts 0.15; the first factorization (`stageable`, before the
+pursuit) 0.56; `Tolerances::new` per `to` 0.42; the analysis 1.0, of it
+`freedom_on` 0.68 (a second factorization 0.5 and the per-entity ranks 0.13),
+the satisfied loop 0.18, redundancy 0.08, degeneracy 0.04; the branch
+observation 0.06; placing and cloning the solution 0.03. The first suspect is
+confirmed (`freedom_on` misses `StagedRanks` and factorizes again) and **stays**:
+the pursuit moves the goal's coordinates, so the Jacobian at the final point is
+another matrix, and its R and null basis are what the freedom reports; reusing
+the pre-pursuit entry would change bits. Moving `stageable` to after the pursuit
+would save one factorization (about 0.5) but changes which path a staged result
+takes in the edge case and the work wasted when it fails: not taken, and by
+itself it would not bring the cell to 4. `Tolerances::new` re-finds components
+(0.13) and re-frames them (0.22, the frame reads the stored radii and arcs, so
+it moves with every placed frame); caching it saves under 0.15 for a model
+module's change: not taken. Nothing outside the pursuit is removed.
+
 No public type or signature changes. `GLOSSARY.md`'s **Try** and **Pursuit** are
 in. Digests: D2 cannot move them; D1 and D3 may, and a move is re-blessed under
 `fixtures:` with the reason (C2's *Accept* allows it).
@@ -116,7 +135,7 @@ robustness, convergence or bound has to be established here.
 - [x] Step 4 **[2]** — D4: the verdict on the worst sample, tries and time per
   try printed, the `bisect-deep` cell, failing if its frame is not refused at
   every halving.
-- [ ] Step 5 **[2]** — Re-profile the rectangle drag by instrumentation in a
+- [x] Step 5 **[2]** — Re-profile the rectangle drag by instrumentation in a
   scratch copy, record the split here, and remove what it confirms outside the
   pursuit. First suspect: `freedom_on` factorizing again after the pursuit
   (1 ms of `conclude`). One pass, no second profile.
