@@ -15,12 +15,17 @@
 //! shortest text that reads back to the same bits) and the checker's report
 //! at the checked coordinates ([`of_run`]); a solved run adds the
 //! `Solution`: coordinates, status and every diagnostic ([`of_solution`]).
+//! A profile run adds the coordinates it was extracted at (or the solved
+//! run's solution), the extracted [`Profiles`] and the profile check's report
+//! ([`of_profiles`], [`of_solved_profiles`]); [`of_run`] and [`of_solution`]
+//! are untouched by them, so no digest of a sketch without profiles moves.
 
 use crate::fixture::coordinate_name;
 use crate::json::sketch_to_string;
-use laman::model::Sketch;
+use laman::model::profile::{Loop, Profiles};
+use laman::model::{Coordinates, Sketch};
 use laman::solution::{ConstraintRef, EntityRef, FlipSubject, Origin, Solution};
-use laman_check::{Degeneracy, Report, Source, Subject};
+use laman_check::{Degeneracy, ProfileReport, ProfileViolation, Report, Source, Subject};
 use sha2::{Digest as _, Sha256};
 use std::fmt;
 
@@ -217,6 +222,198 @@ pub fn of_solution(sketch: &Sketch, solution: &Solution, report: &Report) -> Dig
     let mut b = Builder::new();
     feed_solution(&mut b, sketch, solution, report);
     b.finish()
+}
+
+/// The digest of a profile run at given coordinates: the sketch, the
+/// coordinates in id order, what extraction found there and the profile
+/// check's report. Any difference in a covered bit changes it.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman::profile::profiles;
+/// use laman_check::check_profiles;
+/// use laman_debug::digest::of_profiles;
+///
+/// let mut sk = Sketch::new();
+/// let c = sk.point(0.0, 0.0)?;
+/// sk.circle(c, 2.0)?;
+/// let values = sk.coordinates();
+/// let found = profiles(&sk, &values).unwrap_or_default();
+/// let report = check_profiles(&sk, &values, &found);
+/// assert_eq!(
+///     of_profiles(&sk, &values, &found, &report),
+///     of_profiles(&sk, &values, &found, &report)
+/// );
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_profiles(
+    sketch: &Sketch,
+    values: &Coordinates,
+    found: &Profiles,
+    report: &ProfileReport,
+) -> Digest {
+    let mut b = Builder::new();
+    b.text(&sketch_to_string(sketch));
+    b.u64(len_of(values.len()));
+    for (&(id, c), &value) in values {
+        b.u32(id.0);
+        b.text(coordinate_name(c));
+        b.float(value);
+    }
+    feed_profiles(&mut b, found, report);
+    b.finish()
+}
+
+/// The digest of a solved profile run: what [`of_solution`] covers (the
+/// sketch, the solution and the checker's `report`), then the profiles
+/// extracted at the solution and the profile check's report.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman::profile::profiles;
+/// use laman::solution::SolverOptions;
+/// use laman_check::{check, check_profiles};
+/// use laman_debug::digest::of_solved_profiles;
+///
+/// let mut sk = Sketch::new();
+/// let c = sk.point_fixed(0.0, 0.0)?;
+/// sk.circle(c, 2.0)?;
+/// let solution = sk.solve(&SolverOptions::default());
+/// let report = check(&sk, &solution.coordinates);
+/// let found = profiles(&sk, &solution.coordinates).unwrap_or_default();
+/// let profile_report = check_profiles(&sk, &solution.coordinates, &found);
+/// let a = of_solved_profiles(&sk, &solution, &report, &found, &profile_report);
+/// assert_eq!(a, of_solved_profiles(&sk, &solution, &report, &found, &profile_report));
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_solved_profiles(
+    sketch: &Sketch,
+    solution: &Solution,
+    report: &Report,
+    found: &Profiles,
+    profile_report: &ProfileReport,
+) -> Digest {
+    let mut b = Builder::new();
+    feed_solution(&mut b, sketch, solution, report);
+    feed_profiles(&mut b, found, profile_report);
+    b.finish()
+}
+
+fn feed_profiles(b: &mut Builder, found: &Profiles, report: &ProfileReport) {
+    b.u64(len_of(found.profiles.len()));
+    for p in &found.profiles {
+        feed_loop(b, &p.outer);
+        b.u64(len_of(p.holes.len()));
+        for hole in &p.holes {
+            feed_loop(b, hole);
+        }
+        b.float(p.net_area);
+    }
+    b.u64(len_of(found.open_chains.len()));
+    for chain in &found.open_chains {
+        b.u64(len_of(chain.len()));
+        for e in chain {
+            b.u32(e.0);
+        }
+    }
+    b.u64(len_of(found.dangling.len()));
+    for e in &found.dangling {
+        b.u32(e.0);
+    }
+    b.u64(len_of(found.branched.len()));
+    for core in &found.branched {
+        b.u64(len_of(core.edges.len()));
+        for e in &core.edges {
+            b.u32(e.0);
+        }
+        b.u64(len_of(core.joins.len()));
+        for j in &core.joins {
+            b.u32(j.0);
+        }
+    }
+    b.u64(len_of(found.degenerate.len()));
+    for e in &found.degenerate {
+        b.u32(e.0);
+    }
+    b.u64(len_of(found.unjoined.len()));
+    for u in &found.unjoined {
+        b.u32(u.first.0);
+        b.u32(u.second.0);
+    }
+
+    b.u64(len_of(report.violations.len()));
+    for v in &report.violations {
+        // A loop's first edge: a flag byte, then the id when it has one.
+        let first = |b: &mut Builder, first: &Option<laman::model::EntityId>| match first {
+            None => b.optional_text(None),
+            Some(id) => b.optional_text(Some(&id.0.to_string())),
+        };
+        match v {
+            ProfileViolation::Area {
+                first: f,
+                measured,
+                reported,
+            } => {
+                b.text("area");
+                first(b, f);
+                b.float(*measured);
+                b.float(*reported);
+            }
+            ProfileViolation::Orientation { first: f } => {
+                b.text("orientation");
+                first(b, f);
+            }
+            ProfileViolation::NotChained { first: f } => {
+                b.text("not_chained");
+                first(b, f);
+            }
+            ProfileViolation::OpenJoin { first: f } => {
+                b.text("open_join");
+                first(b, f);
+            }
+            ProfileViolation::ArcOffRadius { first: f } => {
+                b.text("arc_off_radius");
+                first(b, f);
+            }
+            ProfileViolation::NotAnEdge { entity } => {
+                b.text("not_an_edge");
+                b.u32(entity.0);
+            }
+            ProfileViolation::Repeated { entity } => {
+                b.text("repeated");
+                b.u32(entity.0);
+            }
+            ProfileViolation::Uncovered { entity } => {
+                b.text("uncovered");
+                b.u32(entity.0);
+            }
+            ProfileViolation::Containment { first: f } => {
+                b.text("containment");
+                first(b, f);
+            }
+        }
+    }
+    b.u64(len_of(report.missing.len()));
+    for m in &report.missing {
+        b.u32(m.id.0);
+        match m.coordinate {
+            None => b.optional_text(None),
+            Some(c) => b.optional_text(Some(coordinate_name(c))),
+        }
+    }
+}
+
+fn feed_loop(b: &mut Builder, l: &Loop) {
+    b.u64(len_of(l.edges.len()));
+    for t in &l.edges {
+        b.u32(t.entity.0);
+        b.u32(u32::from(t.reversed));
+    }
+    b.float(l.signed_area);
+    b.u64(len_of(l.joins.len()));
+    for j in &l.joins {
+        b.u32(j.0);
+    }
 }
 
 /// The digest of one drag step: the step's index (1-based) and the bits of

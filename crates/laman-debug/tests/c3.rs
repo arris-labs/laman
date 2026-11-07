@@ -64,6 +64,7 @@ fn every_directory_is_listed() {
     let mut on_disk: Vec<String> = std::fs::read_dir(dir(""))
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name != "digests.txt")
         .collect();
     on_disk.sort();
     let mut listed: Vec<&str> = FIXTURES.to_vec();
@@ -110,6 +111,26 @@ fn each_fixture_solves_checks_and_extracts_its_profiles() {
         );
         // The closed-form coordinates give the same profiles.
         extract(name, &fixture.sketch, &expected_values(&fixture), &fixture);
+    }
+}
+
+/// The runs `determinism.rs` blesses: each fixture solved by each algorithm,
+/// both checkers clean (the default algorithm is held above).
+#[test]
+fn each_algorithm_solves_every_fixture_to_clean_profiles() {
+    use laman::solution::Algorithm;
+    for name in FIXTURES {
+        let fixture = load(name);
+        for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+            let mut options = SolverOptions::default();
+            options.algorithm = algorithm;
+            let solved = solve_run(&fixture, &options);
+            assert!(solved.report.is_clean(), "{name} {algorithm:?}");
+            let coordinates = &solved.solution.coordinates;
+            let found = profiles(&fixture.sketch, coordinates).unwrap();
+            let report = check_profiles(&fixture.sketch, coordinates, &found);
+            assert!(report.is_clean(), "{name} {algorithm:?}: {report:#?}");
+        }
     }
 }
 

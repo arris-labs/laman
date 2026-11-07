@@ -103,7 +103,7 @@ established here, or a rule the design leaves open.
   shrunk to a fixture under `regression/`.
 - [x] Step 7 **[2]** — `profiles_sketch` fuzz target: the check on found and
   on mutated `Profiles`, never a panic, and clean wherever `check` is clean.
-- [ ] Step 8 **[2]** — Digest (D6): `of_profiles`, `of_solved_profiles`,
+- [x] Step 8 **[2]** — Digest (D6): `of_profiles`, `of_solved_profiles`,
   `c3/digests.txt` per fixture (run, `solved-lm-`, `solved-dogleg-`) and for one
   slot grid, blessed after `c3.rs` holds the same runs. `tools/digest-wasm.sh`
   green; `c1/digests.txt` has no diff.
