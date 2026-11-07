@@ -45,6 +45,9 @@ becomes a plan; a clear "no, because…" is a successful outcome.
    section, add the agreed glossary entries to `GLOSSARY.md`, and ask the
    next round until *Later* is empty. The file is the record, the reply is
    the conversation.
+7. Commit the file when it is written and again when it is decided
+   (`docs(idea): <slug> …`; prose only, so the hook skips the gate): `/plan`
+   deletes an absorbed idea trusting git to keep its options.
 
 The idea stays analysis: steps, checkboxes and file lists belong to
 `/plan`; an ADR is proposed here and written by the plan; code and design
