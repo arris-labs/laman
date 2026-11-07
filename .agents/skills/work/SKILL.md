@@ -93,7 +93,12 @@ miss); reporting after one step and waiting for another `/work` is a bug.
    the human.
 3. On each hand-back, check what landed: one commit per step of the
    batch, each naming `(plans/<slug> step N)`, every step ticked, `git
-   status` is clean.
+   status` is clean. Then read its surprises: a hand-back that widens a
+   tolerance, weakens an assertion (to `is_finite`, say), or lands an
+   acceptance item other than as the plan words it (a unit test for its
+   fixture) has **not landed**, however it is phrased ("may deserve a
+   note", "say if you want more"): a case that fails at the default is an
+   ignored regression fixture (`solver.md`), never a looser expectation.
    - A question only the human may answer: stop and relay it.
    - Not landed for any other reason: one fresh subagent one tier up (3
      stays 3) gets the steps that did not land (as its own batch under the
