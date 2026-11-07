@@ -400,3 +400,18 @@ fn framework_conflict_inconclusive_circuit() {
         assert_eq!(solution.diagnostics.conflicts[0].len(), 5, "{algorithm:?}");
     }
 }
+
+#[test]
+#[ignore = "coincident tangent contacts solve to 3e-5 where a shared point solves to 1e-11"]
+fn coincident_contact_drift() {
+    let f = load("coincident-contact-drift");
+    let solution = f.sketch.solve(&SolverOptions::default());
+    assert_eq!(solution.status, Status::FullyConstrained);
+    for (key, want) in &f.expected.coordinates {
+        let got = solution.coordinates[key];
+        assert!(
+            (got - want).abs() <= f.expected.tolerance,
+            "{key:?}: {got} vs {want}"
+        );
+    }
+}
