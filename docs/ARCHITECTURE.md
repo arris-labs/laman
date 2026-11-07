@@ -208,7 +208,8 @@ problem, sequential quadratic programming on the required equations
 the null basis `N` of the required Jacobian (ADR-0003's QR), the projected
 gradient `p = Nᵀ J_gᵀ g`, and the reduced Hessian `H = (J_g N)ᵀ(J_g N) +
 Nᵀ W N`, where `W = Σ λᵢ ∇²cᵢ` is the required curvature weighted by the
-least-squares multipliers `λ = −(J_rᵀ)⁺ J_gᵀ g`, read as a forward
+least-squares multipliers `λ = −(J_rᵀ)⁺ J_gᵀ g` (read from the pivoted QR,
+§Diagnose), read as a forward
 difference (step √eps) of the analytic Jacobian along each null vector.
 The step `N z`, `(H + μI) z = −p`, is of least norm within the null space;
 `μ` is LM's damping, adapted as above, times the larger of
@@ -435,6 +436,22 @@ sets and degeneracy ([ADR-0005](adr/0005-conflict-sets-by-certified-deletion.md)
   coordinates (a frame whose pursuit moved them misses the key and tests
   afresh). A component's reads are made where the component is, not on
   every lookup.
+- **The QR skips exact zeros and keeps its reflectors.** `Qr::new`, the
+  pivoted Householder factorization behind the rank and the null basis
+  (ADR-0003), applies a reflector only to the rows where its vector is
+  nonzero, skips a column whose dot with it is exactly 0, and recomputes a
+  column's norm only when a reflector changed it or the row just retired was
+  nonzero there. Every skipped term is an exact zero, so the pivots, R and
+  every bit (up to the sign of an exact zero) are the dense method's; this is not a sparse method. The
+  reflectors are kept, so `Q` applies without forming it.
+- **Multipliers come from the QR.** The pursuit's least-squares multipliers
+  `λ = −(Jᵀ)⁺ b` (`b = J_gᵀ g`) are read from a pivoted QR of the Jacobian's
+  unit rows, with `J P = Q R`: `b` is cut to its part in the range of `Jᵀ` by
+  taking out the null basis in hand, `R₁₁ᵀ y = (Pᵀ b)₁..r` is solved by
+  forward substitution and `λ = −Q [y; 0]`, the minimum-norm solution the
+  SVD gave. Each unit row is scaled back by its norm and mapped to its
+  equation; a zero row has multiplier 0, and on dependent rows the solution
+  is the minimum-norm one over the rows as scaled to unit length.
 - **Coordinates are dense inside a solve.** A solve and the analysis hold
   every sketch parameter's value in a `Dense` table (a shared layout and a
   vector) read through the `Values` trait, as the `Coordinates` map is. A
@@ -565,10 +582,9 @@ The redundancy pass takes the rank alone (`dof_only`: no null basis, no
 per-entity counts) and tests only the head's constraints (§Diagnose). Each of
 its ten steps, solve and diagnostics, takes 0.39–0.40 ms under both
 algorithms (§Frame budget), inside C1's 1 ms. At 500 entities the first
-drag step takes 5.0–15.8 ms after M8's set-up plan, over C2's 4 ms
-(rectangles 14–16 ms, where the remainder's goal phase is most of it; the slot grid
-5 ms, where it is not); what remains is the solve of the sketch's rows and the
-staged rank (§Frame budget).
+drag step takes about 5.9 ms on rectangles, where the remainder's goal phase
+is still the largest part, and about 4 ms on slot grids (§Frame budget); C2's
+*Accept* carries 6.0 ms for the rectangle drag.
 
 **Bisection.** A step whose solve flips a branch, or moves an arc's sweep
 past `MAX_SWEEP_STEP` (§Branches), is retried
@@ -914,25 +930,46 @@ the lone entities); and `freedom_on` re-factorizing a frame the pursuit moved
 (16.7 % of the slot drag, 7–8 % of the rectangle drag and the bisect). `Tolerances::build` and the per-part split are
 unscheduled: no edit misses 4 ms.
 
-**A's reach, restated (descent and pursuit split, instrumented, 2026-11-07).**
-Rigid bodies in the remainder reach the drags and the bisect only (every
-edit is DoF 0 with no remainder). The ceiling is the median with the pursuit
-free, that is median × (1 − pursuit share), LM:
+C2 after M8's pursuit plan (2026-11-07), same command and machine, three
+full runs of five samples a cell; the cell is its worst sample, then the
+worst across the three runs (LM / DogLeg, ms; a bisected cell is a frame's
+time divided by its tries, the unit of the budget, ADR-0011). The plan's
+changes: the pursuit's damping read against the goal's own scale (§Priorities),
+a QR that skips exact zeros and multipliers read from it (§Diagnose).
 
-| Cell (LM) | median / worst ms | pursuit | ceiling | what 4 ms needs of the pursuit |
-|---|---:|---:|---:|---|
-| rectangles 498 drag | 14.95 / 15.27 | 75.5 % | 3.7 ms | removing 73 % of the cell, 97 % of its pursuit |
-| slots 498 drag | 3.68 / 3.75 | 3.7 % | 3.5 ms | already under 4 ms |
-| slots 498 bisect | 7.92 / 8.10 | 15.5 % | 6.7 ms | removing 49 % of the cell, about three times its pursuit: not reachable |
+| cell (498/501 entities) | worst across runs |
+|---|---|
+| rectangles edit | 2.92 / 2.95 |
+| rectangles drag | 5.87 / 5.89 |
+| slots edit | 4.02 / 3.89 |
+| slots drag | 4.41 / 3.77 |
+| slots bisect, per try | 2.74 / 2.65 |
+| slots bisect-deep, per try | 4.23 / 3.98 |
+| triangles edit | 2.06 / 2.44 |
 
-So A alone can close the rectangle drag only by taking nearly all of its
-pursuit, and cannot close the bisect; the slot drag needs nothing more. The
-M8 step 5 figures (perf, pursuit 60 % of the rectangle drag, ceiling 5.8 ms)
-are superseded: perf is refused on this machine, so the two methods are not
-compared on one run, and the instrumented share is the one for this code.
-Nothing in the profile names a further source for the 500-entity edits; the
-rectangle drag and the bisect remain open, and whether they stay in C2's
-*Accept* is the human's question (docs/ROADMAP.md §C2, M8).
+Three cells touch 4 ms in single samples (slots edit LM, slots drag LM,
+bisect-deep LM): their medians are 3.2 to 3.8 ms (bisect-deep 3.7 to 4.3), so
+a noisy sample crosses the budget; they are accepted as noise. The rectangle
+drag is 5.3 to 5.9 ms and stays there: C2's *Accept* carries 6.0 ms for it
+(the worst across runs rounded up to the next 0.5 ms, ADR-0011). The bisect
+holds at 2 halvings and 2.4 to 2.7 ms a try; `bisect-deep`, a frame refused
+at every halving (9 tries), takes 3.7 to 4.3 a try.
+
+Where the rectangle drag's 5.0 ms goes (instrumented in a scratch copy, LM,
+medians over 12 samples, ms): the pursuit 2.3; the head's and the stages'
+descents 0.4 and cutting the parts 0.15; `stageable`, the first factorization
+and before the pursuit, 0.56; `Tolerances::new` per `to` 0.42 (finding the
+components 0.13, framing them 0.22); the analysis 1.0, of it `freedom_on`
+0.68 (a second factorization 0.5, the per-entity ranks 0.13), the
+satisfaction loop 0.18, redundancy 0.08, degeneracy 0.04; the branch
+observation 0.06; placing and cloning the solution 0.03. `freedom_on`
+factorizes again because the pursuit moves the goal's coordinates: the
+Jacobian at the final point is another matrix, and its R and null basis are
+what the freedom reports, so reusing the earlier factorization would change
+bits. Nothing outside the pursuit is removed. Moving `stageable` after the
+pursuit would save one factorization (about 0.5 ms) but changes which path a
+staged result takes in an edge case; caching `Tolerances` per `to` would save
+under 0.15 ms (`docs/BACKLOG.md`).
 
 **Profile and the choice (M8 step 5; self time, `perf report
 --no-children`, the 500-entity cells, LM and DogLeg).** Steps 2-4 removed the
@@ -943,13 +980,11 @@ costs step 1 measured: the staged rank computed three times per frame
 10 %, the per-part split of the frame (12 % of the slot edit). Of the three
 options the plan named, the choice was:
 
-- **Rigid bodies in the remainder (A)** shrinks the rows and parameters of
-  the remainder's descent and pursuit, so it reaches only the drag and
+- **Rigid bodies in the remainder (A)** would shrink the rows and parameters
+  of the remainder's descent and pursuit, so it reaches only the drag and
   bisect cells: every edit and static sketch of the families is DoF 0 with
-  nothing redundant, its matching is perfect and it has no remainder. Its
-  ceiling is in the table above; it does not close M8 alone, and the set-up
-  costs the frame floor left (`parts_of`, `stage::cut`, the allocator) were
-  the third M8 plan, and A follows when the drag cells need it.
+  nothing redundant, its matching is perfect and it has no remainder. It is
+  not built (ADR-0011): the pursuit's own cost fell by other means.
 - A **diagnosis cache (S2)** is not chosen. It reaches only the diagnosis's
   own share, the cut and the recompile (`stage::cut` is 7-21 % of the
   edits; the split is solve cost and a cache of the diagnosis leaves it), and

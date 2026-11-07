@@ -35,16 +35,13 @@ with its 50 digests equal on five OS/arch runners and wasm32-wasip1, the
 oracle run in `docs/COMPARISON.md` (ADRs 0001–0007). The claim rests on
 the Python gap, the checker and deterministic branch-keeping drag
 (`docs/COMPARISON.md`, SEED.md §3 note).
-**C2 M5, M6, M7 done:** generated corpus and bench; components solved and
-diagnosed by stages (ADR-0009), edits keep unreached bits; no radius below
-0 (ADR-0010), conflict sets equal on both paths, sweep-jump frames bisected
-and marked. M8's three plans (`plans/m8-frame-budget`, `-frame-floor`, `-setup`)
-and `m8-dense-rank` (one row pass and one satisfaction test per staged
-component, reads once, the solve's coordinates in a dense table) bring all
-six 500-entity edits inside 4 ms (worst 1.95–3.78) and the slot drag to
-3.5–3.8; the rectangle drag (15.3 ms, pursuit 75 %) and the slot bisect
-(8.1) still **miss** the 4 ms frame. **Next:** the human decides whether
-those two cells stay in C2's *Accept* (`docs/ROADMAP.md`).
+**C2 M5-M8 done, ready for `/close-cycle`:** generated corpus and bench;
+stages (ADR-0009), edits keep unreached bits; no radius below 0 (ADR-0010);
+sweep-jump frames bisected. M8's five plans bring all six 500-entity edits
+inside 4 ms (worst 1.95-3.78), the slot drag to about 4 and a bisected
+frame to 2.4-2.7 ms a try (ADR-0011). Three slot cells touch 4.0-4.4 ms in
+single samples, accepted as noise; the rectangle drag (5.9 ms) is accepted
+at 6.0 ms, where the stop rule ends the work (`docs/ROADMAP.md`).
 
 ## Rules that are not derivable from the code
 

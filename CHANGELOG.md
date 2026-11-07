@@ -9,9 +9,10 @@ release by release. Written in the commit that makes the change, under
 - Large sketches solve far faster: each connected part of a sketch is cut
   into stages solved in dependency order, so a 100-entity sketch solves,
   diagnostics included, in about 1–3 ms and a 500-entity edit in 2–4 ms
-  (a first drag step in 3.5–4 ms on slots, about 15 ms on a rectangle
-  chain; a bisected drag frame about 8 ms), where they took tens of
-  milliseconds and seconds.
+  (a first drag step in about 4 ms on slots and about 6 ms on a rectangle
+  chain; a bisected drag frame about 2.5 ms a try), where they took tens of
+  milliseconds and seconds. Dragging a long chain is about twice as fast or
+  better.
 - An edit keeps the exact bits of every coordinate it cannot reach: a
   re-solve after changing one dimension moves only that dimension's stage
   and what depends on it.

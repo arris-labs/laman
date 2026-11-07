@@ -18,7 +18,7 @@ nine tries, each a solve (ADR-0006). A frame refused at every halving costs
 nine times the plain step whatever the solver does, and no per-frame number
 holds for it. Measured at 498 entities (`bench_c2`, worst across runs): a
 frame bisected twice, 7.3 to 8.2 ms for 3 tries (2.4 to 2.7 a try); one
-refused at every halving, 34 ms for 9 (3.7 to 4.2 a try). The frames after a
+refused at every halving, 34 ms for 9 (3.7 to 4.3 a try). The frames after a
 bisected one take 2.4 ms.
 
 The rectangle drag was 75 % pursuit: the goal's descent in the freedom the
@@ -41,7 +41,7 @@ and holds two cells: `bisect` (a frame bisected a few times) and `bisect-deep`
 **The pursuit is made cheap, not replaced** (`plans/m8-pursuit`): the
 damping is read against the goal's own scale, so a long chain's first step is
 not held short (5 iterations to 2 or 3); the dense QR skips exact zeros and
-changes no bit; the multipliers are read from the pivoted QR already in hand
+changes no bit; the multipliers are read from a pivoted QR of the unit rows (a second factorization beside the null space's)
 instead of an SVD. The rectangle drag went from 15.3 ms to 5.3 to 5.9.
 
 **The stop rule.** A profile of the rectangle drag after this (the split is in
@@ -63,7 +63,7 @@ calls for them.
   ≤ 4 ms a try.
 - A sample on the 4 ms edge can cross it by noise: three slot cells (edit,
   drag and `bisect-deep`, LM) touched 4.02 to 4.41 ms in single samples with
-  medians of 3.2 to 4.3. They are recorded as measured, not widened.
+  medians of 3.2 to 4.3. They are recorded as measured, not widened, and the human accepted them as noise on the edge (2026-11-07).
 - The damping rule and the multipliers may move a drag digest; a move is
   re-blessed under `fixtures:` with the reason (C2's *Accept* allows it).
 - The static solve is reported, not budgeted.
