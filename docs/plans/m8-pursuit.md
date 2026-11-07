@@ -109,6 +109,28 @@ itself it would not bring the cell to 4. `Tolerances::new` re-finds components
 it moves with every placed frame); caching it saves under 0.15 for a model
 module's change: not taken. Nothing outside the pursuit is removed.
 
+*Settled by step 6:* three full `bench_c2` runs (7950X, 5 samples a cell), the
+worst sample of each cell, then the worst across the runs, LM / DogLeg, ms:
+
+| cell (498/501 entities) | run 1 | run 2 | run 3 | worst |
+|---|---|---|---|---|
+| rectangles edit | 2.92 / 2.95 | 2.90 / 2.91 | 2.71 / 2.85 | 2.92 / 2.95 |
+| rectangles drag | 5.78 / 5.89 | 5.87 / 5.70 | 5.31 / 5.30 | **5.87 / 5.89** |
+| slots edit | 4.02 / 3.53 | 3.57 / 3.26 | 3.23 / 3.89 | **4.02** / 3.89 |
+| slots drag | 4.41 / 3.48 | 3.77 / 3.77 | 3.78 / 3.68 | **4.41** / 3.77 |
+| slots bisect, per try | 2.74 / 2.54 | 2.70 / 2.65 | 2.38 / 2.59 | 2.74 / 2.65 |
+| slots bisect-deep, per try | 3.79 / 3.75 | **4.23** / 3.98 | 3.82 / 3.71 | **4.23** / 3.98 |
+| triangles edit | 1.99 / 2.01 | 2.02 / 2.44 | 2.06 / 2.01 | 2.06 / 2.44 |
+
+Three more runs (not the plan's) put the same slot cells at 3.15 to 4.08 and
+bisect-deep LM at 3.75 to 4.27: their medians are 3.2 to 3.8 (bisect-deep
+3.7 to 4.3), so these cells sit at the budget's edge and a noisy sample crosses
+it; the strict worst across three runs misses 4 ms on slots edit LM, slots drag LM
+and bisect-deep LM. The rectangle drag stops here: stop rule applied, **6.0 ms**
+(the worst across runs, 5.89, up to the next 0.5; the form of the number
+is the open question's default). The bisect clause holds at 2 halvings and
+2.4 to 2.7 ms a try.
+
 No public type or signature changes. `GLOSSARY.md`'s **Try** and **Pursuit** are
 in. Digests: D2 cannot move them; D1 and D3 may, and a move is re-blessed under
 `fixtures:` with the reason (C2's *Accept* allows it).
@@ -139,7 +161,7 @@ robustness, convergence or bound has to be established here.
   scratch copy, record the split here, and remove what it confirms outside the
   pursuit. First suspect: `freedom_on` factorizing again after the pursuit
   (1 ms of `conclude`). One pass, no second profile.
-- [ ] Step 6 **[2]** — Three full `bench_c2` runs. Record each 500-entity cell's
+- [x] Step 6 **[2]** — Three full `bench_c2` runs. Record each 500-entity cell's
   worst across runs here, and apply the stop rule to the rectangle drag.
 - [ ] Step 7 **[1]** — D5: ADR-0011 and ROADMAP.md's *Accept* and M8 lines, with
   step 6's numbers.
@@ -172,5 +194,6 @@ robustness, convergence or bound has to be established here.
 
 ## Open questions
 
-- ⚠ OPEN: the form of a stopped cell's number in the *Accept*. Agent, by step 6;
-  default: the worst across the three runs, rounded up to the next 0.5 ms.
+- Settled by step 6: the form of a stopped cell's number in the *Accept* is the
+  worst across the three runs, rounded up to the next 0.5 ms (6.0 for the
+  rectangle drag).
