@@ -36,3 +36,10 @@ path = "fuzz_targets/drag_sketch.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "profiles_sketch"
+path = "fuzz_targets/profiles_sketch.rs"
+test = false
+doc = false
+bench = false
