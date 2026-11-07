@@ -62,3 +62,7 @@ required-features = ["proptest"]
 [[test]]
 name = "c2_props"
 required-features = ["proptest"]
+
+[[test]]
+name = "c3_props"
+required-features = ["proptest"]

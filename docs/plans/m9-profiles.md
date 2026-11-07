@@ -121,7 +121,7 @@ algorithm whose robustness or bound is established here.
 - [x] Step 7 **[1]** — Slot grids (`corpus::slot_grid`, 1×1 to 7×7 and the
   498-entity one). Exactly one profile per grid, with `rows·cols` holes and
   net area `W·H − n(2·length·r + πr²)`.
-- [ ] Step 8 **[2]** — A property test. Random disjoint, nested rectangles,
+- [x] Step 8 **[2]** — A property test. Random disjoint, nested rectangles,
   circles and slots, built with random shared or `coincident` joins, then
   rotated, scaled and translated. It asserts loop counts, depth parity,
   orientation and areas against the construction, and shrinks into
