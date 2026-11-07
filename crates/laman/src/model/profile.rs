@@ -92,9 +92,10 @@ pub struct Branched {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unjoined {
-    /// The end point of the smaller join (its smallest point id).
+    /// The smaller id of the two end points, as the edges draw them (never
+    /// another point of the join).
     pub first: EntityId,
-    /// The end point of the other join.
+    /// The larger id of the two end points.
     pub second: EntityId,
 }
 

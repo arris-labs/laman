@@ -316,7 +316,7 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
 
 /// Pairs of free ends whose points lie within the smaller of their edges'
 /// length tolerances (ADR-0012 D4), found by a sweep along x. Reports the
-/// joins' smallest point ids, smaller first, in id order.
+/// edges' end points, smaller id first, in id order.
 fn unjoined(
     sketch: &Sketch,
     values: &Coordinates,
@@ -331,15 +331,16 @@ fn unjoined(
         at.push((
             point(values, end.point)?,
             tolerances.entity(end.edge),
-            end.class,
+            end.point,
         ));
     }
     at.sort_by(|a, b| a.0[0].total_cmp(&b.0[0]).then(a.2.cmp(&b.2)));
-    let widest = at.iter().fold(0.0_f64, |m, e| m.max(e.1));
     let mut out = Vec::new();
     for (i, a) in at.iter().enumerate() {
         for b in at.iter().skip(i + 1) {
-            if b.0[0] - a.0[0] > widest {
+            // `a` is the left end, so a pair within the smaller tolerance is
+            // within `a`'s: one large edge widens only its own scan.
+            if b.0[0] - a.0[0] > a.1 {
                 break;
             }
             let (dx, dy) = (b.0[0] - a.0[0], b.0[1] - a.0[1]);

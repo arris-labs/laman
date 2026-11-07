@@ -37,3 +37,36 @@ fn a_loop_whose_innermost_container_is_a_hole_is_still_reported() {
     }
     assert_eq!(found, profiles(&sk, &sk.coordinates()).unwrap());
 }
+
+/// A four-sided open chain a-b-c-d-e around a square of side 10 whose free
+/// ends `a` and `e` are both at the origin, `e` made of its own point.
+fn open_square(sk: &mut Sketch) -> (Point, Point) {
+    let a = sk.point(0.0, 0.0).unwrap();
+    let b = sk.point(10.0, 0.0).unwrap();
+    let c = sk.point(10.0, 10.0).unwrap();
+    let d = sk.point(0.0, 10.0).unwrap();
+    let e = sk.point(0.0, 0.0).unwrap();
+    sk.line(a, b).unwrap();
+    sk.line(b, c).unwrap();
+    sk.line(c, d).unwrap();
+    sk.line(d, e).unwrap();
+    (a, e)
+}
+
+/// D4 names both end points of the edges, not the joins' smallest ids: a
+/// construction point with a smaller id made coincident with an end must not
+/// be reported in its place.
+#[test]
+fn unjoined_names_the_edges_end_points() {
+    let mut sk = Sketch::new();
+    let k = sk.point(0.0, 0.0).unwrap(); // smaller than every end
+    let (a, e) = open_square(&mut sk);
+    sk.coincident(k, e).unwrap();
+    let found = profiles(&sk, &sk.coordinates()).unwrap();
+    assert!(found.profiles.is_empty());
+    assert_eq!(found.unjoined.len(), 1, "{found:#?}");
+    assert_eq!(
+        (found.unjoined[0].first, found.unjoined[0].second),
+        (a.id(), e.id())
+    );
+}
