@@ -7,7 +7,8 @@
 mod geometry;
 mod topology;
 
-use crate::model::profile::{Loop, Profile, Profiles, Traversal};
+use crate::model::profile::{Loop, Profile, Profiles, Traversal, Unjoined};
+use crate::model::tolerance::Tolerances;
 use crate::model::{Coordinate, Coordinates, Entity, EntityId, Sketch};
 use geometry::{Boundary, Edge, Orientation};
 
@@ -152,7 +153,8 @@ fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
 /// hole clockwise, whatever order the edges were drawn in; an island inside
 /// a hole is a profile of its own. Open chains, dangling edges, branched
 /// cores and degenerate edges are reported by id in the result, never as
-/// errors.
+/// errors; so are free ends that lie within tolerance of one another
+/// without a join, which are never joined for it.
 ///
 /// Refuses only values that lack, or hold a non-finite, coordinate of a
 /// point or circle an edge uses ([`ProfileError`]). Curves that cross or
@@ -284,5 +286,47 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
     out.dangling = topo.dangling;
     out.branched = topo.branched;
     out.degenerate = topo.degenerate;
+    out.unjoined = unjoined(sketch, values, &topo.free_ends)?;
+    Ok(out)
+}
+
+/// Pairs of free ends whose points lie within the smaller of their edges'
+/// length tolerances (ADR-0012 D4), found by a sweep along x. Reports the
+/// joins' smallest point ids, smaller first, in id order.
+fn unjoined(
+    sketch: &Sketch,
+    values: &Coordinates,
+    ends: &[topology::FreeEnd],
+) -> Result<Vec<Unjoined>, ProfileError> {
+    if ends.len() < 2 {
+        return Ok(Vec::new());
+    }
+    let tolerances = Tolerances::at(sketch, values);
+    let mut at: Vec<([f64; 2], f64, EntityId)> = Vec::with_capacity(ends.len());
+    for end in ends {
+        at.push((
+            point(values, end.point)?,
+            tolerances.entity(end.edge),
+            end.class,
+        ));
+    }
+    at.sort_by(|a, b| a.0[0].total_cmp(&b.0[0]).then(a.2.cmp(&b.2)));
+    let widest = at.iter().fold(0.0_f64, |m, e| m.max(e.1));
+    let mut out = Vec::new();
+    for (i, a) in at.iter().enumerate() {
+        for b in at.iter().skip(i + 1) {
+            if b.0[0] - a.0[0] > widest {
+                break;
+            }
+            let (dx, dy) = (b.0[0] - a.0[0], b.0[1] - a.0[1]);
+            if libm::hypot(dx, dy) <= a.1.min(b.1) {
+                out.push(Unjoined {
+                    first: a.2.min(b.2),
+                    second: a.2.max(b.2),
+                });
+            }
+        }
+    }
+    out.sort_by_key(|u| (u.first, u.second));
     Ok(out)
 }

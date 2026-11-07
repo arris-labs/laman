@@ -111,7 +111,7 @@ algorithm whose robustness or bound is established here.
 - [x] Step 4 **[2]** — `profiles()`: orientation applied to traversal, area,
   nesting, holes and islands, `ProfileError`, rustdoc with runnable
   examples. CHANGELOG `Unreleased` bullet.
-- [ ] Step 5 **[2]** — D4 unjoined coincidences. Fixture: a rectangle with
+- [x] Step 5 **[2]** — D4 unjoined coincidences. Fixture: a rectangle with
   one corner made of two distinct ground points at the same coordinates.
 - [ ] Step 6 **[2]** — D6 fixture form and the C3 corpus, each solved, then
   checked by `laman-check`, then extracted: rectangle; slotted plate and its

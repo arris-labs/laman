@@ -11,7 +11,8 @@ release by release. Written in the commit that makes the change, under
   with its holes clockwise, nested by containment, each with its signed and
   net area. Edges join at a shared point or through `coincident`
   constraints, never by being close. Open chains, dangling edges, branched
-  cores and degenerate edges come back by id; values missing a coordinate
+  cores and degenerate edges come back by id, and so do free ends that
+  coincide without a join (the join you probably meant); values missing a coordinate
   are refused naming the point or circle.
 
 ## 0.2.0 — 2026-11-07

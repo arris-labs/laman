@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! `profiles` on sketches built by construction: orientation, nesting,
 //! closed-form areas, reports and refusals.
-use laman::model::profile::Profiles;
+use laman::model::profile::{Profiles, Unjoined};
 use laman::model::{Coordinate, EntityId, Point, Sketch};
 use laman::profile::{ProfileError, profiles};
 use std::f64::consts::PI;
@@ -129,4 +129,45 @@ fn missing_and_non_finite_values_are_named() {
         profiles(&sk, &v),
         Err(ProfileError::NonFinite { entity: circle })
     );
+}
+
+#[test]
+fn a_corner_of_two_points_at_one_place_is_open_and_named() {
+    let mut sk = Sketch::new();
+    let a = sk.point(0.0, 0.0).unwrap();
+    let b = sk.point(4.0, 0.0).unwrap();
+    let c = sk.point(4.0, 3.0).unwrap();
+    let d = sk.point(0.0, 3.0).unwrap();
+    let d2 = sk.point(0.0, 3.0).unwrap(); // the same place as d
+    sk.line(a, b).unwrap();
+    sk.line(b, c).unwrap();
+    sk.line(c, d).unwrap();
+    sk.line(d2, a).unwrap();
+    let r = run(&sk);
+    assert!(r.profiles.is_empty());
+    assert_eq!(r.open_chains.len(), 1);
+    assert_eq!(
+        r.unjoined,
+        vec![Unjoined {
+            first: d.id(),
+            second: d2.id()
+        }]
+    );
+
+    // Joining them closes the loop and the report goes.
+    sk.coincident(d, d2).unwrap();
+    let r = run(&sk);
+    assert_eq!(r.profiles.len(), 1);
+    assert!(r.unjoined.is_empty());
+}
+
+#[test]
+fn free_ends_far_apart_are_not_reported() {
+    let mut sk = Sketch::new();
+    let p: Vec<_> = (0..4)
+        .map(|i| sk.point(f64::from(i) * 10.0, 0.0).unwrap())
+        .collect();
+    sk.line(p[0], p[1]).unwrap();
+    sk.line(p[2], p[3]).unwrap();
+    assert!(run(&sk).unjoined.is_empty());
 }

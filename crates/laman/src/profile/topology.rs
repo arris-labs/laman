@@ -21,6 +21,17 @@ pub(crate) struct EdgeLoop {
     pub joins: Vec<ConstraintId>,
 }
 
+/// An edge end alone in its join: nothing else meets it (degree 1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FreeEnd {
+    /// The join, by its smallest point id.
+    pub class: EntityId,
+    /// The point as the edge draws it.
+    pub point: EntityId,
+    /// The edge.
+    pub edge: EntityId,
+}
+
 /// The topology of a sketch's non-construction edges.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(crate) struct Topology {
@@ -37,6 +48,9 @@ pub(crate) struct Topology {
     pub branched: Vec<Branched>,
     /// Edges with both ends in one join, in id order.
     pub degenerate: Vec<EntityId>,
+    /// Every end alone in its join, whether or not pruning removed its
+    /// edge, in order of join and then edge.
+    pub free_ends: Vec<FreeEnd>,
 }
 
 /// Union-find over ids that names each class by its smallest id.
@@ -120,6 +134,16 @@ pub(crate) fn topology(sketch: &Sketch) -> Topology {
             incident.entry(e.classes[end]).or_default().push((i, end));
         }
         parts.union(e.classes[0], e.classes[1]);
+    }
+
+    for (&class, list) in &incident {
+        if let [(i, end)] = list[..] {
+            out.free_ends.push(FreeEnd {
+                class,
+                point: edges[i].points[end],
+                edge: edges[i].id,
+            });
+        }
     }
 
     // Prune at degree-1 classes until none is left; the pruned set does not
