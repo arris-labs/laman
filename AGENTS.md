@@ -38,8 +38,7 @@ the Python gap, the checker and deterministic branch-keeping drag
 **C2 closed** (2026-11-07): stages (ADR-0009), edits keep unreached bits, no
 radius below 0 (ADR-0010), sweep-jump frames bisected; at 500 entities every
 edit and the slot drag are inside 4 ms, a bisected frame 4 ms a try, the
-rectangle drag accepted at 6.0 ms (ADR-0011, `docs/ROADMAP.md`). Release
-0.2.0 is due (`/release`).
+rectangle drag accepted at 6.0 ms (ADR-0011, `docs/ROADMAP.md`). **0.2.0 published** (2026-11-07).
 **Next:** C3, profiles (closed loops and holes from solved curves): first
 `/idea` or `/plan` for the join rule (⚠ OPEN in `docs/ROADMAP.md`).
 

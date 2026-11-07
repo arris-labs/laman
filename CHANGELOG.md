@@ -6,6 +6,8 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+## 0.2.0 — 2026-11-07
+
 - Large sketches solve far faster: each connected part of a sketch is cut
   into stages solved in dependency order, so a 100-entity sketch solves,
   diagnostics included, in about 0.5–1 ms and a 500-entity edit in 2–4 ms
