@@ -10,6 +10,7 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Profiles: split a branched core into separate regions (two rectangles sharing an edge); needs angular ordering of curved edges at a join
 - A re-pointing edit, so a shared point can be detached without removing its entity (a join by declaration cannot be undone otherwise)
 - Solver stop leaves tangent double roots off by about √residual (the coincident-joined slotted plate's contact points are 3.7e-5 out; ignored fixture `regression/coincident-contact-drift`)
+- The gate takes 2m18s (2026-11-07, m9-profiles retirement), past `.agents/rules/git.md`'s one minute: time its stages and split it by an ADR, or raise the bar there
 - Run SolveSpace and PlaneGCS through `tools/oracle/` for the Python column of COMPARISON.md (GPL/LGPL Python bindings; out of the Rust-field comparison)
 - C2 corpus: share the edit replacement of `examples/bench_c2.rs` and `tests/support/c2.rs` as an exhaustive `Edit::apply`, and keep the inspect dumps out of the timed tests
 - Ask a consumer whether dimension edits need `Sketch::set_dimension` beyond remove/re-add with the same constraint id; M5 uses the existing API
