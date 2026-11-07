@@ -7,6 +7,7 @@
 use laman::model::{Coordinates, Sketch};
 use laman::profile::profiles;
 use laman::solution::{SolverOptions, Status};
+use laman_check::check_profiles;
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
 use laman_debug::runner::solve_run;
@@ -53,6 +54,9 @@ fn extract(name: &str, sketch: &Sketch, values: &Coordinates, fixture: &Fixture)
     let want = fixture.expected.profiles.as_ref().unwrap();
     let off = want.mismatches(&found);
     assert!(off.is_empty(), "{name}: {off:#?}");
+    // The checker's own measure agrees with what extraction reported.
+    let report = check_profiles(sketch, values, &found);
+    assert!(report.is_clean(), "{name}: {report:#?}");
 }
 
 #[test]
@@ -171,6 +175,8 @@ fn slot_grids_are_one_plate_with_a_hole_per_slot() {
             if (rows, cols) == (7, 7) {
                 assert_eq!(case.sketch.entities().count(), 498, "{name}");
             }
+            let report = check_profiles(&case.sketch, &values, &found);
+            assert!(report.is_clean(), "{name}: {report:#?}");
             assert_eq!(found.profiles.len(), 1, "{name}");
             assert!(found.open_chains.is_empty(), "{name}");
             assert!(found.dangling.is_empty(), "{name}");

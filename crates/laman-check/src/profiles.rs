@@ -1,0 +1,478 @@
+//! The profile check: [`check_profiles`] re-measures what
+//! extraction reported (ADR-0013).
+//!
+//! It reads the sketch, the coordinates and the reported [`Profiles`] value
+//! (a plain model type) and nothing of the extraction: its own walk over
+//! `coincident` for the joins, its own measure of a loop's area
+//! (`area` module) and its own coverage count.
+
+use super::Missing;
+use super::area::{Measured, Piece, Shape, measure};
+use laman::model::profile::{Loop, Profiles, Traversal};
+use laman::model::tolerance::Tolerances;
+use laman::model::{Constraint, Coordinate, Coordinates, Entity, EntityId, Point, Sketch};
+use std::collections::BTreeMap;
+
+/// What a [`ProfileViolation`] says is wrong, with the loop it is about
+/// named by its first edge's id (`None` for a loop with no edge).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProfileViolation {
+    /// The loop's area, measured by the checker, differs from the reported
+    /// one by more than the allowance (ADR-0013 D2). Both in the caller's
+    /// units squared, saturated at `±f64::MAX`.
+    Area {
+        /// The loop's first edge.
+        first: Option<EntityId>,
+        /// The checker's measure.
+        measured: f64,
+        /// The loop's `signed_area`.
+        reported: f64,
+    },
+    /// The loop turns the wrong way for its role: an outer loop clockwise or
+    /// a hole counter-clockwise, by the checker's measured sign.
+    Orientation {
+        /// The loop's first edge.
+        first: Option<EntityId>,
+    },
+    /// The loop is empty, or an edge's exit and the next one's entry (the
+    /// last one's and the first's included) are not one join, by the
+    /// checker's own walk over `coincident`, or a circle is not alone.
+    NotChained {
+        /// The loop's first edge.
+        first: Option<EntityId>,
+    },
+    /// Two ends of a join lie farther apart than the loop's length
+    /// tolerance. The loop's area is not compared (ADR-0013 D2).
+    OpenJoin {
+        /// The loop's first edge.
+        first: Option<EntityId>,
+    },
+    /// An arc of the loop has ends at radii farther apart than the loop's
+    /// length tolerance. The loop's area is not compared.
+    ArcOffRadius {
+        /// The loop's first edge.
+        first: Option<EntityId>,
+    },
+    /// An entity listed as an edge (in a loop, an open chain, a dangling or
+    /// branched or degenerate list) is not a non-construction line, arc or
+    /// circle of the sketch.
+    NotAnEdge {
+        /// The entity.
+        entity: EntityId,
+    },
+    /// An edge is listed more than once across the loops and the other
+    /// lists.
+    Repeated {
+        /// The edge.
+        entity: EntityId,
+    },
+    /// A non-construction line, arc or circle of the sketch is in no list.
+    Uncovered {
+        /// The edge.
+        entity: EntityId,
+    },
+    /// A hole is not inside its profile's outer loop, or a profile's outer
+    /// loop is inside another's plate.
+    Containment {
+        /// The loop's first edge.
+        first: Option<EntityId>,
+    },
+}
+
+/// The result of [`check_profiles`], in report order: loops (each profile's
+/// outer, then its holes), then edges by id.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ProfileReport {
+    /// What disagrees with the checker's own measure.
+    pub violations: Vec<ProfileViolation>,
+    /// Parameters the coordinates lacked, or held non-finite. A loop that
+    /// reads one is neither confirmed nor violated.
+    pub missing: Vec<Missing>,
+}
+
+impl ProfileReport {
+    /// True when nothing is violated or missing.
+    ///
+    /// ```
+    /// use laman_check::ProfileReport;
+    /// assert!(ProfileReport::default().is_clean());
+    /// ```
+    pub fn is_clean(&self) -> bool {
+        self.violations.is_empty() && self.missing.is_empty()
+    }
+}
+
+/// Check `found`, what extraction reported for `sketch` at
+/// `values`, against the checker's own measure (ADR-0013).
+///
+/// Every loop is chained by a walk over the sketch's `coincident`
+/// constraints, and measured by sectors about its first point; its area and
+/// orientation are compared with the report's within the allowance, except
+/// where a join is open or an arc is off its radius, which are named
+/// instead. Every non-construction edge of the sketch must be listed
+/// exactly once across the loops and the other lists. Any `Profiles` value
+/// is an input: an empty loop, a stale id or a wrong kind is a violation. A
+/// parameter missing from `values`, or not finite, is listed as
+/// [`Missing`] and its loop is left unmeasured. Never panics, never errors.
+///
+/// ```
+/// use laman::model::Sketch;
+/// use laman_check::check_profiles;
+/// use laman::model::profile::{Loop, Profile, Profiles, Traversal};
+///
+/// let mut sk = Sketch::new();
+/// let p = [(0.0, 0.0), (4.0, 0.0), (4.0, 3.0), (0.0, 3.0)]
+///     .map(|(x, y)| sk.point(x, y))
+///     .into_iter()
+///     .collect::<Result<Vec<_>, _>>()?;
+/// let lines = (0..4)
+///     .map(|i| sk.line(p[i], p[(i + 1) % 4]))
+///     .collect::<Result<Vec<_>, _>>()?;
+/// let outer = Loop {
+///     edges: lines.iter().map(|l| Traversal { entity: l.id(), reversed: false }).collect(),
+///     signed_area: 12.0,
+///     joins: vec![],
+/// };
+/// let found = Profiles {
+///     profiles: vec![Profile { outer, holes: vec![], net_area: 12.0 }],
+///     ..Profiles::default()
+/// };
+/// assert!(check_profiles(&sk, &sk.coordinates(), &found).is_clean());
+///
+/// // A wrong area is named.
+/// let mut wrong = found.clone();
+/// wrong.profiles[0].outer.signed_area = 13.0;
+/// assert_eq!(check_profiles(&sk, &sk.coordinates(), &wrong).violations.len(), 1);
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn check_profiles(sketch: &Sketch, values: &Coordinates, found: &Profiles) -> ProfileReport {
+    let tolerances = Tolerances::at(sketch, values);
+    let classes = Classes::of(sketch);
+    let mut report = ProfileReport::default();
+    for profile in &found.profiles {
+        check_loop(
+            sketch,
+            values,
+            &tolerances,
+            &classes,
+            &profile.outer,
+            true,
+            &mut report,
+        );
+        for hole in &profile.holes {
+            check_loop(
+                sketch,
+                values,
+                &tolerances,
+                &classes,
+                hole,
+                false,
+                &mut report,
+            );
+        }
+    }
+    coverage(sketch, found, &mut report);
+    report.missing.sort();
+    report.missing.dedup();
+    report
+}
+
+/// The join classes of the sketch's points: the components of the graph of
+/// its `coincident` constraints (ADR-0012 D1), found by the checker's own
+/// union-find, the smallest id the representative.
+struct Classes {
+    parent: BTreeMap<EntityId, EntityId>,
+}
+
+impl Classes {
+    fn of(sketch: &Sketch) -> Classes {
+        let mut classes = Classes {
+            parent: BTreeMap::new(),
+        };
+        for (_, c) in sketch.constraints() {
+            if let Constraint::Coincident { p, q } = c {
+                let (a, b) = (classes.find(p.id()), classes.find(q.id()));
+                if a != b {
+                    classes.parent.insert(a.max(b), a.min(b));
+                }
+            }
+        }
+        classes
+    }
+
+    fn find(&self, mut id: EntityId) -> EntityId {
+        while let Some(&up) = self.parent.get(&id) {
+            id = up;
+        }
+        id
+    }
+
+    fn same(&self, a: Point, b: Point) -> bool {
+        self.find(a.id()) == self.find(b.id())
+    }
+}
+
+/// An edge of the sketch as the check reads it.
+enum Edge {
+    Line { a: Point, b: Point },
+    Arc { c: Point, s: Point, e: Point },
+    Circle { c: Point },
+}
+
+fn edge_of(sketch: &Sketch, id: EntityId) -> Option<Edge> {
+    if sketch.is_construction(id) {
+        return None;
+    }
+    match sketch.entity(id)? {
+        Entity::Line { a, b } => Some(Edge::Line { a: *a, b: *b }),
+        Entity::Arc { c, s, e } => Some(Edge::Arc {
+            c: *c,
+            s: *s,
+            e: *e,
+        }),
+        Entity::Circle { c, .. } => Some(Edge::Circle { c: *c }),
+        Entity::Point { .. } => None,
+    }
+}
+
+/// A parameter's value, finite or missing.
+fn value(values: &Coordinates, id: EntityId, coordinate: Coordinate) -> Result<f64, Missing> {
+    match values.get(&(id, coordinate)) {
+        Some(v) if v.is_finite() => Ok(*v),
+        Some(_) | None => Err(Missing {
+            id,
+            coordinate: Some(coordinate),
+        }),
+    }
+}
+
+fn at(values: &Coordinates, p: Point) -> Result<(f64, f64), Missing> {
+    Ok((
+        value(values, p.id(), Coordinate::X)?,
+        value(values, p.id(), Coordinate::Y)?,
+    ))
+}
+
+/// One loop, its edges resolved against the sketch.
+struct Resolved {
+    edges: Vec<(Traversal, Edge)>,
+}
+
+/// A loop's resolved edges, or the stale ids among them.
+fn resolve(sketch: &Sketch, l: &Loop) -> Result<Resolved, Vec<EntityId>> {
+    let mut edges = Vec::with_capacity(l.edges.len());
+    let mut stale = Vec::new();
+    for t in &l.edges {
+        match edge_of(sketch, t.entity) {
+            Some(e) => edges.push((*t, e)),
+            None => stale.push(t.entity),
+        }
+    }
+    if stale.is_empty() {
+        Ok(Resolved { edges })
+    } else {
+        Err(stale)
+    }
+}
+
+/// Whether the edges chain end to end into a closed loop through the
+/// sketch's joins.
+fn chained(classes: &Classes, edges: &[(Traversal, Edge)]) -> bool {
+    match edges {
+        [] => return false,
+        [(_, Edge::Circle { .. })] => return true,
+        _ => {}
+    }
+    let mut ends = Vec::with_capacity(edges.len());
+    for (t, e) in edges {
+        match *e {
+            Edge::Line { a, b } => ends.push(if t.reversed { (b, a) } else { (a, b) }),
+            Edge::Arc { s, e, .. } => ends.push(if t.reversed { (e, s) } else { (s, e) }),
+            // A circle has no ends to join to.
+            Edge::Circle { .. } => return false,
+        }
+    }
+    ends.iter()
+        .zip(ends.iter().cycle().skip(1))
+        .all(|(here, next)| classes.same(here.1, next.0))
+}
+
+/// The loop's pieces or circle at `values`, or what it lacks.
+fn shape(values: &Coordinates, edges: &[(Traversal, Edge)]) -> Result<Measured, Missing> {
+    if let [(t, Edge::Circle { c })] = edges {
+        at(values, *c)?;
+        let r = value(values, t.entity, Coordinate::R)?;
+        return Ok(measure(Shape::Circle {
+            r,
+            reversed: t.reversed,
+        }));
+    }
+    let mut pieces = Vec::with_capacity(edges.len());
+    for (t, e) in edges {
+        pieces.push(match *e {
+            Edge::Line { a, b } => {
+                let (a, b) = (at(values, a)?, at(values, b)?);
+                if t.reversed {
+                    Piece::Line { from: b, to: a }
+                } else {
+                    Piece::Line { from: a, to: b }
+                }
+            }
+            Edge::Arc { c, s, e } => Piece::Arc {
+                c: at(values, c)?,
+                s: at(values, s)?,
+                e: at(values, e)?,
+                reversed: t.reversed,
+            },
+            // A circle among other edges: not chained, never measured.
+            Edge::Circle { .. } => {
+                return Err(Missing {
+                    id: t.entity,
+                    coordinate: None,
+                });
+            }
+        });
+    }
+    Ok(measure(Shape::Pieces(&pieces)))
+}
+
+/// `a` as an area in the caller's units, saturated to `±f64::MAX`.
+fn saturated(m: &Measured) -> f64 {
+    libm::scalbn(m.area, m.area_exponent()).clamp(-f64::MAX, f64::MAX)
+}
+
+/// Whether the reported area agrees with the measure (ADR-0013 D3), in the
+/// frame, with the extremes of the caller's units handled apart.
+fn agrees(m: &Measured, reported: f64, allowance: f64) -> bool {
+    if reported.is_nan() {
+        return false;
+    }
+    let caller = libm::scalbn(m.area, m.area_exponent());
+    // A saturated report agrees with a measure at or past the saturation.
+    if reported.abs() == f64::MAX
+        && caller.abs() >= f64::MAX
+        && caller.signum() == reported.signum()
+    {
+        return true;
+    }
+    // A zero or subnormal report agrees with a measure that underflows.
+    if reported.abs() < f64::MIN_POSITIVE && caller.abs() < f64::MIN_POSITIVE {
+        return true;
+    }
+    (m.area - m.area_of(reported)).abs() <= allowance
+}
+
+fn check_loop(
+    sketch: &Sketch,
+    values: &Coordinates,
+    tolerances: &Tolerances,
+    classes: &Classes,
+    l: &Loop,
+    outer: bool,
+    report: &mut ProfileReport,
+) {
+    let first = l.edges.first().map(|t| t.entity);
+    let edges = match resolve(sketch, l) {
+        Ok(r) => r.edges,
+        Err(stale) => {
+            for entity in stale {
+                report
+                    .violations
+                    .push(ProfileViolation::NotAnEdge { entity });
+            }
+            return;
+        }
+    };
+    if !chained(classes, &edges) {
+        report
+            .violations
+            .push(ProfileViolation::NotChained { first });
+        return;
+    }
+    let m = match shape(values, &edges) {
+        Ok(m) => m,
+        Err(gap) => {
+            report.missing.push(gap);
+            return;
+        }
+    };
+    let tolerance = edges
+        .iter()
+        .fold(0.0_f64, |t, (e, _)| t.max(tolerances.entity(e.entity)));
+    let slack = m.length(tolerance);
+    let mut skipped = false;
+    if m.gaps.iter().any(|g| *g > slack) {
+        report.violations.push(ProfileViolation::OpenJoin { first });
+        skipped = true;
+    }
+    if m.off_radius > slack {
+        report
+            .violations
+            .push(ProfileViolation::ArcOffRadius { first });
+        skipped = true;
+    }
+    if skipped {
+        return;
+    }
+    let allowance = m.allowance(tolerance);
+    if !agrees(&m, l.signed_area, allowance) {
+        report.violations.push(ProfileViolation::Area {
+            first,
+            measured: saturated(&m),
+            reported: l.signed_area,
+        });
+    }
+    // The sign is undecided within the allowance of 0.
+    if m.area.abs() > allowance && (m.area > 0.0) != outer {
+        report
+            .violations
+            .push(ProfileViolation::Orientation { first });
+    }
+}
+
+/// Every edge of the sketch is listed exactly once, and only edges are.
+fn coverage(sketch: &Sketch, found: &Profiles, report: &mut ProfileReport) {
+    let mut count: BTreeMap<EntityId, usize> = BTreeMap::new();
+    let mut listed = |id: EntityId| *count.entry(id).or_insert(0) += 1;
+    for p in &found.profiles {
+        for l in std::iter::once(&p.outer).chain(&p.holes) {
+            l.edges.iter().for_each(|t| listed(t.entity));
+        }
+    }
+    found
+        .open_chains
+        .iter()
+        .flatten()
+        .for_each(|id| listed(*id));
+    found.dangling.iter().for_each(|id| listed(*id));
+    found
+        .branched
+        .iter()
+        .flat_map(|b| &b.edges)
+        .for_each(|id| listed(*id));
+    found.degenerate.iter().for_each(|id| listed(*id));
+    for (id, times) in &count {
+        if edge_of(sketch, *id).is_none() {
+            // A loop's stale edge was already named with its loop.
+            let named = report
+                .violations
+                .contains(&ProfileViolation::NotAnEdge { entity: *id });
+            if !named {
+                report
+                    .violations
+                    .push(ProfileViolation::NotAnEdge { entity: *id });
+            }
+        } else if *times > 1 {
+            report
+                .violations
+                .push(ProfileViolation::Repeated { entity: *id });
+        }
+    }
+    for (id, _) in sketch.entities() {
+        if edge_of(sketch, id).is_some() && !count.contains_key(&id) {
+            report
+                .violations
+                .push(ProfileViolation::Uncovered { entity: id });
+        }
+    }
+}

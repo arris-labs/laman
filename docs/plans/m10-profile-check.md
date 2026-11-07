@@ -88,7 +88,7 @@ established here, or a rule the design leaves open.
   join separations. Held to closed forms (rectangle, slot, circle, a near-straight
   arc of huge radius, a sweep past π), at 1e±300, and on a small loop far from
   the origin. Fixes the rounding term, if one is needed.
-- [ ] Step 3 **[2]** — `check_profiles` and `ProfileReport` (D5) without
+- [x] Step 3 **[2]** — `check_profiles` and `ProfileReport` (D5) without
   containment: join walk, closure, coverage, area, orientation. `c3.rs` runs it
   on every fixture at solved and expected coordinates, slot grids included.
 - [ ] Step 4 **[2]** — Containment (D4): rays against lines and arcs, the

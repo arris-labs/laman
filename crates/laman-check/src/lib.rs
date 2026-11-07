@@ -27,14 +27,10 @@
 //! ```
 #![forbid(unsafe_code)]
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "check_profiles calls it (plans/m10-profile-check step 3)"
-    )
-)]
 mod area;
+mod profiles;
+
+pub use profiles::{ProfileReport, ProfileViolation, check_profiles};
 
 use laman::model::tolerance::{ANGLE, Tolerances};
 use laman::model::{
