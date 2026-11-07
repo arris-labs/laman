@@ -101,7 +101,7 @@ established here, or a rule the design leaves open.
 - [x] Step 6 **[2]** — `c3_props.rs`: `check_profiles` clean on every built
   nest under every transform and in `extreme` at 1e±300. A failure is
   shrunk to a fixture under `regression/`.
-- [ ] Step 7 **[2]** — `profiles_sketch` fuzz target: the check on found and
+- [x] Step 7 **[2]** — `profiles_sketch` fuzz target: the check on found and
   on mutated `Profiles`, never a panic, and clean wherever `check` is clean.
 - [ ] Step 8 **[2]** — Digest (D6): `of_profiles`, `of_solved_profiles`,
   `c3/digests.txt` per fixture (run, `solved-lm-`, `solved-dogleg-`) and for one

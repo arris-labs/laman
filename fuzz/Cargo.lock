@@ -98,10 +98,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "laman-check"
+version = "0.3.0-dev"
+dependencies = [
+ "laman",
+ "libm",
+]
+
+[[package]]
 name = "laman-fuzz"
 version = "0.0.0"
 dependencies = [
  "laman",
+ "laman-check",
  "libfuzzer-sys",
  "serde_json",
 ]

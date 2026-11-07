@@ -703,7 +703,9 @@ solves under both algorithms to a complete answer that applies back),
 `drag_sketch` (any loadable sketch, any point, any targets, raw `f64` bits
 included: every step a complete answer, a non-finite target `NotConverged`)
 and `profiles_sketch` (finite, repeatable profiles at a sketch's and a
-solution's coordinates; missing values refused, never a panic).
+solution's coordinates; missing values refused, never a panic; then
+`check_profiles` on the found and on mutated profiles, never a panic, and
+clean on the found wherever `check` is clean).
 `cargo run --release -p laman-debug --example bench` times the static C1
 fixtures and each step of fixture 4's drag against the 1 ms frame budget and
 names the machine.
