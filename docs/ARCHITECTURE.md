@@ -784,10 +784,15 @@ the first frame moves the sweep past `MAX_SWEEP_STEP` and is halved twice
 (3 tries); and `bisect-deep`, a frame refused at every halving
 (`max_bisections` + 1 = 9 tries), the most a frame costs. A bisected
 frame's time is divided by its tries, the unit of the budget (ADR-0011).
+A `profiles` operation times `laman::profile::profiles` at each family's
+solved coordinates and at a row of 249 disjoint circles built in the bench
+alone (the worst case of the quadratic containment); one cell a family and
+size, since extraction has no algorithm. At 500 entities the worst of three
+runs is 1.4 ms (circles), 0.6 (slots), inside the 1.5 ms of ADR-0014.
 
 Each position runs in a separate process with a 5 s wall limit, setup
 included. A completed first sample above 100 ms is not repeated; otherwise
-five samples are taken, which bounds the 52 workers to 260 s plus process
+five samples are taken, which bounds the 62 workers to 310 s plus process
 overhead, including operations that do not return. A cell is over budget
 when its worst sample is. An interrupted timed operation prints a lower
 bound, a setup that exhausts the limit gives no verdict, and the benchmark

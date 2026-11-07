@@ -30,3 +30,4 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0011](0011-the-frame-budget-is-per-try-and-c2-stops-at-the-rectangle-drag.md) | The frame budget is per try, and C2 stops at the rectangle drag | accepted; amends 0006 |
 | [0012](0012-profiles-join-by-declaration.md) | Profiles join by declaration | accepted |
 | [0013](0013-the-profile-check-measures-by-sectors.md) | The profile check measures by sectors, and an open join is not compared | accepted |
+| [0014](0014-profile-extraction-budget.md) | Profile extraction has a 1.5 ms budget at 500 entities | accepted |

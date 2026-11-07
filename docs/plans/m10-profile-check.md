@@ -107,7 +107,7 @@ established here, or a rule the design leaves open.
   `c3/digests.txt` per fixture (run, `solved-lm-`, `solved-dogleg-`) and for one
   slot grid, blessed after `c3.rs` holds the same runs. `tools/digest-wasm.sh`
   green; `c1/digests.txt` has no diff.
-- [ ] Step 9 **[2]** — Bench and ADR-0014 (D7): measure, name the budget,
+- [x] Step 9 **[2]** — Bench and ADR-0014 (D7): measure, name the budget,
   restate C3's *Accept* with it, delete the ⚠ OPEN.
 - [ ] Step 10 **[2]** — Only if a cell of step 9 is past 4 ms: the one
   profile-led pass, changing no bit (`c3/digests.txt` unmoved), and ADR-0014's

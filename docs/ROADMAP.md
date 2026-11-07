@@ -182,8 +182,8 @@ budget.
 ## C3 — profiles
 
 **Status: M9 landed 2026-11-07** (extraction, join rule ADR-0012, the C3
-corpus and slot grids, a property test); M10 (checker, digest, budget) and
-M11 (Python) remain.
+corpus and slot grids, a property test); M10 (checker, digest, budget
+1.5 ms, ADR-0014) is landing; M11 (Python) remains.
 
 *Goal: a sketcher can ask a solved sketch for its closed loops and holes —
 ordered, oriented and nested — and extrude or fill them, from the same
@@ -214,8 +214,7 @@ touching itself), which are reported, never errors or panics.
   slot grids give their known loop and hole counts; the checker agrees on
   every fixture and fails each broken twin; every digest equal natively
   and on wasm32-wasip1; pytest reproduces every number; extraction at 500
-  entities inside a budget named when the first plan measures it (⚠ OPEN,
-  by the stop rule of ADR-0011).
+  entities inside 1.5 ms (the stop rule of ADR-0011, ADR-0014).
 
 ## Later cycles, one line each, unordered
 
