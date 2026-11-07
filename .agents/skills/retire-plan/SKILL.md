@@ -31,10 +31,13 @@ Deletion is the "done" signal; anything worth keeping moves first.
    of the step it repairs. A judgement finding the
    agent decides on the charter's terms (`SEED.md`), stating the decision
    and its reason in the reply; only a product question waits for the
-   human. One left for later is a backlog line. The retirement itself
+   human. One left for later is a backlog line. A fix that touches
+   `laman`'s public API runs `tools/py-test.sh` again before the
+   retirement commit. The retirement itself
    stays in this session and is never handed to a tier-3 subagent: only a
    decision that needs tier 3 goes to one, and it returns the decision.
-3. Execute *Docs to update* line by line, present tense, no "as of this
+3. Once the review's fixes have landed (a fixer works on the same tree),
+   execute *Docs to update* line by line, present tense, no "as of this
    plan". A closed `⚠ OPEN:` gets its ADR now, listed in
    `docs/adr/README.md`.
 4. **Drift check** every design doc the plan touched against the code;
