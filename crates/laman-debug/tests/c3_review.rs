@@ -3,8 +3,9 @@
 //! the end points of the edges.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
-use laman::model::{Point, Sketch};
-use laman::profile::profiles;
+use laman::model::tolerance::Tolerances;
+use laman::model::{Coordinate, Point, Sketch};
+use laman::profile::{ProfileError, profiles};
 
 /// A closed rectangle over `[x0, x1] x [y0, y1]`, counter-clockwise, and its
 /// corner points.
@@ -99,4 +100,78 @@ fn loop_joins_name_a_chain_through_an_off_loop_point() {
     let found = profiles(&sk, &sk.coordinates()).unwrap();
     assert_eq!(found.profiles.len(), 1);
     assert_eq!(found.profiles[0].outer.joins, vec![first, second]);
+}
+
+/// D1/Q3 A: a `coincident` the values violate still joins its ends, so the
+/// loop closes and names it; the free ends it joins are not also reported.
+#[test]
+fn a_violated_joining_coincident_still_closes_its_loop_and_is_named() {
+    let mut sk = Sketch::new();
+    let (a, e) = open_square(&mut sk);
+    let join = sk.coincident(a, e).unwrap();
+    let mut values = sk.coordinates();
+    values.insert((e.id(), Coordinate::X), 3.0);
+    values.insert((e.id(), Coordinate::Y), 4.0);
+    let found = profiles(&sk, &values).unwrap();
+    assert_eq!(found.profiles.len(), 1, "{found:#?}");
+    assert_eq!(found.profiles[0].outer.joins, vec![join]);
+    assert!(found.open_chains.is_empty() && found.unjoined.is_empty());
+}
+
+/// An edge whose two ends are one join is reported as `degenerate` and left
+/// out of every other list.
+#[test]
+fn a_self_joined_edge_is_reported_degenerate() {
+    let mut sk = Sketch::new();
+    let a = sk.point(0.0, 0.0).unwrap();
+    let b = sk.point(5.0, 0.0).unwrap();
+    let line = sk.line(a, b).unwrap();
+    sk.coincident(a, b).unwrap();
+    let found = profiles(&sk, &sk.coordinates()).unwrap();
+    assert_eq!(found.degenerate, vec![line.id()]);
+    assert!(found.profiles.is_empty() && found.open_chains.is_empty());
+    assert!(found.dangling.is_empty() && found.unjoined.is_empty());
+}
+
+/// D4: two free ends are reported when they lie within the smaller of their
+/// edges' length tolerances, not the larger.
+#[test]
+fn unjoined_ends_are_held_to_the_smaller_tolerance() {
+    let build = |gap: f64| {
+        let mut sk = Sketch::new();
+        let a = sk.point(-1.0, 0.0).unwrap();
+        let b = sk.point(0.0, 0.0).unwrap();
+        let c = sk.point(0.0, gap).unwrap();
+        let d = sk.point(1e6, 0.0).unwrap();
+        let (short, long) = (sk.line(a, b).unwrap(), sk.line(c, d).unwrap());
+        let t = Tolerances::at(&sk, &sk.coordinates());
+        // The premise: a short edge near the origin is held far tighter than
+        // a long one.
+        assert!(t.entity(short.id()) * 100.0 < t.entity(long.id()));
+        let ends = (b.id(), c.id());
+        (profiles(&sk, &sk.coordinates()).unwrap(), t, short, ends)
+    };
+    let (_, t, short, _) = build(1e-7);
+    let tight = t.entity(short.id());
+    let (inside, ..) = build(tight / 2.0);
+    let (outside, ..) = build(tight * 4.0);
+    let (_, _, _, ends) = build(1e-7);
+    assert_eq!(inside.unjoined.len(), 1, "{inside:#?}");
+    assert_eq!((inside.unjoined[0].first, inside.unjoined[0].second), ends);
+    assert!(outside.unjoined.is_empty(), "{outside:#?}");
+}
+
+/// A non-finite coordinate of a point an edge uses is refused by id.
+#[test]
+fn a_non_finite_point_coordinate_is_refused_by_id() {
+    let mut sk = Sketch::new();
+    let (a, _) = open_square(&mut sk);
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut values = sk.coordinates();
+        values.insert((a.id(), Coordinate::Y), bad);
+        assert_eq!(
+            profiles(&sk, &values),
+            Err(ProfileError::NonFinite { entity: a.id() })
+        );
+    }
 }

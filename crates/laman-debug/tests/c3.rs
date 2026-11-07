@@ -12,7 +12,7 @@ use laman_debug::json::{sketch_from_str, sketch_to_string};
 use laman_debug::runner::solve_run;
 use std::path::PathBuf;
 
-const FIXTURES: [&str; 9] = [
+const FIXTURES: [&str; 10] = [
     "rectangle",
     "slotted-plate",
     "slotted-plate-coincident",
@@ -22,6 +22,7 @@ const FIXTURES: [&str; 9] = [
     "open-chain",
     "dangling-edge",
     "shared-edge",
+    "unjoined",
 ];
 
 /// Fixtures whose solved coordinates are not compared: their closed-form
@@ -141,6 +142,12 @@ fn the_acceptance_numbers() {
     assert_eq!(area("dangling-edge").dangling.len(), 1);
     assert_eq!(area("shared-edge").branched.len(), 1);
     assert!(area("shared-edge").profiles.is_empty());
+    // A rectangle with a corner of two ground points at one place is an open
+    // chain whose free ends are reported, never joined.
+    let r = area("unjoined");
+    assert!(r.profiles.is_empty());
+    assert_eq!(r.open_chains.len(), 1);
+    assert_eq!(r.unjoined.len(), 1);
 }
 
 /// A slot grid has exactly one profile, the plate, with one hole per slot,
