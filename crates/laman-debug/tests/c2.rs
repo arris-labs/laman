@@ -4,8 +4,9 @@
 #[path = "support/c2.rs"]
 mod support;
 
+use laman::solution::{Algorithm, SolverOptions};
 use laman_check::check;
-use laman_debug::corpus::{rect_chain, slot_grid, triangle_strip};
+use laman_debug::corpus::{bisecting_drag, rect_chain, slot_grid, triangle_strip};
 use support::run_case;
 
 #[test]
@@ -88,3 +89,20 @@ large_case!(slot_grid_500, slot_grid(7, 7), 498);
 large_case!(triangle_strip_100, triangle_strip(32), 99);
 large_case!(triangle_strip_250, triangle_strip(82), 249);
 large_case!(triangle_strip_500, triangle_strip(166), 501);
+
+/// The bench's bisect cell makes three tries, two halvings, under both
+/// algorithms: the frame's cost is its tries, so a damping that lets a try
+/// swing the arc further shows here first (plans/m8-pursuit step 1).
+#[test]
+fn the_bisect_cell_halves_twice() {
+    let case = slot_grid(7, 7).unwrap();
+    let (sketch, dragged, target) = bisecting_drag(&case).unwrap().unwrap();
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let frame = sketch.drag(dragged, &options).unwrap().to(target);
+        let bisection = frame.diagnostics.bisection.unwrap();
+        assert_eq!(bisection.halvings, 2, "{algorithm:?}");
+        assert!(frame.diagnostics.flips.is_empty(), "{algorithm:?}");
+    }
+}

@@ -2,9 +2,9 @@
 //! laman-debug --example bench_c2`. Every row runs in a separate process,
 //! bounded even during setup. Budget misses and timeouts are data, not an
 //! exit failure. Triangle drags have no construction and are printed N/A.
-use laman::model::{Constraint, Coordinate, Entity, Sketch};
+use laman::model::Constraint;
 use laman::solution::{Algorithm, SolverOptions};
-use laman_debug::corpus::{Case, rect_chain, slot_grid, triangle_strip};
+use laman_debug::corpus::{Case, bisecting_drag, rect_chain, slot_grid, triangle_strip};
 use std::io::{BufRead, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
@@ -35,39 +35,6 @@ fn case(family: usize, size: usize) -> Result<Case, Error> {
         2 => triangle_strip([32, 82, 166][size])?,
         _ => return Err("unknown family".into()),
     })
-}
-
-/// The slot grid's drag sketch with the middle slot's left arc let loose of
-/// its tangent lines, and the target that turns the arc's start a quarter
-/// turn about its centre: the arc's sweep moves by a quarter turn (π/2),
-/// more than `MAX_SWEEP_STEP`, so the first frame is bisected
-/// (plans/m7-drag-conflicts step 10).
-fn bisecting_drag(case: &Case) -> Result<(Sketch, laman::model::EntityId, [f64; 2]), Error> {
-    let drag = case.drag.as_ref().ok_or("no constructed drag")?;
-    let mut sketch = drag.sketch.clone();
-    let tag = format!("slot-{}-left", sketch.entities().count() / 10 / 2);
-    let tagged = sketch
-        .entities()
-        .find(|(id, _)| sketch.tag_of(*id) == Some(tag.as_str()))
-        .ok_or("missing slot arc")?;
-    let (arc, (c, s)) = match tagged {
-        (id, Entity::Arc { c, s, .. }) => (id, (*c, *s)),
-        _ => return Err("slot tag is not an arc".into()),
-    };
-    let tangents: Vec<_> = sketch
-        .constraints()
-        .filter(|(_, constraint)| {
-            matches!(constraint, Constraint::TangentLineCircle { round, .. } if round.id() == arc)
-        })
-        .map(|(id, _)| id)
-        .collect();
-    for id in tangents {
-        sketch.remove_constraint(id)?;
-    }
-    let at = |p: laman::model::Point, axis| drag.expected.coordinates[&(p.id(), axis)];
-    let (cx, cy) = (at(c, Coordinate::X), at(c, Coordinate::Y));
-    let (dx, dy) = (at(s, Coordinate::X) - cx, at(s, Coordinate::Y) - cy);
-    Ok((sketch, s.id(), [cx + dy, cy - dx]))
 }
 
 fn signal(message: &str) -> Result<(), Error> {
@@ -126,7 +93,7 @@ fn worker(
         let mut session = None;
         let mut bisect_target = None;
         if operation == "bisect" {
-            let (sketch, dragged, target) = bisecting_drag(&case)?;
+            let (sketch, dragged, target) = bisecting_drag(&case)?.ok_or("no bisecting drag")?;
             session = Some(sketch.drag(dragged, &options)?);
             bisect_target = Some(target);
         } else if operation == "drag" {

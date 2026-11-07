@@ -136,6 +136,14 @@ A defect a run measured, one block each:
 - Cause: under DogLeg every filter test of the subset {leg-a, leg-b, span} with constraint 10 (as many equations as parameters, inconsistent: its least-squares point is where the Jacobian is singular) ended at the 128-iteration cap 2–5× above `STATIONARY` (ratios 2.2e-6, 4.6e-6; the dog leg needs about 200 iterations there, LM 85). Which path concluded was decided by the budget share an earlier, satisfied component left (2 iterations staged, 4 whole), not by staging
 - State: fixed (plans/m7-drag-conflicts step 5: every filter test re-solved by Levenberg–Marquardt, ADR-0005 third amendment); regression/staged-conflict-inconclusive (shrunk to 7 points, 9 distances; the set is the triangle inequality {leg-a, leg-b, span})
 
+### far-goal-stationary
+- What: a goal at 1e300 is called stationary at once and the frame ends converged where it started: `norm(&g)` overflows to infinity, so `|p| <= acceptance + GOAL_ROUNDING * |g|` passes
+- Where: `laman`, `solve.rs`, `pursue`
+- Seen: plans/m8-pursuit step 1, 2026-11-07, a hand test at f64's extremes
+- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored far_goal_stationary`
+- Measured: point on a radius-10 circle, target (-1e300, 3e299): ends (10, 0), both algorithms; 1e30 and 1e150 end nearest the target
+- State: regression/far-goal-stationary
+
 ## Rejected
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)

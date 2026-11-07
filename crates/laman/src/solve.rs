@@ -750,7 +750,13 @@ fn continued(
 /// gradient `p = Nᵀ J_gᵀ g` and its reduced Hessian `H` ([`Pursuit::hessian`]),
 /// and the step `N z`, `(H + μ I) z = −p`: of least norm, since `N` is
 /// orthonormal and `z` has no part outside it. `μ` is LM's dimensionless
-/// damping times `max(1, max diag H)`, from `INITIAL_DAMPING`, divided by
+/// damping times the larger of `max diag (J_g N)ᵀ(J_g N)` and `max |diag H|`:
+/// the first is `H`'s own scale on a long chain, where the goal reaches its
+/// parameter through a small entry of `N` (a floor of 1 there held every step
+/// short, 5 iterations for 3), and stays positive where curvature cancels `H`
+/// to zero (`|p|` past the stationary test means `J_g N` is not zero); the
+/// second keeps the raises in reach of a large negative curvature, a target
+/// far beyond the sketch. The damping starts at `INITIAL_DAMPING`, is divided by
 /// `ACCEPT_DIVISOR` on an accepted step and multiplied by
 /// `REJECT_MULTIPLIER` on a rejected one or a failed factorization, at most
 /// [`GOAL_RAISES`] times an iteration. A component without required
@@ -837,9 +843,19 @@ fn pursue(
             return false;
         };
         let hessian = pursuit.hessian(out, &position, &basis, &reduced, &g);
+        let gauss_newton_part = reduced
+            .iter()
+            .fold(vec![0.0; basis.len()], |mut sum, row| {
+                for (s, x) in sum.iter_mut().zip(row) {
+                    *s += x * x;
+                }
+                sum
+            })
+            .into_iter()
+            .fold(0.0, f64::max);
         let magnitude = (0..basis.len())
             .map(|i| hessian[(i, i)].abs())
-            .fold(1.0, f64::max);
+            .fold(gauss_newton_part, f64::max);
         let rhs = DVector::<f64>::from_iterator(basis.len(), projected.iter().map(|x| -x));
         let start = out.coordinates.clone();
         let mut accepted = false;

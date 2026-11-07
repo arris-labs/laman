@@ -576,6 +576,70 @@ fn goal_at(p: crate::model::Point, [x, y]: [f64; 2]) -> [Goal; 2] {
     ]
 }
 
+/// A chain of `n` horizontal unit-spaced links from a ground point: its tail
+/// point's goal reaches every link, through a null vector whose entry at the
+/// tail is about `1/√n`, so `H` is far below 1. The goal's model is exact here
+/// and the damping must be read against `H`, not against 1: the pursuit's
+/// probes do not grow with the length (plans/m8-pursuit step 1; against 1,
+/// 5 at 32 links).
+#[test]
+fn a_long_chains_goal_takes_no_more_probes_for_its_length() {
+    for algorithm in ALGORITHMS {
+        for (n, cap) in [(4, 4), (32, 3), (128, 3)] {
+            let mut sk = Sketch::new();
+            let mut last = sk.point_fixed(0.0, 0.0).unwrap();
+            let mut tail = last;
+            for i in 1..=n {
+                let next = sk.point(i as f64, 0.0).unwrap();
+                let link = sk.line(last, next).unwrap();
+                sk.horizontal(link).unwrap();
+                if i != 1 {
+                    sk.distance(last, next, 1.0).unwrap();
+                }
+                last = next;
+                tail = next;
+            }
+            let target = [n as f64 + 0.5, 0.0];
+            let out = solve_toward(&sk, &goal_at(tail, target), with(algorithm));
+            assert!(out.converged, "{algorithm:?} {n}");
+            assert!(
+                out.iterations <= cap,
+                "{algorithm:?} {n}: {}",
+                out.iterations
+            );
+            assert!((out.map()[&(tail.id(), Coordinate::X)] - target[0]).abs() < COORDINATE_ERROR);
+            assert!(check(&sk, &out.map()).is_clean());
+        }
+    }
+}
+
+/// A target so far beyond a circle that the curvature dwarfs the goal's
+/// Gauss–Newton part, on the side that makes `H` negative: the damping's
+/// raises still reach it, as they are read against `|H|`, and the point ends
+/// nearest the target. 1e300 is regression/far-goal-stationary.
+#[test]
+fn a_far_target_is_reached_past_a_negative_curvature() {
+    for algorithm in ALGORITHMS {
+        for far in [1e30, 1e150] {
+            let mut sk = Sketch::new();
+            let c = sk.point_fixed(0.0, 0.0).unwrap();
+            let p = sk.point(10.0, 0.0).unwrap();
+            sk.distance(c, p, 10.0).unwrap();
+            let out = solve_toward(&sk, &goal_at(p, [-far, 0.3 * far]), with(algorithm));
+            assert!(out.converged, "{algorithm:?} {far:e}");
+            assert!(check(&sk, &out.map()).is_clean());
+            let d = libm::hypot(1.0, 0.3);
+            for (coordinate, want) in [(Coordinate::X, -10.0 / d), (Coordinate::Y, 3.0 / d)] {
+                let got = out.map()[&(p.id(), coordinate)];
+                assert!(
+                    (got - want).abs() < COORDINATE_ERROR,
+                    "{algorithm:?} {far:e}: {got}"
+                );
+            }
+        }
+    }
+}
+
 /// ROADMAP fixture 4 on the driver: from the closed-form "Before", each of
 /// the ten targets is pursued from the previous step's solution (the warm
 /// start a drag session makes). The plate's width follows the target's x;

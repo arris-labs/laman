@@ -3,7 +3,9 @@
 //! change the solver or the C1 fixtures.
 
 use crate::fixture::{Drag, DragStep, Expected};
-use laman::model::{ConstraintId, Coordinate, Coordinates, EntityId, ModelError, Point, Sketch};
+use laman::model::{
+    Constraint, ConstraintId, Coordinate, Coordinates, Entity, EntityId, ModelError, Point, Sketch,
+};
 
 /// A generated static sketch, a dimension edit, and an optional drag.
 #[derive(Debug)]
@@ -715,4 +717,60 @@ pub fn triangle_strip_with(n: usize, side: f64) -> Result<Case, CorpusError> {
         },
         drag: None,
     })
+}
+
+/// The bench's `bisect` cell, from a slot grid's [`Case`]: its drag sketch with
+/// the middle slot's left arc let loose of its tangent lines, the arc's start
+/// to drag, and the target that turns that start a quarter turn about the
+/// arc's centre. The sweep moves by a quarter turn, past
+/// `laman::model::tolerance::MAX_SWEEP_STEP`, so the first frame is bisected.
+/// `None` for a case with no drag or no such arc.
+///
+/// ```
+/// let case = laman_debug::corpus::slot_grid(3, 3)?;
+/// let (sketch, dragged, target) = laman_debug::corpus::bisecting_drag(&case)?.unwrap();
+/// let mut session = sketch.drag(dragged, &Default::default())?;
+/// assert!(session.to(target).diagnostics.bisection.is_some());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn bisecting_drag(case: &Case) -> Result<Option<(Sketch, EntityId, [f64; 2])>, CorpusError> {
+    let Some(drag) = case.drag.as_ref() else {
+        return Ok(None);
+    };
+    let mut sketch = drag.sketch.clone();
+    let tag = format!("slot-{}-left", sketch.entities().count() / 10 / 2);
+    let arc = sketch
+        .entities()
+        .find(|(id, _)| sketch.tag_of(*id) == Some(tag.as_str()))
+        .and_then(|(id, entity)| {
+            if let Entity::Arc { c, s, .. } = entity {
+                Some((id, *c, *s))
+            } else {
+                None
+            }
+        });
+    let Some((arc, c, s)) = arc else {
+        return Ok(None);
+    };
+    let tangents: Vec<_> = sketch
+        .constraints()
+        .filter(|(_, constraint)| {
+            matches!(constraint, Constraint::TangentLineCircle { round, .. } if round.id() == arc)
+        })
+        .map(|(id, _)| id)
+        .collect();
+    for id in tangents {
+        sketch.remove_constraint(id)?;
+    }
+    let at = |p: Point, axis| drag.expected.coordinates.get(&(p.id(), axis)).copied();
+    let (Some(cx), Some(cy), Some(sx), Some(sy)) = (
+        at(c, Coordinate::X),
+        at(c, Coordinate::Y),
+        at(s, Coordinate::X),
+        at(s, Coordinate::Y),
+    ) else {
+        return Ok(None);
+    };
+    let (dx, dy) = (sx - cx, sy - cy);
+    Ok(Some((sketch, s.id(), [cx + dy, cy - dx])))
 }

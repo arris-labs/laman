@@ -42,6 +42,14 @@ that keeps the gain without either. Candidates: a first step undamped when
 the model is trusted; the floor kept only where curvature is a large part of
 `H`. The rule and any constant: measured by step 1.
 
+*Settled by step 1:* `μ` is the damping times `max(max diag G, max |diag H|)`,
+`G = (J_g N)ᵀ(J_g N)`; no constant. The test failed because `H` is exactly 0
+there (`G` 1 and `W` −1 cancel at the circle's far side), so a damping read
+against `H` alone is 0 and raises do nothing. `G` is positive past the
+stationary test, and `|H|` keeps the raises in reach of a far target's large
+negative curvature. Measured: `|H|` alone gave the bisect 4 halvings, `G` alone
+2, and the test now pins 2; why `|H|` alone gave 4 was not traced.
+
 **D2 — Zero-skipping QR (`Qr::new`, `diagnose.rs`).** The reflector touches only
 the rows where `v` is nonzero and skips a column whose dot is exactly 0; a
 column's norm is recomputed only if the reflector changed it or the row just
@@ -86,7 +94,7 @@ and the tests are mechanical; **[2]** careful — a numeric or geometric case to
 get right within a given design; **[3]** unproven — an algorithm whose
 robustness, convergence or bound has to be established here.
 
-- [ ] Step 1 **[3]** — D1: move `bisecting_drag` to the corpus and pin the
+- [x] Step 1 **[3]** — D1: move `bisecting_drag` to the corpus and pin the
   cell at 2 halvings under both algorithms; explain the test failure and the
   extra halvings of the floorless damping; land a rule that takes the 498
   rectangle drag to at most 3 pursuit iterations with neither regression. If
@@ -139,4 +147,3 @@ robustness, convergence or bound has to be established here.
 
 - ⚠ OPEN: the form of a stopped cell's number in the *Accept*. Agent, by step 6;
   default: the worst across the three runs, rounded up to the next 0.5 ms.
-- ⚠ OPEN: step 1's rule, or that none exists. Agent, by step 1.

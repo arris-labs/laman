@@ -171,6 +171,22 @@ fn drag_negative_radius() {
 }
 
 #[test]
+#[ignore = "a goal at 1e300 overflows the stationary test and ends where it started"]
+fn far_goal_stationary() {
+    let f = load("far-goal-stationary");
+    let drag = f.drag.as_ref().unwrap();
+    let (point, target) = (drag.dragged, drag.targets[0]);
+    let d = libm::hypot(1.0, 0.3);
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let frame = f.sketch.drag(point, &options).unwrap().to(target);
+        let x = frame.coordinates[&(point, laman::model::Coordinate::X)];
+        assert!((x + 10.0 / d).abs() < 1e-9, "{algorithm:?}: {x}");
+    }
+}
+
+#[test]
 fn negative_radius_solve() {
     let f = load("negative-radius-solve");
     for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {

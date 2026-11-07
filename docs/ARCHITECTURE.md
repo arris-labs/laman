@@ -211,7 +211,13 @@ Nᵀ W N`, where `W = Σ λᵢ ∇²cᵢ` is the required curvature weighted by 
 least-squares multipliers `λ = −(J_rᵀ)⁺ J_gᵀ g`, read as a forward
 difference (step √eps) of the analytic Jacobian along each null vector.
 The step `N z`, `(H + μI) z = −p`, is of least norm within the null space;
-`μ` is LM's damping, adapted as above; the step is cut to one component
+`μ` is LM's damping, adapted as above, times the larger of
+`max diag (J_g N)ᵀ(J_g N)` and `max |diag H|`, never a floor of 1: on a long
+chain `H` is far below 1 and a floor holds every step short (the 498-rectangle
+drag took 5 iterations for 3), the first stays positive where curvature cancels
+`H` to zero (a point on a circle of radius 10 reaching for (0, 1) from
+(10, 0)), and the second keeps the raises in reach of a large negative curvature.
+The step is cut to one component
 size, then corrected back onto the required equations by the required
 descent, and accepted when that converges and the goal's objective does
 not rise by more than the correction's own noise: near stationarity the
@@ -245,15 +251,15 @@ Measured (`solve::tests`), under both engines:
 
 | Case | Iterations / evaluations |
 |---|---:|
-| Fixture 4, each of the ten steps from the previous one | 4 / 13, no rejection |
+| Fixture 4, each of the ten steps from the previous one | 3 / 14, no rejection |
 | Point on a circle of radius 10, target (30, 40) (outside) | LM 13 / 22, DogLeg 7 / 16 |
 | Same, target (0, 1) (inside) | LM 15 / 26, DogLeg 8 / 19 |
 | Same from (0, −10), target (−3, 0.5) | LM 23 / 38, DogLeg 12 / 27 |
 | Two-bar linkage, targets up to 5 link-lengths away, 5 000 cases | all converged, checker clean |
 
 Stationary exits end with `|p|` from 2e-16 to 8e-13 of the component's
-scale against an acceptance of 1e-12. A fixture-4 step's 4 iterations are
-4 probes, each exact up to the damping (1e-3, then divided by 3) that the
+scale against an acceptance of 1e-12. A fixture-4 step's 3 iterations are
+3 probes, each exact up to the damping (1e-3, then divided by 3) that the
 next one removes; its corrections take no step.
 
 **Least change**: among the solutions of an under-constrained component,
