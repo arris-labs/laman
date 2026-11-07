@@ -6,6 +6,14 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- `laman::profile::profiles` turns a sketch and any coordinates, a
+  solution's included, into profiles: every outer loop counter-clockwise
+  with its holes clockwise, nested by containment, each with its signed and
+  net area. Edges join at a shared point or through `coincident`
+  constraints, never by being close. Open chains, dangling edges, branched
+  cores and degenerate edges come back by id; values missing a coordinate
+  are refused naming the point or circle.
+
 ## 0.2.0 — 2026-11-07
 
 - Large sketches solve far faster: each connected part of a sketch is cut

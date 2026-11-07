@@ -4,24 +4,285 @@
 //! Joins are declared, never measured; coordinates give only area,
 //! orientation and nesting, through the geometry kernel in `geometry`.
 
-// The extraction that calls the kernel lands in plans/m9-profiles step 4;
-// until then only its tests do. `expect` fails the build once it is called.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "called by the extraction, plans/m9-profiles step 4"
-    )
-)]
 mod geometry;
-
-// The extraction that calls the topology lands in plans/m9-profiles step 4;
-// until then only its tests do. `expect` fails the build once it is called.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "called by the extraction, plans/m9-profiles step 4"
-    )
-)]
 mod topology;
+
+use crate::model::profile::{Loop, Profile, Profiles, Traversal};
+use crate::model::{Coordinate, Coordinates, Entity, EntityId, Sketch};
+use geometry::{Boundary, Edge, Orientation};
+
+/// Why profiles could not be extracted. Names the caller's id.
+///
+/// ```
+/// use laman::model::EntityId;
+/// use laman::profile::ProfileError;
+/// let e = ProfileError::Missing { entity: EntityId(3) };
+/// assert_eq!(e.to_string(), "entity 3 has no coordinates in the values");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum ProfileError {
+    /// The values lack a coordinate of a point or circle an edge uses.
+    #[error("{entity} has no coordinates in the values")]
+    Missing {
+        /// The point or circle.
+        entity: EntityId,
+    },
+    /// A coordinate of a point or circle an edge uses is not finite.
+    #[error("{entity} has a non-finite coordinate")]
+    NonFinite {
+        /// The point or circle.
+        entity: EntityId,
+    },
+}
+
+fn value(values: &Coordinates, entity: EntityId, c: Coordinate) -> Result<f64, ProfileError> {
+    match values.get(&(entity, c)) {
+        None => Err(ProfileError::Missing { entity }),
+        Some(v) if !v.is_finite() => Err(ProfileError::NonFinite { entity }),
+        Some(&v) => Ok(v),
+    }
+}
+
+fn point(values: &Coordinates, id: EntityId) -> Result<[f64; 2], ProfileError> {
+    Ok([
+        value(values, id, Coordinate::X)?,
+        value(values, id, Coordinate::Y)?,
+    ])
+}
+
+/// A loop being assembled: its traversal and its measured boundary.
+struct Candidate {
+    edges: Vec<Traversal>,
+    joins: Vec<crate::model::ConstraintId>,
+    /// The circle's centre and radius, for a loop that is one circle.
+    circle: Option<([f64; 2], f64)>,
+    area: f64,
+    orientation: Orientation,
+}
+
+impl Candidate {
+    fn boundary<'a>(&self, directed: &'a [Edge]) -> Boundary<'a> {
+        match self.circle {
+            Some((centre, radius)) => Boundary::Circle {
+                centre,
+                radius,
+                reversed: self.edges.first().is_some_and(|t| t.reversed),
+            },
+            None => Boundary::Edges(directed),
+        }
+    }
+}
+
+/// The edges of `traversals` with their coordinates, in loop direction.
+fn directed(
+    sketch: &Sketch,
+    values: &Coordinates,
+    traversals: &[Traversal],
+) -> Result<Vec<Edge>, ProfileError> {
+    let mut out = Vec::with_capacity(traversals.len());
+    for t in traversals {
+        match sketch.entity(t.entity) {
+            Some(Entity::Line { a, b }) => {
+                let (a, b) = (point(values, a.id())?, point(values, b.id())?);
+                let (from, to) = if t.reversed { (b, a) } else { (a, b) };
+                out.push(Edge::Line { from, to });
+            }
+            Some(Entity::Arc { c, s, e }) => out.push(Edge::Arc {
+                centre: point(values, c.id())?,
+                start: point(values, s.id())?,
+                end: point(values, e.id())?,
+                reversed: t.reversed,
+            }),
+            Some(Entity::Point { .. } | Entity::Circle { .. }) | None => {}
+        }
+    }
+    Ok(out)
+}
+
+/// Measures one loop in the direction `traversals` give.
+fn measure(
+    sketch: &Sketch,
+    values: &Coordinates,
+    traversals: Vec<Traversal>,
+    joins: Vec<crate::model::ConstraintId>,
+) -> Result<Candidate, ProfileError> {
+    let circle = match traversals.first().and_then(|t| sketch.entity(t.entity)) {
+        Some(Entity::Circle { c, .. }) => {
+            let id = traversals.first().map_or(c.id(), |t| t.entity);
+            Some((point(values, c.id())?, value(values, id, Coordinate::R)?))
+        }
+        _ => None,
+    };
+    let edges = directed(sketch, values, &traversals)?;
+    let mut cand = Candidate {
+        edges: traversals,
+        joins,
+        circle,
+        area: 0.0,
+        orientation: Orientation::Flat,
+    };
+    let a = geometry::area(&cand.boundary(&edges));
+    cand.area = a.signed;
+    cand.orientation = a.orientation;
+    Ok(cand)
+}
+
+/// The same loop traversed the other way, from the same first edge.
+fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
+    let flip = |t: &Traversal| Traversal {
+        entity: t.entity,
+        reversed: !t.reversed,
+    };
+    let mut out = Vec::with_capacity(edges.len());
+    if let Some((first, rest)) = edges.split_first() {
+        out.push(flip(first));
+        out.extend(rest.iter().rev().map(flip));
+    }
+    out
+}
+
+/// Extracts the profiles of `sketch` at `values`: loops from its
+/// non-construction lines, arcs and circles, nested by containment (ADR-0012).
+///
+/// Joins are declared, never measured: edges meet at a shared point id or
+/// through a chain of `coincident` constraints. The coordinates give only
+/// area, orientation and nesting, so a solution's `coordinates` are as good
+/// an input as any others. Every outer loop is counter-clockwise and every
+/// hole clockwise, whatever order the edges were drawn in; an island inside
+/// a hole is a profile of its own. Open chains, dangling edges, branched
+/// cores and degenerate edges are reported by id in the result, never as
+/// errors.
+///
+/// Refuses only values that lack, or hold a non-finite, coordinate of a
+/// point or circle an edge uses ([`ProfileError`]). Curves that cross or
+/// touch without a shared point give a deterministic result whose nesting is
+/// not specified.
+///
+/// ```
+/// use laman::model::{Coordinate, Sketch};
+/// use laman::profile::profiles;
+///
+/// let mut sk = Sketch::new();
+/// let p = [(0.0, 0.0), (4.0, 0.0), (4.0, 3.0), (0.0, 3.0)]
+///     .map(|(x, y)| sk.point(x, y))
+///     .into_iter()
+///     .collect::<Result<Vec<_>, _>>()?;
+/// for i in 0..4 {
+///     sk.line(p[i], p[(i + 1) % 4])?;
+/// }
+/// let found = profiles(&sk, &sk.coordinates())?;
+/// assert_eq!(found.profiles.len(), 1);
+/// assert_eq!(found.profiles[0].net_area, 12.0);
+///
+/// // A point the values lack is named.
+/// let mut values = sk.coordinates();
+/// values.remove(&(p[2].id(), Coordinate::X));
+/// assert!(profiles(&sk, &values).is_err());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, ProfileError> {
+    let topo = topology::topology(sketch);
+
+    let mut loops: Vec<Candidate> = Vec::new();
+    for l in topo.loops {
+        loops.push(measure(sketch, values, l.edges, l.joins)?);
+    }
+    for id in topo.circles {
+        let edge = Traversal {
+            entity: id,
+            reversed: false,
+        };
+        loops.push(measure(sketch, values, vec![edge], Vec::new())?);
+    }
+    loops.sort_by_key(|l| l.edges.first().map(|t| t.entity));
+
+    // Containment: loop `j` lies in loop `i` when `i` winds about the
+    // midpoint of `j`'s first edge.
+    let n = loops.len();
+    let mut shapes: Vec<Vec<Edge>> = Vec::with_capacity(n);
+    for l in &loops {
+        shapes.push(directed(sketch, values, &l.edges)?);
+    }
+    let mut containers: Vec<Vec<usize>> = Vec::with_capacity(n);
+    for (j, inner) in loops.iter().enumerate() {
+        let mut inside = Vec::new();
+        if let Some(q) = geometry::probe(&inner.boundary(&shapes[j])) {
+            for (i, outer) in loops.iter().enumerate() {
+                if i != j && geometry::winding(&outer.boundary(&shapes[i]), q) != 0 {
+                    inside.push(i);
+                }
+            }
+        }
+        containers.push(inside);
+    }
+
+    // Even depth is an outer boundary, odd a hole of its innermost
+    // container; flip a loop that turns the other way.
+    let mut finished: Vec<Option<Loop>> = Vec::with_capacity(n);
+    for (j, l) in loops.iter().enumerate() {
+        let hole = containers[j].len() % 2 == 1;
+        let wrong = match l.orientation {
+            Orientation::CounterClockwise => hole,
+            Orientation::Clockwise => !hole,
+            Orientation::Flat => false,
+        };
+        let (edges, area) = if wrong {
+            let edges = flipped(&l.edges);
+            let shape = directed(sketch, values, &edges)?;
+            let mut flip = Candidate {
+                edges,
+                joins: Vec::new(),
+                circle: l.circle,
+                area: 0.0,
+                orientation: Orientation::Flat,
+            };
+            flip.area = geometry::area(&flip.boundary(&shape)).signed;
+            (flip.edges, flip.area)
+        } else {
+            (l.edges.clone(), l.area)
+        };
+        finished.push(Some(Loop {
+            edges,
+            signed_area: area,
+            joins: l.joins.clone(),
+        }));
+    }
+
+    let depth = |j: usize| containers[j].len();
+    let mut out = Profiles::default();
+    let mut holes: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (j, inside) in containers.iter().enumerate() {
+        if inside.len() % 2 == 1
+            && let Some(&parent) = inside.iter().max_by_key(|&&i| depth(i))
+        {
+            holes[parent].push(j);
+        }
+    }
+    for (j, own) in holes.iter().enumerate() {
+        if depth(j) % 2 == 1 {
+            continue;
+        }
+        let Some(outer) = finished[j].take() else {
+            continue;
+        };
+        let mut hs = Vec::new();
+        let mut net = outer.signed_area;
+        for &h in own {
+            if let Some(hole) = finished[h].take() {
+                net += hole.signed_area;
+                hs.push(hole);
+            }
+        }
+        out.profiles.push(Profile {
+            outer,
+            holes: hs,
+            net_area: net.clamp(-f64::MAX, f64::MAX),
+        });
+    }
+    out.open_chains = topo.open_chains;
+    out.dangling = topo.dangling;
+    out.branched = topo.branched;
+    out.degenerate = topo.degenerate;
+    Ok(out)
+}

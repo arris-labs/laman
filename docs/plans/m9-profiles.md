@@ -108,7 +108,7 @@ algorithm whose robustness or bound is established here.
   tests: a rectangle, the same joined by `coincident`, an open chain, a
   dangling edge, two rectangles sharing an edge, a figure-8, a self-joined
   line, construction edges left out.
-- [ ] Step 4 **[2]** — `profiles()`: orientation applied to traversal, area,
+- [x] Step 4 **[2]** — `profiles()`: orientation applied to traversal, area,
   nesting, holes and islands, `ProfileError`, rustdoc with runnable
   examples. CHANGELOG `Unreleased` bullet.
 - [ ] Step 5 **[2]** — D4 unjoined coincidences. Fixture: a rectangle with

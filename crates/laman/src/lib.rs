@@ -23,7 +23,7 @@ mod branch;
 mod diagnose;
 pub mod drag;
 pub mod model;
-mod profile;
+pub mod profile;
 #[cfg(feature = "reference")]
 #[doc(hidden)]
 pub mod reference;
