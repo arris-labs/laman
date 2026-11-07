@@ -734,6 +734,47 @@ pub fn triangle_strip_with(n: usize, side: f64) -> Result<Case, CorpusError> {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn bisecting_drag(case: &Case) -> Result<Option<(Sketch, EntityId, [f64; 2])>, CorpusError> {
+    Ok(loosened_arc(case)?
+        .map(|(sketch, start, [cx, cy], [dx, dy])| (sketch, start, [cx + dy, cy - dx])))
+}
+
+/// The bench's `bisect-deep` cell, from a slot grid's [`Case`]: the sketch and
+/// start of [`bisecting_drag`] with a target so far away (a few thousand arc
+/// radii) that even the step halved `max_bisections` times moves the arc's
+/// sweep past `laman::model::tolerance::MAX_SWEEP_STEP`. The frame is then
+/// refused at every halving, `max_bisections` + 1 tries, and the session
+/// stays where it is: the most a frame costs. No flip is involved: the loosened
+/// slot has room to turn any quarter or half turn without one. `None` for a
+/// case [`bisecting_drag`] refuses.
+///
+/// ```
+/// let case = laman_debug::corpus::slot_grid(3, 3)?;
+/// let options = laman::solution::SolverOptions::default();
+/// let (sketch, dragged, target) = laman_debug::corpus::refused_drag(&case)?.unwrap();
+/// let frame = sketch.drag(dragged, &options)?.to(target);
+/// assert_eq!(frame.diagnostics.bisection.unwrap().halvings, options.max_bisections);
+/// assert_eq!(frame.coordinates, sketch.coordinates());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn refused_drag(case: &Case) -> Result<Option<(Sketch, EntityId, [f64; 2])>, CorpusError> {
+    // In arc radii. Between 3000 and 10000 every try is refused for this
+    // case; 1e5 is past it (the pursuit stops short of the target).
+    const FAR: f64 = 6000.0;
+    Ok(
+        loosened_arc(case)?.map(|(sketch, start, [cx, cy], [dx, dy])| {
+            (sketch, start, [cx + dx + FAR * dy, cy + dy - FAR * dx])
+        }),
+    )
+}
+
+/// [`loosened_arc`]'s sketch, the arc's start, its centre and the start's offset
+/// from the centre.
+type LoosenedArc = (Sketch, EntityId, [f64; 2], [f64; 2]);
+
+/// A slot grid's drag sketch with the middle slot's left arc let loose of its
+/// tangent lines, that arc's start, its centre and the start's offset from the
+/// centre. `None` for a case with no drag or no such arc.
+fn loosened_arc(case: &Case) -> Result<Option<LoosenedArc>, CorpusError> {
     let Some(drag) = case.drag.as_ref() else {
         return Ok(None);
     };
@@ -772,5 +813,5 @@ pub fn bisecting_drag(case: &Case) -> Result<Option<(Sketch, EntityId, [f64; 2])
         return Ok(None);
     };
     let (dx, dy) = (sx - cx, sy - cy);
-    Ok(Some((sketch, s.id(), [cx + dy, cy - dx])))
+    Ok(Some((sketch, s.id(), [cx, cy], [dx, dy])))
 }

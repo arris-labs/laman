@@ -2,15 +2,20 @@
 //! laman-debug --example bench_c2`. Every row runs in a separate process,
 //! bounded even during setup. Budget misses and timeouts are data, not an
 //! exit failure. Triangle drags have no construction and are printed N/A.
+//! A cell is over budget when its worst sample is, and a bisected frame is
+//! measured per try (its time over `halvings + 1`).
 use laman::model::Constraint;
 use laman::solution::{Algorithm, SolverOptions};
-use laman_debug::corpus::{Case, bisecting_drag, rect_chain, slot_grid, triangle_strip};
+use laman_debug::corpus::{
+    Case, bisecting_drag, rect_chain, refused_drag, slot_grid, triangle_strip,
+};
 use std::io::{BufRead, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-// ROADMAP.md C2's per-frame budget, including diagnostics.
+// ROADMAP.md C2's budget per try, including diagnostics: a frame is one try, or
+// one more than its halvings when it was bisected, and its time is divided.
 const BUDGET: Duration = Duration::from_millis(4);
 // Slow first samples already establish a large miss; do not repeat them.
 const FIRST_LIMIT: Duration = Duration::from_millis(100);
@@ -20,7 +25,7 @@ const RUNS: usize = 5;
 // At most 48 workers: the entire run takes at most 240 s plus process overhead.
 const WORKER_LIMIT: Duration = Duration::from_secs(5);
 const FAMILIES: [&str; 3] = ["rectangles", "slots", "triangles"];
-const OPERATIONS: [&str; 4] = ["static", "edit", "drag", "bisect"];
+const OPERATIONS: [&str; 5] = ["static", "edit", "drag", "bisect", "bisect-deep"];
 const COUNTS: [[usize; 3]; 3] = [[98, 248, 498], [98, 248, 498], [99, 249, 501]];
 
 type Error = Box<dyn std::error::Error>;
@@ -92,8 +97,14 @@ fn worker(
         let edited = prepared.clone();
         let mut session = None;
         let mut bisect_target = None;
+        let mut rest = None;
         if operation == "bisect" {
             let (sketch, dragged, target) = bisecting_drag(&case)?.ok_or("no bisecting drag")?;
+            session = Some(sketch.drag(dragged, &options)?);
+            bisect_target = Some(target);
+        } else if operation == "bisect-deep" {
+            let (sketch, dragged, target) = refused_drag(&case)?.ok_or("no refused drag")?;
+            rest = Some(sketch.coordinates());
             session = Some(sketch.drag(dragged, &options)?);
             bisect_target = Some(target);
         } else if operation == "drag" {
@@ -104,12 +115,22 @@ fn worker(
         // lower bound on this interval, even at the timeout boundary.
         let start = Instant::now();
         signal("timing")?;
+        let mut tries = 1;
         if let Some(mut session) = session {
             if let Some(target) = bisect_target {
                 let frame = std::hint::black_box(session.to(target));
                 // The cell times a bisected frame; one that is not is a bug.
-                if frame.diagnostics.bisection.is_none() {
+                let Some(bisection) = frame.diagnostics.bisection else {
                     return Err("the bisect cell's first frame was not bisected".into());
+                };
+                tries = bisection.halvings + 1;
+                // The deep cell times a frame refused at every halving.
+                if let Some(rest) = &rest
+                    && (bisection.halvings != options.max_bisections || frame.coordinates != *rest)
+                {
+                    return Err(
+                        "the bisect-deep cell's frame was not refused at every halving".into(),
+                    );
                 }
             } else {
                 let target = case
@@ -123,7 +144,7 @@ fn worker(
             std::hint::black_box(edited.solve(&options));
         }
         let took = start.elapsed();
-        signal(&format!("sample {}", took.as_nanos()))?;
+        signal(&format!("sample {} {tries}", took.as_nanos()))?;
         if took > FIRST_LIMIT {
             break;
         }
@@ -133,7 +154,8 @@ fn worker(
 
 #[derive(Default)]
 struct Measurement {
-    samples: Vec<Duration>,
+    /// Each sample's time and its tries.
+    samples: Vec<(Duration, u32)>,
     timing_since: Option<Instant>,
 }
 
@@ -141,8 +163,10 @@ impl Measurement {
     fn receive(&mut self, line: &str) -> Result<(), Error> {
         if line == "timing" {
             self.timing_since = Some(Instant::now());
-        } else if let Some(nanos) = line.strip_prefix("sample ") {
-            self.samples.push(Duration::from_nanos(nanos.parse()?));
+        } else if let Some(sample) = line.strip_prefix("sample ") {
+            let (nanos, tries) = sample.split_once(' ').unwrap_or((sample, "1"));
+            self.samples
+                .push((Duration::from_nanos(nanos.parse()?), tries.parse()?));
             self.timing_since = None;
         } else {
             return Err(format!("invalid worker output: {line}").into());
@@ -171,13 +195,16 @@ impl Measurement {
         if self.timing_since.is_some() || self.samples.is_empty() {
             return Err("worker ended without a completed sample".into());
         }
-        self.samples.sort();
+        // The budget is per try; a sample is its frame's time over its tries.
+        let per_try = |(took, tries): &(Duration, u32)| *took / (*tries).max(1);
+        self.samples.sort_by_key(per_try);
         let count = self.samples.len();
-        let median = self.samples[count / 2];
-        let worst = self.samples[count - 1];
-        Ok(format!(
+        let median = per_try(&self.samples[count / 2]);
+        let worst = per_try(&self.samples[count - 1]);
+        let tries = self.samples[count - 1].1;
+        let mut report = format!(
             "{}; median {:.3} ms, worst {:.3} ms (n={count}{})",
-            if median > BUDGET { "over" } else { "under" },
+            if worst > BUDGET { "over" } else { "under" },
             median.as_secs_f64() * 1000.0,
             worst.as_secs_f64() * 1000.0,
             if count == 1 {
@@ -185,7 +212,14 @@ impl Measurement {
             } else {
                 ""
             }
-        ))
+        );
+        if tries > 1 {
+            report += &format!(
+                "; per try of {tries} tries (the worst frame {:.3} ms)",
+                self.samples[count - 1].0.as_secs_f64() * 1000.0
+            );
+        }
+        Ok(report)
     }
 }
 
@@ -286,7 +320,7 @@ fn run() -> Result<(), Error> {
                 for operation in OPERATIONS {
                     let result = if family == 2 && operation == "drag" {
                         "N/A; no constructed drag".to_owned()
-                    } else if operation == "bisect" && (family != 1 || size != 2) {
+                    } else if operation.starts_with("bisect") && (family != 1 || size != 2) {
                         continue;
                     } else {
                         let child = Command::new(&executable)
@@ -345,9 +379,31 @@ mod tests {
     fn slow_first_sample_is_a_single_observation() {
         let mut measurement = Measurement::default();
         measurement.receive("timing").unwrap();
-        measurement.receive("sample 200000000").unwrap();
+        measurement.receive("sample 200000000 1").unwrap();
         let report = measurement.completed().unwrap();
         assert!(report.contains("median 200.000 ms, worst 200.000 ms (n=1"));
         assert!(report.starts_with("over;"));
+    }
+    #[test]
+    fn a_bisected_frame_is_judged_per_try() {
+        let mut measurement = Measurement::default();
+        // 27 ms over 9 tries is 3 ms a try: under; the same frame as one try is over.
+        measurement.receive("timing").unwrap();
+        measurement.receive("sample 27000000 9").unwrap();
+        let report = measurement.completed().unwrap();
+        assert!(report.starts_with("under;"), "{report}");
+        assert!(
+            report.contains("worst 3.000 ms") && report.contains("9 tries"),
+            "{report}"
+        );
+        let mut measurement = Measurement::default();
+        measurement.receive("timing").unwrap();
+        measurement.receive("sample 5000000 1").unwrap();
+        // The verdict is the worst sample's, not the median's.
+        measurement.receive("timing").unwrap();
+        measurement.receive("sample 1000000 1").unwrap();
+        measurement.receive("timing").unwrap();
+        measurement.receive("sample 1000000 1").unwrap();
+        assert!(measurement.completed().unwrap().starts_with("over;"));
     }
 }

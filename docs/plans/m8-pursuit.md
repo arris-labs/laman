@@ -75,6 +75,14 @@ halving, so `max_bisections` + 1 tries, by a target past a flip on the arc let
 loose in `bisecting_drag`. That function moves to `laman_debug::corpus` so a
 test can hold the cell's halvings.
 
+*Settled by step 4:* no target makes the loosened slot flip (it turns any quarter
+or half turn with room to spare; a scan of turns from 60 to 300 degrees and of
+rays gave only sweep jumps). `bisect-deep` is a target a few thousand radii away
+(`corpus::refused_drag`): even the step halved 8 times moves the sweep past
+`MAX_SWEEP_STEP`, so every try is refused by a jump and the session stays put.
+Measured at 498 entities, worst of 5: bisect 7.3 ms over 3 tries (2.4 a try),
+bisect-deep 34.8 ms over 9 (3.9 a try), both algorithms alike.
+
 **D5 — The *Accept* (ROADMAP.md §C2).** "bisected drag frames included" becomes
 every try of a bisected frame ≤ 4 ms, a frame's time divided by its tries. The
 rectangle drag keeps 4 ms unless step 6 applies the stop rule. ADR-0011:
@@ -105,7 +113,7 @@ robustness, convergence or bound has to be established here.
 - [x] Step 3 **[2]** — D3: `λ` from the kept factorization. Tests against
   `gauss_newton` within a named tolerance: a curved linkage, a chain, rows of
   mixed norm, a zero row, and redundant rows (a whole-path component).
-- [ ] Step 4 **[2]** — D4: the verdict on the worst sample, tries and time per
+- [x] Step 4 **[2]** — D4: the verdict on the worst sample, tries and time per
   try printed, the `bisect-deep` cell, failing if its frame is not refused at
   every halving.
 - [ ] Step 5 **[2]** — Re-profile the rectangle drag by instrumentation in a

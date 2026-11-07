@@ -6,7 +6,7 @@ mod support;
 
 use laman::solution::{Algorithm, SolverOptions};
 use laman_check::check;
-use laman_debug::corpus::{bisecting_drag, rect_chain, slot_grid, triangle_strip};
+use laman_debug::corpus::{bisecting_drag, rect_chain, refused_drag, slot_grid, triangle_strip};
 use support::run_case;
 
 #[test]
@@ -104,5 +104,27 @@ fn the_bisect_cell_halves_twice() {
         let bisection = frame.diagnostics.bisection.unwrap();
         assert_eq!(bisection.halvings, 2, "{algorithm:?}");
         assert!(frame.diagnostics.flips.is_empty(), "{algorithm:?}");
+    }
+}
+
+/// The bench's `bisect-deep` cell is refused at every halving, under both
+/// algorithms: nine tries, the session where it was, so the cell times the
+/// most a frame can cost (plans/m8-pursuit step 4).
+#[test]
+fn the_bisect_deep_cell_is_refused_at_every_halving() {
+    let case = slot_grid(7, 7).unwrap();
+    let (sketch, dragged, target) = refused_drag(&case).unwrap().unwrap();
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let mut session = sketch.drag(dragged, &options).unwrap();
+        let rest = sketch.coordinates();
+        // Twice: a refused frame leaves the session as it was.
+        for _ in 0..2 {
+            let frame = session.to(target);
+            let bisection = frame.diagnostics.bisection.unwrap();
+            assert_eq!(bisection.halvings, options.max_bisections, "{algorithm:?}");
+            assert_eq!(frame.coordinates, rest, "{algorithm:?}");
+        }
     }
 }
