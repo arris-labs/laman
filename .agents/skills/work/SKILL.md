@@ -24,7 +24,8 @@ miss); reporting after one step and waiting for another `/work` is a bug.
    asked for before writing it, not after.
 2. Implement the step with its test or fixture, the docs it changes and
    rustdoc on every new public item. A new constraint kind brings its
-   finite-difference Jacobian check; a public API change brings the
+   finite-difference Jacobian check; a new public operation brings its
+   `fuzz/fuzz_targets/` target; a public API change brings the
    binding, its stub and `tools/py-test.sh`. A new public item is in
    the plan's *Design deltas* (add it if missing) and its new word gets
    its `GLOSSARY.md` entry, in the same commit.

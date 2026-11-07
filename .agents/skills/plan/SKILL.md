@@ -47,7 +47,8 @@ and the human can read in two minutes: under ~150 lines and ~10 steps.
      routine, the design says exactly what to write and the tests are
      mechanical; **[2]** careful, a numeric or geometric case to get right
      within a given design; **[3]** unproven, an algorithm whose robustness
-     or bound has to be established here. A step whose only test is a CI
+     or bound has to be established here. A step that adds a public
+     operation brings its fuzz target. A step whose only test is a CI
      run (another runner, a workflow) carries **[CI]** after its grade: it
      needs a push, so the plan's header says it runs on `plan/<slug>`.
    - *Acceptance* is an executable fixture run, ideally the milestone's own:
