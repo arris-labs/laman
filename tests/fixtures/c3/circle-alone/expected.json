@@ -1,0 +1,40 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 1,
+      "coordinate": "r",
+      "value": 5.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "profiles": {
+    "profiles": [
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 1,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 78.53981633974483
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 78.53981633974483
+        }
+      }
+    ],
+    "open_chains": [],
+    "dangling": [],
+    "branched": [],
+    "degenerate": [],
+    "unjoined": []
+  }
+}

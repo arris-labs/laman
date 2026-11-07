@@ -276,3 +276,47 @@ fn a_redundant_or_conflict_tag_that_names_no_constraint_is_refused() {
     let fine = Fixture::parse(&text, &with(r#""redundant":["base"]"#), None).unwrap();
     assert_eq!(fine.expected.redundant, ["base"]);
 }
+
+/// A two-point sketch with one line (id 2), as a fixture whose profiles
+/// section is `profiles`.
+fn with_profiles(profiles: &str) -> Result<Fixture, FixtureError> {
+    let sketch = r#"{"format":"laman.sketch","version":1,"entities":[{"id":0,"kind":"point","x":0.0,"y":0.0},{"id":1,"kind":"point","x":3.0,"y":4.0},{"id":2,"kind":"line","a":0,"b":1}]}"#;
+    let expected = format!(
+        r#"{{"status":"UnderConstrained","dof":4,"coordinates":[],"profiles":{profiles}}}"#
+    );
+    Fixture::parse(sketch, &expected, None)
+}
+
+#[test]
+fn the_profiles_section_names_only_what_the_sketch_has() {
+    assert!(matches!(
+        with_profiles(r#"{"dangling":[9]}"#),
+        Err(FixtureError::UnknownEntity { id }) if id == EntityId(9)
+    ));
+    assert!(matches!(
+        with_profiles(
+            r#"{"profiles":[{"outer":{"edges":[],"signed_area":{"value":1.0},"joins":[3]},"net_area":{"value":1.0}}]}"#
+        ),
+        Err(FixtureError::UnknownConstraint { .. })
+    ));
+    assert!(matches!(
+        with_profiles(
+            r#"{"profiles":[{"outer":{"edges":[],"signed_area":{"value":1.0,"tolerance":0.0}},"net_area":{"value":1.0}}]}"#
+        ),
+        Err(FixtureError::Area { .. })
+    ));
+}
+
+#[test]
+fn a_profiles_expectation_names_each_difference() {
+    use laman::model::profile::Profiles;
+    let fixture = with_profiles(r#"{"open_chains":[[2]],"dangling":[2]}"#).unwrap();
+    let want = fixture.expected.profiles.unwrap();
+    let found = Profiles {
+        open_chains: vec![vec![EntityId(2)]],
+        ..Profiles::default()
+    };
+    let off = want.mismatches(&found);
+    assert_eq!(off.len(), 1, "{off:?}");
+    assert!(off[0].starts_with("dangling"), "{off:?}");
+}

@@ -1,0 +1,228 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 1,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 1,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 2,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 2,
+      "coordinate": "y",
+      "value": 60.0
+    },
+    {
+      "id": 3,
+      "coordinate": "x",
+      "value": 0.0
+    },
+    {
+      "id": 3,
+      "coordinate": "y",
+      "value": 60.0
+    },
+    {
+      "id": 8,
+      "coordinate": "x",
+      "value": 60.0
+    },
+    {
+      "id": 8,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 9,
+      "coordinate": "x",
+      "value": 60.0
+    },
+    {
+      "id": 9,
+      "coordinate": "y",
+      "value": 60.0
+    },
+    {
+      "id": 11,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 11,
+      "coordinate": "y",
+      "value": 30.0
+    },
+    {
+      "id": 12,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 12,
+      "coordinate": "y",
+      "value": 35.0
+    },
+    {
+      "id": 13,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 13,
+      "coordinate": "y",
+      "value": 25.0
+    },
+    {
+      "id": 15,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 15,
+      "coordinate": "y",
+      "value": 30.0
+    },
+    {
+      "id": 16,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 16,
+      "coordinate": "y",
+      "value": 25.0
+    },
+    {
+      "id": 17,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 17,
+      "coordinate": "y",
+      "value": 35.0
+    },
+    {
+      "id": 19,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 19,
+      "coordinate": "y",
+      "value": 35.0
+    },
+    {
+      "id": 20,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 20,
+      "coordinate": "y",
+      "value": 35.0
+    },
+    {
+      "id": 21,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 21,
+      "coordinate": "y",
+      "value": 25.0
+    },
+    {
+      "id": 22,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 22,
+      "coordinate": "y",
+      "value": 25.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "tolerance": 0.0001,
+  "profiles": {
+    "profiles": [
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 4,
+              "reversed": false
+            },
+            {
+              "entity": 5,
+              "reversed": false
+            },
+            {
+              "entity": 6,
+              "reversed": false
+            },
+            {
+              "entity": 7,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 7200.0
+          },
+          "joins": []
+        },
+        "holes": [
+          {
+            "edges": [
+              {
+                "entity": 14,
+                "reversed": true
+              },
+              {
+                "entity": 23,
+                "reversed": true
+              },
+              {
+                "entity": 18,
+                "reversed": true
+              },
+              {
+                "entity": 24,
+                "reversed": true
+              }
+            ],
+            "signed_area": {
+              "value": -478.53981633974485
+            },
+            "joins": [
+              17,
+              18,
+              19,
+              20
+            ]
+          }
+        ],
+        "net_area": {
+          "value": 6721.460183660255
+        }
+      }
+    ],
+    "open_chains": [],
+    "dangling": [],
+    "branched": [],
+    "degenerate": [],
+    "unjoined": []
+  }
+}

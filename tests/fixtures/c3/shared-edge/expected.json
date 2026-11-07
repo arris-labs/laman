@@ -1,0 +1,82 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 1,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 1,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 2,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 2,
+      "coordinate": "y",
+      "value": 30.0
+    },
+    {
+      "id": 3,
+      "coordinate": "x",
+      "value": 0.0
+    },
+    {
+      "id": 3,
+      "coordinate": "y",
+      "value": 30.0
+    },
+    {
+      "id": 4,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 4,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 5,
+      "coordinate": "x",
+      "value": 80.0
+    },
+    {
+      "id": 5,
+      "coordinate": "y",
+      "value": 30.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "profiles": {
+    "profiles": [],
+    "open_chains": [],
+    "dangling": [],
+    "branched": [
+      {
+        "edges": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "joins": [
+          1,
+          2
+        ]
+      }
+    ],
+    "degenerate": [],
+    "unjoined": []
+  }
+}

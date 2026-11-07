@@ -1,0 +1,94 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0,
+      "fixed": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "point",
+      "x": 82.0,
+      "y": 1.0
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 79.0,
+      "y": 92.0
+    },
+    {
+      "id": 3,
+      "kind": "point",
+      "x": 1.0,
+      "y": 88.0
+    },
+    {
+      "id": 4,
+      "kind": "line",
+      "a": 0,
+      "b": 1
+    },
+    {
+      "id": 5,
+      "kind": "line",
+      "a": 1,
+      "b": 2
+    },
+    {
+      "id": 6,
+      "kind": "line",
+      "a": 2,
+      "b": 3
+    },
+    {
+      "id": 7,
+      "kind": "line",
+      "a": 3,
+      "b": 0
+    }
+  ],
+  "constraints": [
+    {
+      "id": 0,
+      "kind": "horizontal",
+      "line": 4
+    },
+    {
+      "id": 1,
+      "kind": "vertical",
+      "line": 5
+    },
+    {
+      "id": 2,
+      "kind": "horizontal",
+      "line": 6
+    },
+    {
+      "id": 3,
+      "kind": "vertical",
+      "line": 7
+    },
+    {
+      "id": 4,
+      "kind": "distance",
+      "a": 0,
+      "b": 1,
+      "value": 80.0
+    },
+    {
+      "id": 5,
+      "kind": "distance",
+      "a": 0,
+      "b": 3,
+      "value": 90.0
+    }
+  ]
+}

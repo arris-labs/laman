@@ -20,7 +20,9 @@ The unit of acceptance: a directory `tests/fixtures/<area>/<slug>/` with
   form), its coordinates being the **guesses** the solve starts from;
 - `expected.json`: status, DoF, every free point's expected coordinates
   with the comparison tolerance, the redundant constraints and each
-  conflict set **by tag**, and the expected flips (usually none);
+  conflict set **by tag**, and the expected flips (usually none); and, for
+  a C3 fixture, `profiles`: every list of the extraction by id, each loop's
+  edges in order with `reversed`, and each area with its tolerance;
 - for a drag, `drag.json`: the dragged point, the targets in order, and the
   expected coordinates after chosen steps.
 

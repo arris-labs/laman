@@ -17,7 +17,17 @@
 //!   "conflicts": [["base", "right", "apex"]],
 //!   "flips": ["slot-arc"],
 //!   "tolerance": 1e-9,
-//!   "digest": "aec3…"
+//!   "digest": "aec3…",
+//!   "profiles": {
+//!     "profiles": [{
+//!       "outer": {"edges": [{"entity": 4, "reversed": false}],
+//!                 "signed_area": {"value": 7200.0}, "joins": []},
+//!       "holes": [], "net_area": {"value": 7200.0, "tolerance": 1e-9}
+//!     }],
+//!     "open_chains": [[7, 8]], "dangling": [9], "degenerate": [],
+//!     "branched": [{"edges": [4, 5, 6], "joins": [1]}],
+//!     "unjoined": [[2, 9]]
+//!   }
 //! }
 //! ```
 //!
@@ -27,6 +37,14 @@
 //! `laman::model::tolerance::LENGTH`. Every coordinate names a parameter the
 //! sketch has, or the file is refused with its id.
 //!
+//! `profiles` (optional) is what `laman::profile::profiles` must return
+//! (ADR-0012): every list of `Profiles`, by the caller's ids and in the
+//! order the result documents; each area is `{"value", "tolerance"}`, the
+//! tolerance relative to `max(1, |value|)` and defaulting to
+//! [`AREA_TOLERANCE`]. Every entity and constraint id named must exist in the
+//! sketch, or the file is refused with it. [`ExpectedProfiles::mismatches`]
+//! compares it with a result.
+//!
 //! `drag.json` names the dragged point, its targets in order (`[x, y]`), and
 //! the expected coordinates after chosen steps (1-based, into `targets`),
 //! and for each the tags it names as flipped (`flips`, default none) and how
@@ -34,7 +52,10 @@
 //! target).
 
 use crate::json::{LoadError, sketch_from_str};
-use laman::model::{Coordinate, Coordinates, EntityId, EntityKind, Sketch, tolerance};
+use laman::model::profile::{Branched, Profiles, Traversal, Unjoined};
+use laman::model::{
+    ConstraintId, Coordinate, Coordinates, EntityId, EntityKind, Sketch, tolerance,
+};
 use serde::Deserialize;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -45,6 +66,12 @@ pub const SKETCH_FILE: &str = "sketch.json";
 pub const EXPECTED_FILE: &str = "expected.json";
 /// The drag file of a fixture directory, present only for a drag.
 pub const DRAG_FILE: &str = "drag.json";
+/// How close an area must be when its expectation names no tolerance,
+/// relative to `max(1, |value|)`. Areas are sums of products of lengths, so
+/// they carry the relative rounding of those lengths, not an absolute one;
+/// 1e-9 is the extraction's own bound at the corpus's scales
+/// (`plans/m9-profiles`).
+pub const AREA_TOLERANCE: f64 = 1e-9;
 
 /// Why a fixture could not be loaded. Each variant names the file, and where
 /// it names an entity, its id.
@@ -102,6 +129,27 @@ pub enum FixtureError {
     Tolerance {
         /// The value as written.
         value: f64,
+    },
+    /// The `profiles` section names an entity the sketch does not have.
+    #[error("expected.json: profiles name entity {id}, which the sketch does not have")]
+    UnknownEntity {
+        /// The id as written.
+        id: EntityId,
+    },
+    /// The `profiles` section names a constraint the sketch does not have.
+    #[error("expected.json: profiles name constraint {id}, which the sketch does not have")]
+    UnknownConstraint {
+        /// The id as written.
+        id: ConstraintId,
+    },
+    /// An area tolerance is not a positive finite number, or a value is not
+    /// finite.
+    #[error("expected.json: profiles area {value} with tolerance {tolerance} is not usable")]
+    Area {
+        /// The value as written.
+        value: f64,
+        /// The tolerance as written or defaulted.
+        tolerance: f64,
     },
     /// The dragged entity is not a point of the sketch.
     #[error("drag.json: entity {id} is not a point of the sketch")]
@@ -162,6 +210,173 @@ pub struct Expected {
     pub flips: Vec<String>,
     /// The blessed digest, as lower-case hex, when there is one.
     pub digest: Option<String>,
+    /// What profile extraction must return, when the fixture says.
+    pub profiles: Option<ExpectedProfiles>,
+}
+
+/// An area and how close a result must be to it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ExpectedArea {
+    /// The area, in the sketch's units squared.
+    pub value: f64,
+    /// The tolerance, relative to `max(1, |value|)`.
+    pub tolerance: f64,
+}
+
+impl ExpectedArea {
+    fn holds(&self, found: f64) -> bool {
+        (found - self.value).abs() <= self.tolerance * self.value.abs().max(1.0)
+    }
+}
+
+/// An expected loop: its directed edges in order, its area and its joins.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpectedLoop {
+    /// The edges, as `laman::model::profile::Loop::edges` lists them.
+    pub edges: Vec<Traversal>,
+    /// The signed area.
+    pub signed_area: ExpectedArea,
+    /// The joining `coincident` constraints, by id.
+    pub joins: Vec<ConstraintId>,
+}
+
+/// An expected profile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpectedProfile {
+    /// The outer loop.
+    pub outer: ExpectedLoop,
+    /// The holes, in order.
+    pub holes: Vec<ExpectedLoop>,
+    /// The net area.
+    pub net_area: ExpectedArea,
+}
+
+/// What `laman::profile::profiles` must return for a fixture.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpectedProfiles {
+    /// The profiles, in order.
+    pub profiles: Vec<ExpectedProfile>,
+    /// The open chains, as `Profiles::open_chains`.
+    pub open_chains: Vec<Vec<EntityId>>,
+    /// The dangling edges.
+    pub dangling: Vec<EntityId>,
+    /// The branched cores.
+    pub branched: Vec<Branched>,
+    /// The degenerate edges.
+    pub degenerate: Vec<EntityId>,
+    /// The unjoined coincidences.
+    pub unjoined: Vec<Unjoined>,
+}
+
+impl ExpectedProfiles {
+    /// What differs between these expectations and a result, one line per
+    /// difference naming the profile and the field; empty when they agree.
+    ///
+    /// ```
+    /// use laman::model::profile::Profiles;
+    /// use laman_debug::fixture::ExpectedProfiles;
+    /// let none = ExpectedProfiles {
+    ///     profiles: vec![],
+    ///     open_chains: vec![],
+    ///     dangling: vec![],
+    ///     branched: vec![],
+    ///     degenerate: vec![],
+    ///     unjoined: vec![],
+    /// };
+    /// assert!(none.mismatches(&Profiles::default()).is_empty());
+    /// ```
+    pub fn mismatches(&self, found: &Profiles) -> Vec<String> {
+        let mut out = Vec::new();
+        if self.profiles.len() != found.profiles.len() {
+            out.push(format!(
+                "profiles: expected {}, found {}",
+                self.profiles.len(),
+                found.profiles.len()
+            ));
+        }
+        for (k, (want, got)) in self.profiles.iter().zip(&found.profiles).enumerate() {
+            let name = format!("profile {k}");
+            loop_mismatches(&mut out, &format!("{name} outer"), &want.outer, &got.outer);
+            if want.holes.len() != got.holes.len() {
+                out.push(format!(
+                    "{name}: expected {} holes, found {}",
+                    want.holes.len(),
+                    got.holes.len()
+                ));
+            }
+            for (h, (w, g)) in want.holes.iter().zip(&got.holes).enumerate() {
+                loop_mismatches(&mut out, &format!("{name} hole {h}"), w, g);
+            }
+            if !want.net_area.holds(got.net_area) {
+                out.push(format!(
+                    "{name}: net area expected {}, found {}",
+                    want.net_area.value, got.net_area
+                ));
+            }
+        }
+        let mut list = |what: &str, same: bool, want: String, got: String| {
+            if !same {
+                out.push(format!("{what}: expected {want}, found {got}"));
+            }
+        };
+        list(
+            "open_chains",
+            self.open_chains == found.open_chains,
+            format!("{:?}", self.open_chains),
+            format!("{:?}", found.open_chains),
+        );
+        list(
+            "dangling",
+            self.dangling == found.dangling,
+            format!("{:?}", self.dangling),
+            format!("{:?}", found.dangling),
+        );
+        list(
+            "branched",
+            self.branched == found.branched,
+            format!("{:?}", self.branched),
+            format!("{:?}", found.branched),
+        );
+        list(
+            "degenerate",
+            self.degenerate == found.degenerate,
+            format!("{:?}", self.degenerate),
+            format!("{:?}", found.degenerate),
+        );
+        list(
+            "unjoined",
+            self.unjoined == found.unjoined,
+            format!("{:?}", self.unjoined),
+            format!("{:?}", found.unjoined),
+        );
+        out
+    }
+}
+
+fn loop_mismatches(
+    out: &mut Vec<String>,
+    name: &str,
+    want: &ExpectedLoop,
+    got: &laman::model::profile::Loop,
+) {
+    if want.edges != got.edges {
+        out.push(format!(
+            "{name}: edges expected {:?}, found {:?}",
+            want.edges, got.edges
+        ));
+    }
+    if !want.signed_area.holds(got.signed_area) {
+        out.push(format!(
+            "{name}: area expected {}, found {}",
+            want.signed_area.value, got.signed_area
+        ));
+    }
+    if want.joins != got.joins {
+        out.push(format!(
+            "{name}: joins expected {:?}, found {:?}",
+            want.joins, got.joins
+        ));
+    }
 }
 
 /// A drag: one point pulled through targets in order.
@@ -228,7 +443,7 @@ impl Fixture {
             source,
         })?;
         let known = sketch.coordinates();
-        let expected = parse_expected(&known, expected)?;
+        let expected = parse_expected(&sketch, &known, expected)?;
         check_tags(&sketch, &expected)?;
         let drag = match drag {
             None => None,
@@ -287,6 +502,63 @@ struct ExpectedFile {
     flips: Vec<String>,
     tolerance: Option<f64>,
     digest: Option<String>,
+    profiles: Option<ProfilesFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AreaFile {
+    value: f64,
+    tolerance: Option<f64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TraversalFile {
+    entity: u32,
+    reversed: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LoopFile {
+    edges: Vec<TraversalFile>,
+    signed_area: AreaFile,
+    #[serde(default)]
+    joins: Vec<u32>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProfileFile {
+    outer: LoopFile,
+    #[serde(default)]
+    holes: Vec<LoopFile>,
+    net_area: AreaFile,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BranchedFile {
+    edges: Vec<u32>,
+    joins: Vec<u32>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProfilesFile {
+    #[serde(default)]
+    profiles: Vec<ProfileFile>,
+    #[serde(default)]
+    open_chains: Vec<Vec<u32>>,
+    #[serde(default)]
+    dangling: Vec<u32>,
+    #[serde(default)]
+    branched: Vec<BranchedFile>,
+    #[serde(default)]
+    degenerate: Vec<u32>,
+    #[serde(default)]
+    unjoined: Vec<[u32; 2]>,
 }
 
 #[derive(Deserialize)]
@@ -326,7 +598,11 @@ fn read_optional(path: &Path) -> Result<Option<String>, FixtureError> {
     }
 }
 
-fn parse_expected(known: &Coordinates, text: &str) -> Result<Expected, FixtureError> {
+fn parse_expected(
+    sketch: &Sketch,
+    known: &Coordinates,
+    text: &str,
+) -> Result<Expected, FixtureError> {
     let file: ExpectedFile = serde_json::from_str(text).map_err(|source| FixtureError::Json {
         file: EXPECTED_FILE,
         source,
@@ -344,6 +620,106 @@ fn parse_expected(known: &Coordinates, text: &str) -> Result<Expected, FixtureEr
         conflicts: file.conflicts,
         flips: file.flips,
         digest: file.digest,
+        profiles: file
+            .profiles
+            .map(|p| expected_profiles(sketch, p))
+            .transpose()?,
+    })
+}
+
+fn expected_profiles(
+    sketch: &Sketch,
+    file: ProfilesFile,
+) -> Result<ExpectedProfiles, FixtureError> {
+    let entity = |id: u32| {
+        let id = EntityId(id);
+        sketch
+            .entity(id)
+            .map(|_| id)
+            .ok_or(FixtureError::UnknownEntity { id })
+    };
+    let entities = |ids: &[u32]| {
+        ids.iter()
+            .map(|&id| entity(id))
+            .collect::<Result<Vec<_>, _>>()
+    };
+    let constraints = |ids: &[u32]| {
+        ids.iter()
+            .map(|&raw| {
+                let id = ConstraintId(raw);
+                sketch
+                    .constraints()
+                    .any(|(c, _)| c == id)
+                    .then_some(id)
+                    .ok_or(FixtureError::UnknownConstraint { id })
+            })
+            .collect::<Result<Vec<_>, _>>()
+    };
+    let area = |a: AreaFile| {
+        let tolerance = a.tolerance.unwrap_or(AREA_TOLERANCE);
+        if a.value.is_finite() && tolerance.is_finite() && tolerance > 0.0 {
+            Ok(ExpectedArea {
+                value: a.value,
+                tolerance,
+            })
+        } else {
+            Err(FixtureError::Area {
+                value: a.value,
+                tolerance,
+            })
+        }
+    };
+    let one_loop = |l: LoopFile| -> Result<ExpectedLoop, FixtureError> {
+        let mut edges = Vec::with_capacity(l.edges.len());
+        for t in &l.edges {
+            edges.push(Traversal {
+                entity: entity(t.entity)?,
+                reversed: t.reversed,
+            });
+        }
+        Ok(ExpectedLoop {
+            edges,
+            signed_area: area(l.signed_area)?,
+            joins: constraints(&l.joins)?,
+        })
+    };
+    let mut profiles = Vec::with_capacity(file.profiles.len());
+    for p in file.profiles {
+        profiles.push(ExpectedProfile {
+            outer: one_loop(p.outer)?,
+            holes: p
+                .holes
+                .into_iter()
+                .map(one_loop)
+                .collect::<Result<_, _>>()?,
+            net_area: area(p.net_area)?,
+        });
+    }
+    let mut branched = Vec::with_capacity(file.branched.len());
+    for b in &file.branched {
+        branched.push(Branched {
+            edges: entities(&b.edges)?,
+            joins: entities(&b.joins)?,
+        });
+    }
+    let mut unjoined = Vec::with_capacity(file.unjoined.len());
+    for [first, second] in &file.unjoined {
+        unjoined.push(Unjoined {
+            first: entity(*first)?,
+            second: entity(*second)?,
+        });
+    }
+    Ok(ExpectedProfiles {
+        profiles,
+        open_chains: file
+            .open_chains
+            .iter()
+            .map(|c| entities(c))
+            .collect::<Result<_, _>>()?,
+        dangling: entities(&file.dangling)?,
+        branched,
+        degenerate: entities(&file.degenerate)?,
+        unjoined,
     })
 }
 

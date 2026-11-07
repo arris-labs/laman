@@ -113,7 +113,7 @@ algorithm whose robustness or bound is established here.
   examples. CHANGELOG `Unreleased` bullet.
 - [x] Step 5 **[2]** — D4 unjoined coincidences. Fixture: a rectangle with
   one corner made of two distinct ground points at the same coordinates.
-- [ ] Step 6 **[2]** — D6 fixture form and the C3 corpus, each solved, then
+- [x] Step 6 **[2]** — D6 fixture form and the C3 corpus, each solved, then
   checked by `laman-check`, then extracted: rectangle; slotted plate and its
   `coincident` twin; plate with an island in a hole; two disjoint loops; a
   circle alone; an open chain; a dangling edge; shared-edge rectangles

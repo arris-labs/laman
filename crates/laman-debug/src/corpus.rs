@@ -143,6 +143,7 @@ fn expected(coordinates: Coordinates, dof: u32) -> Expected {
         conflicts: Vec::new(),
         flips: Vec::new(),
         digest: None,
+        profiles: None,
     }
 }
 

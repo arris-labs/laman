@@ -1,0 +1,137 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 1,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 1,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 2,
+      "coordinate": "x",
+      "value": 40.0
+    },
+    {
+      "id": 2,
+      "coordinate": "y",
+      "value": 30.0
+    },
+    {
+      "id": 3,
+      "coordinate": "x",
+      "value": 0.0
+    },
+    {
+      "id": 3,
+      "coordinate": "y",
+      "value": 30.0
+    },
+    {
+      "id": 9,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 9,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 10,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 10,
+      "coordinate": "y",
+      "value": 10.0
+    },
+    {
+      "id": 11,
+      "coordinate": "x",
+      "value": 100.0
+    },
+    {
+      "id": 11,
+      "coordinate": "y",
+      "value": 10.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "profiles": {
+    "profiles": [
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 4,
+              "reversed": false
+            },
+            {
+              "entity": 5,
+              "reversed": false
+            },
+            {
+              "entity": 6,
+              "reversed": false
+            },
+            {
+              "entity": 7,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 1200.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 1200.0
+        }
+      },
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 12,
+              "reversed": false
+            },
+            {
+              "entity": 13,
+              "reversed": false
+            },
+            {
+              "entity": 14,
+              "reversed": false
+            },
+            {
+              "entity": 15,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 200.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 200.0
+        }
+      }
+    ],
+    "open_chains": [],
+    "dangling": [],
+    "branched": [],
+    "degenerate": [],
+    "unjoined": []
+  }
+}
