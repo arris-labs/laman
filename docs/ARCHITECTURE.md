@@ -49,6 +49,7 @@ it in this list:
 | `diagnose` | rank, DoF per entity, free directions, redundant and conflicting sets |
 | `solution` | `Sketch::solve` and `apply`, `SolverOptions`, `Solution` and its `Diagnostics` (`Flip`, `Bisection` and their kin), the solution's serde form |
 | `drag` | `DragSession` |
+| `profile` | `profiles(sketch, values)`: loops, holes and open ends from coordinates (§Profiles); its result types live in `model::profile` |
 | `rigidity` | the generic rigidity count (the 0.0.1 API); `stage` does not use it |
 | `reference` | behind the non-default `reference` feature, hidden and unbound: the whole path's solve and diagnosis and `downstream`, for laman's tests (§Solve) |
 
@@ -83,7 +84,7 @@ removed id is never reused by the sketch itself.
   the sketch cannot be used while the next builder call borrows it again,
   so tags are set through the sketch.
 - **Construction**: an entity may be flagged construction. It solves like
-  any other; it is excluded from closed profiles (a later cycle) and drawn
+  any other; it is excluded from profiles (§Profiles) and drawn
   dashed.
 
 **A sketch is well-formed by construction.** Every mutation validates and
@@ -611,6 +612,37 @@ fixture (`tests/fixtures/drag/bisect-stuck`, release, one machine; ≈ 30 µs
 per solve, diagnostics only on the frame returned). Zero tries the target
 alone.
 
+## Profiles
+
+`laman::profile::profiles(&Sketch, &Coordinates) -> Result<Profiles,
+ProfileError>` reads any coordinates, a solution's included, and takes no
+`Solution`. It reads declarations, not measurements ([ADR-0012](adr/0012-profiles-join-by-declaration.md)).
+
+- **Join classes.** Points are joined by union-find over `coincident`
+  constraints, each class represented by its smallest point id. A violated
+  joining `coincident` still closes its loop; the loop names it.
+- **Topology.** An edge is a non-construction line or arc, its ends being
+  classes; a non-construction circle is a loop alone. Degree-1 classes are
+  pruned repeatedly in id order: a component pruned away is an open chain,
+  a pruned edge of a component that keeps a core is dangling. A core whose
+  classes all have degree 2 is a loop, ordered from its smallest edge id;
+  a core with a class of degree > 2 is branched and reported, none of its
+  edges entering a profile. An edge with both ends in one class is
+  self-joined. Free ends of open chains and dangling edges that lie within
+  the length tolerance of each other (`Tolerances::at`) are reported as
+  unjoined coincidences, never joined.
+- **Geometry.** Area is Green's integral in loop order on coordinates
+  translated to the loop's first join and scaled by an exact power of two,
+  so it neither overflows nor loses a small loop far from the origin; an
+  arc adds its segment `r²(θ − sin θ)/2`, by a series below one radian
+  (measured) and directly above. The area saturates at ±`f64::MAX`.
+  Containment is the winding number at the midpoint of the inner loop's
+  first edge; a loop is a hole exactly when its innermost container is an outer
+  boundary, and that container is its parent. Extraction is quadratic in the number of loops.
+- **Why the types sit under `model`.** `Profiles`, `Profile`, `Loop`,
+  `Traversal`, `Branched` and `Unjoined` live in `model::profile` so that
+  the checker may name them under the layer rule.
+
 ## The checker
 
 `laman_check::check(&Sketch, &Coordinates) -> Report`. For every
@@ -665,11 +697,13 @@ after `tests/c1.rs` has checked the same solves. A change that moves a
 solution's bits re-blesses them in the same commit, saying why
 (`.agents/review.md`).
 
-The **fuzzer** has three targets outside the workspace: `load_sketch` (any
+The **fuzzer** has four targets outside the workspace: `load_sketch` (any
 bytes are a sketch or a refusal), `solve_sketch` (any loadable sketch
-solves under both algorithms to a complete answer that applies back) and
+solves under both algorithms to a complete answer that applies back),
 `drag_sketch` (any loadable sketch, any point, any targets, raw `f64` bits
-included: every step a complete answer, a non-finite target `NotConverged`).
+included: every step a complete answer, a non-finite target `NotConverged`)
+and `profiles_sketch` (finite, repeatable profiles at a sketch's and a
+solution's coordinates; missing values refused, never a panic).
 `cargo run --release -p laman-debug --example bench` times the static C1
 fixtures and each step of fixture 4's drag against the 1 ms frame budget and
 names the machine.

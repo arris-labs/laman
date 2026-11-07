@@ -27,9 +27,9 @@ stored and solved is [ARCHITECTURE.md](ARCHITECTURE.md).
 | Arc `A` | centre `c`, start `s`, end `e` (ADR-0001) | — | `|e − c| − |s − c| = 0` | 5 |
 
 - Lines, circles and arcs **refer** to points; two entities that share a
-  point share its parameters. That is how a profile joins up: no
-  coincident constraint between a line's end and an arc's end that are the
-  same point.
+  point share its parameters. That is how a profile joins up: a shared
+  point, or a chain of `coincident` constraints between points
+  (ADR-0012); never closeness.
 - `r(C)` is the circle's parameter; `r(A) = |s − c|`.
 - An arc runs counter-clockwise from `s` to `e`. Its sweep is
   `atan2(cross(s − c, e − c), dot(s − c, e − c))`, taken in `(0, 2π)`. It
@@ -110,6 +110,23 @@ stored with it (ARCHITECTURE.md §Branches).
   `point_on_line`), diameter (a `radius` of half), arc length, sweep
   angle, ellipses, splines (SEED.md §6, later cycles). A kind enters when
   a consumer reaches it (SEED.md §8).
+
+## Profiles
+
+The result of `profile::profiles` over a sketch and coordinates.
+
+- `Profiles { profiles, open_chains, dangling, branched, degenerate,
+  unjoined }`, every list ordered by smallest id and naming the caller's
+  ids.
+- `Profile { outer, holes, net_area }`: the outer `Loop` is
+  counter-clockwise, each hole clockwise, `net_area` the outer's area plus
+  the holes' (negative) areas. A loop inside a hole is its own profile.
+- `Loop { edges, signed_area, joins }`: `edges` are `Traversal { entity,
+  reversed }` in loop order; `joins` are the `coincident` constraints that
+  join two or more distinct end points of the loop.
+- Area: a line contributes `½(x₁y₂ − x₂y₁)`; an arc its chord plus the
+  segment `r²(θ − sin θ)/2`, θ the sweep above, negated when reversed;
+  a circle `πr²`. Construction entities are never edges.
 
 ## Diagnostics
 

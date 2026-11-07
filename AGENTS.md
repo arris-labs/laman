@@ -39,8 +39,9 @@ the Python gap, the checker and deterministic branch-keeping drag
 radius below 0 (ADR-0010), sweep-jump frames bisected; at 500 entities every
 edit and the slot drag are inside 4 ms, a bisected frame 4 ms a try, the
 rectangle drag accepted at 6.0 ms (ADR-0011, `docs/ROADMAP.md`). **0.2.0 published** (2026-11-07).
-**Next:** C3, profiles (closed loops and holes from solved curves): first
-`/idea` or `/plan` for the join rule (⚠ OPEN in `docs/ROADMAP.md`).
+**C3 under way:** M9 landed (2026-11-07): `laman::profile::profiles` gives
+loops, holes and open ends with declared joins (ADR-0012), corpus green.
+**Next:** M10 (checker's independent measure, digest, 500-entity budget), then M11 (Python).
 
 ## Rules that are not derivable from the code
 

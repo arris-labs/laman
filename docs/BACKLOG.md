@@ -7,6 +7,9 @@ ideas keep one line below with the reason, so the same idea is not
 re-brainstormed. A *measured* defect is not a raw idea: it goes under
 [Findings](#findings) below, in the fixed shape.
 
+- Profiles: split a branched core into separate regions (two rectangles sharing an edge); needs angular ordering of curved edges at a join
+- A re-pointing edit, so a shared point can be detached without removing its entity (a join by declaration cannot be undone otherwise)
+- Solver stop leaves tangent double roots off by about √residual (the coincident-joined slotted plate's contact points are 3.7e-5 out; ignored fixture `regression/coincident-contact-drift`)
 - Run SolveSpace and PlaneGCS through `tools/oracle/` for the Python column of COMPARISON.md (GPL/LGPL Python bindings; out of the Rust-field comparison)
 - C2 corpus: share the edit replacement of `examples/bench_c2.rs` and `tests/support/c2.rs` as an exhaustive `Edit::apply`, and keep the inspect dumps out of the timed tests
 - Ask a consumer whether dimension edits need `Sketch::set_dimension` beyond remove/re-add with the same constraint id; M5 uses the existing API

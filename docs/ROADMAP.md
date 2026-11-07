@@ -181,6 +181,10 @@ budget.
 
 ## C3 — profiles
 
+**Status: M9 landed 2026-11-07** (extraction, join rule ADR-0012, the C3
+corpus and slot grids, a property test); M10 (checker, digest, budget) and
+M11 (Python) remain.
+
 *Goal: a sketcher can ask a solved sketch for its closed loops and holes —
 ordered, oriented and nested — and extrude or fill them, from the same
 solved coordinates and without a new solve.*
