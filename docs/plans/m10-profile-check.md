@@ -109,9 +109,10 @@ established here, or a rule the design leaves open.
   green; `c1/digests.txt` has no diff.
 - [x] Step 9 **[2]** — Bench and ADR-0014 (D7): measure, name the budget,
   restate C3's *Accept* with it, delete the ⚠ OPEN.
-- [ ] Step 10 **[2]** — Only if a cell of step 9 is past 4 ms: the one
+- [x] Step 10 **[2]** — Only if a cell of step 9 is past 4 ms: the one
   profile-led pass, changing no bit (`c3/digests.txt` unmoved), and ADR-0014's
   number measured again. Otherwise ticked with a note that it was not needed.
+  Not needed: the worst 500-entity cell is 1.394 ms (circles), under 4 ms (ADR-0014).
 
 ## Acceptance
 - `cargo test -p laman-debug --test c3 --test c3_review --test c3_props`: the
