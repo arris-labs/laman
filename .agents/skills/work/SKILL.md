@@ -26,7 +26,9 @@ miss); reporting after one step and waiting for another `/work` is a bug.
    rustdoc on every new public item. A new constraint kind brings its
    finite-difference Jacobian check; a new public operation brings its
    `fuzz/fuzz_targets/` target; a public API change brings the
-   binding, its stub and `tools/py-test.sh`. A new public item is in
+   binding, its stub and `tools/py-test.sh`. An ADR or design doc the step
+   writes is run through `tools/glossary-avoid.py` (an ADR keeps its
+   words for good). A new public item is in
    the plan's *Design deltas* (add it if missing) and its new word gets
    its `GLOSSARY.md` entry, in the same commit.
 3. Run the step's own tests (`cargo test -p <crate> --test <file>`) and

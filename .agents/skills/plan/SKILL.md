@@ -66,7 +66,9 @@ and the human can read in two minutes: under ~150 lines and ~10 steps.
      human decides only a change to a cycle's scope on the roadmap, to the
      project's positioning, or what publishes or costs money.
 6. Count the lines (`wc -l`); past ~150, move step detail into the deltas
-   or split as in 3.
+   or split as in 3. Run `tools/glossary-avoid.py` on the plan and replace
+   each hit that names one of laman's concepts by its term: the plan's
+   words become the ADR's, and an ADR is append-only.
 7. Reply with the step list and the open questions, then **stop**. The
    human edits the plan before `/work` starts it. The plan links the idea's
    decision (and its ADR) as settled; code and branches wait for `/work`.
