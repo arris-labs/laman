@@ -843,11 +843,22 @@ impl Qr {
         let m = a.len();
         let mut perm: Vec<usize> = (0..n).collect();
         let mut rank = 0;
+        // A column's norm over rows k.. is recomputed from scratch (no
+        // downdating, so the bits are the dense method's) only when the
+        // last reflector changed the column or the row just retired was
+        // nonzero there; otherwise the cached value is the same sum, the
+        // skipped terms being exact zeros.
+        let mut norms = vec![0.0_f64; n];
+        let mut stale = vec![true; n];
         for k in 0..m.min(n) {
-            // Recomputed norms (no downdating): ties go to the lowest original column.
+            // Ties go to the lowest original column.
             let mut best: Option<(f64, usize)> = None;
             for j in k..n {
-                let norm = (k..m).fold(0.0, |s, i| s + a[i][j] * a[i][j]).sqrt();
+                if stale[j] {
+                    norms[j] = (k..m).fold(0.0, |s, i| s + a[i][j] * a[i][j]).sqrt();
+                    stale[j] = false;
+                }
+                let norm = norms[j];
                 let better = match best {
                     None => true,
                     Some((b, bj)) => norm > b || (norm == b && perm[j] < perm[bj]),
@@ -862,6 +873,8 @@ impl Qr {
                 break;
             }
             perm.swap(k, j);
+            norms.swap(k, j);
+            stale.swap(k, j);
             for row in a.iter_mut() {
                 row.swap(k, j);
             }
@@ -870,18 +883,30 @@ impl Qr {
             let mut v: Vec<f64> = (k..m).map(|i| a[i][k]).collect();
             v[0] -= alpha;
             let vv = v.iter().fold(0.0, |s, x| s + x * x);
+            // The reflector acts only on the rows where it is nonzero.
+            let support: Vec<usize> = (k..m).filter(|i| v[i - k] != 0.0).collect();
             // Column sums over row-major storage: the index is the column.
             #[allow(clippy::needless_range_loop)]
             for col in k + 1..n {
-                let dot = (k..m).fold(0.0, |s, i| s + v[i - k] * a[i][col]);
+                let dot = support.iter().fold(0.0, |s, &i| s + v[i - k] * a[i][col]);
+                if dot == 0.0 {
+                    continue;
+                }
                 let f = 2.0 * dot / vv;
-                for i in k..m {
+                for &i in &support {
                     a[i][col] -= f * v[i - k];
                 }
+                stale[col] = true;
             }
             a[k][k] = alpha;
             for row in a.iter_mut().skip(k + 1) {
                 row[k] = 0.0;
+            }
+            // The retired row k leaves every remaining column's norm.
+            for col in k + 1..n {
+                if a[k][col] != 0.0 {
+                    stale[col] = true;
+                }
             }
             rank += 1;
         }

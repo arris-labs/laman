@@ -99,7 +99,7 @@ robustness, convergence or bound has to be established here.
   extra halvings of the floorless damping; land a rule that takes the 498
   rectangle drag to at most 3 pursuit iterations with neither regression. If
   no rule holds, keep the floor, commit the pin, and record what was tried here.
-- [ ] Step 2 **[2]** — D2: zero-skipping `Qr::new`. A test keeps the dense
+- [x] Step 2 **[2]** — D2: zero-skipping `Qr::new`. A test keeps the dense
   version as a reference and compares R, `perm`, rank and basis **by bits** on
   random matrices with structural zeros, rank-deficient ones included.
 - [ ] Step 3 **[2]** — D3: `λ` from the kept factorization. Tests against

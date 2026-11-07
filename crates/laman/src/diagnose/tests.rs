@@ -3,6 +3,7 @@ use super::*;
 use crate::model::{Constraint, Sketch};
 use crate::solve::{Options, solve};
 use laman_debug::fixture::Fixture;
+use proptest::strategy::Strategy as _;
 use std::path::PathBuf;
 
 /// How far a free direction may leave the regularized Jacobian's null space,
@@ -725,4 +726,92 @@ fn component_reads_are_the_fresh_ones_on_c1_and_every_family() {
         staged_parts > 1,
         "no component split: the parts are untested"
     );
+}
+
+/// The dense factorization, kept as the reference the zero-skipping `Qr::new`
+/// must equal bit for bit: every norm recomputed, every row and column visited.
+fn dense_qr(mut a: Vec<Vec<f64>>, n: usize) -> Qr {
+    let m = a.len();
+    let mut perm: Vec<usize> = (0..n).collect();
+    let mut rank = 0;
+    for k in 0..m.min(n) {
+        let mut best: Option<(f64, usize)> = None;
+        for j in k..n {
+            let norm = (k..m).fold(0.0, |s, i| s + a[i][j] * a[i][j]).sqrt();
+            let better = match best {
+                None => true,
+                Some((b, bj)) => norm > b || (norm == b && perm[j] < perm[bj]),
+            };
+            if better {
+                best = Some((norm, j));
+            }
+        }
+        let Some((norm, j)) = best else { break };
+        if norm.is_nan() || norm <= RANK {
+            break;
+        }
+        perm.swap(k, j);
+        for row in a.iter_mut() {
+            row.swap(k, j);
+        }
+        let alpha = if a[k][k] > 0.0 { -norm } else { norm };
+        let mut v: Vec<f64> = (k..m).map(|i| a[i][k]).collect();
+        v[0] -= alpha;
+        let vv = v.iter().fold(0.0, |s, x| s + x * x);
+        #[allow(clippy::needless_range_loop)]
+        for col in k + 1..n {
+            let dot = (k..m).fold(0.0, |s, i| s + v[i - k] * a[i][col]);
+            let f = 2.0 * dot / vv;
+            for i in k..m {
+                a[i][col] -= f * v[i - k];
+            }
+        }
+        a[k][k] = alpha;
+        for row in a.iter_mut().skip(k + 1) {
+            row[k] = 0.0;
+        }
+        rank += 1;
+    }
+    Qr { a, perm, rank }
+}
+
+fn bits(rows: &[Vec<f64>]) -> Vec<Vec<u64>> {
+    rows.iter()
+        .map(|r| r.iter().map(|x| x.to_bits()).collect())
+        .collect()
+}
+
+proptest::proptest! {
+    #[test]
+    fn zero_skipping_qr_equals_the_dense_one_by_bits(
+        m in 0usize..9,
+        n in 1usize..9,
+        cells in proptest::collection::vec(
+            proptest::prop_oneof![
+                3 => proptest::strategy::Just(0.0),
+                1 => -4.0f64..4.0,
+                1 => (-3i32..4).prop_map(f64::from),
+            ],
+            64,
+        ),
+        dup in 0usize..3,
+    ) {
+        let mut rows: Vec<Vec<f64>> = (0..m)
+            .map(|i| (0..n).map(|j| cells[(i * 8 + j) % 64]).collect())
+            .collect();
+        // Rank-deficient: repeat or sum earlier rows.
+        for _ in 0..dup {
+            if rows.len() >= 2 {
+                let sum: Vec<f64> = rows[0].iter().zip(&rows[1]).map(|(x, y)| x + y).collect();
+                rows.push(sum);
+            }
+        }
+        let rows: Vec<Vec<f64>> = rows.into_iter().filter_map(unit_row).collect();
+        let fast = Qr::new(rows.clone(), n);
+        let dense = dense_qr(rows, n);
+        proptest::prop_assert_eq!(fast.rank, dense.rank);
+        proptest::prop_assert_eq!(&fast.perm, &dense.perm);
+        proptest::prop_assert_eq!(bits(&fast.a), bits(&dense.a));
+        proptest::prop_assert_eq!(bits(&fast.null_basis()), bits(&dense.null_basis()));
+    }
 }
