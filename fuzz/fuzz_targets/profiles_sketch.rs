@@ -8,7 +8,7 @@
 //!
 //! The checker (`laman_check::check_profiles`) then reads what was found and
 //! a copy mutated by a byte hashed from the input (a loop reversed, an edge dropped,
-//! repeated or stale, an empty loop, a hole moved, an area made non-finite or
+//! repeated or stale, an empty loop, a hole moved or listed twice, an area made non-finite or
 //! extreme): never a panic, and clean on the found profiles wherever
 //! `laman_check::check` is clean at the same coordinates (ADR-0013).
 
@@ -66,9 +66,15 @@ fn mutated(found: &Profiles, pick: u8) -> Profiles {
         6 => profile.outer.signed_area = f64::NAN,
         7 => profile.net_area = f64::MAX,
         _ => {
+            // A hole moves to another profile when there is one; else it is
+            // listed twice, in its own profile.
             if let Some(hole) = profile.holes.pop() {
-                if let Some(other) = m.profiles.last_mut() {
-                    other.holes.push(hole);
+                match m.profiles.len() {
+                    0 | 1 => {
+                        m.profiles[0].holes.push(hole.clone());
+                        m.profiles[0].holes.push(hole);
+                    }
+                    n => m.profiles[n - 1].holes.push(hole),
                 }
             } else {
                 profile.outer.signed_area = f64::INFINITY;

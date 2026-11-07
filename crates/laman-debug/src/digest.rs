@@ -359,6 +359,16 @@ fn feed_profiles(b: &mut Builder, found: &Profiles, report: &ProfileReport) {
                 b.float(*measured);
                 b.float(*reported);
             }
+            ProfileViolation::NetArea {
+                first: f,
+                measured,
+                reported,
+            } => {
+                b.text("net_area");
+                first(b, f);
+                b.float(*measured);
+                b.float(*reported);
+            }
             ProfileViolation::Orientation { first: f } => {
                 b.text("orientation");
                 first(b, f);

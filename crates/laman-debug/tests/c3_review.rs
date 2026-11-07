@@ -190,6 +190,7 @@ fn a_non_finite_point_coordinate_is_refused_by_id() {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Area,
+    NetArea,
     Orientation,
     NotChained,
     OpenJoin,
@@ -200,18 +201,28 @@ enum Kind {
     Containment,
 }
 
-fn kind(v: &ProfileViolation) -> Kind {
+/// A violation's variant and the id it names: a loop's first edge, or the
+/// entity itself.
+type Named = (Kind, Option<EntityId>);
+
+fn kind(v: &ProfileViolation) -> Named {
     match v {
-        ProfileViolation::Area { .. } => Kind::Area,
-        ProfileViolation::Orientation { .. } => Kind::Orientation,
-        ProfileViolation::NotChained { .. } => Kind::NotChained,
-        ProfileViolation::OpenJoin { .. } => Kind::OpenJoin,
-        ProfileViolation::ArcOffRadius { .. } => Kind::ArcOffRadius,
-        ProfileViolation::NotAnEdge { .. } => Kind::NotAnEdge,
-        ProfileViolation::Repeated { .. } => Kind::Repeated,
-        ProfileViolation::Uncovered { .. } => Kind::Uncovered,
-        ProfileViolation::Containment { .. } => Kind::Containment,
+        ProfileViolation::Area { first, .. } => (Kind::Area, *first),
+        ProfileViolation::NetArea { first, .. } => (Kind::NetArea, *first),
+        ProfileViolation::Orientation { first } => (Kind::Orientation, *first),
+        ProfileViolation::NotChained { first } => (Kind::NotChained, *first),
+        ProfileViolation::OpenJoin { first } => (Kind::OpenJoin, *first),
+        ProfileViolation::ArcOffRadius { first } => (Kind::ArcOffRadius, *first),
+        ProfileViolation::NotAnEdge { entity } => (Kind::NotAnEdge, Some(*entity)),
+        ProfileViolation::Repeated { entity } => (Kind::Repeated, Some(*entity)),
+        ProfileViolation::Uncovered { entity } => (Kind::Uncovered, Some(*entity)),
+        ProfileViolation::Containment { first } => (Kind::Containment, *first),
     }
+}
+
+/// A loop's first edge, which is how a violation names the loop.
+fn first(l: &Loop) -> Option<EntityId> {
+    l.edges.first().map(|t| t.entity)
 }
 
 /// A fixture with its expected coordinates and the profiles extracted there.
@@ -241,7 +252,7 @@ fn twin(name: &str) -> Twin {
 }
 
 impl Twin {
-    fn kinds(&self) -> Vec<Kind> {
+    fn named(&self) -> Vec<Named> {
         let report = check_profiles(&self.sketch, &self.values, &self.found);
         assert!(report.missing.is_empty(), "{report:#?}");
         report.violations.iter().map(kind).collect()
@@ -272,12 +283,65 @@ fn turned_round(l: &mut Loop) {
 #[test]
 fn an_area_nudged_past_the_allowance_is_named() {
     let mut t = twin("rectangle");
+    let outer = first(&t.found.profiles[0].outer);
     t.found.profiles[0].outer.signed_area *= 1.001;
-    assert_eq!(t.kinds(), [Kind::Area]);
+    assert_eq!(t.named(), [(Kind::Area, outer)]);
 
     let mut t = twin("slotted-plate");
+    let hole = first(&t.found.profiles[0].holes[0]);
     t.found.profiles[0].holes[0].signed_area *= 1.01;
-    assert_eq!(t.kinds(), [Kind::Area]);
+    assert_eq!(t.named(), [(Kind::Area, hole)]);
+}
+
+/// The net area is compared on its own: the loops' reported areas stay
+/// right, and a profile's `net_area` is nudged, saturated or not a number.
+#[test]
+fn a_net_area_nudged_past_the_allowance_is_named() {
+    let mut t = twin("rectangle");
+    let outer = first(&t.found.profiles[0].outer);
+    t.found.profiles[0].net_area *= 1.001;
+    assert_eq!(t.named(), [(Kind::NetArea, outer)]);
+
+    let mut t = twin("slotted-plate");
+    let outer = first(&t.found.profiles[0].outer);
+    t.found.profiles[0].net_area *= 1.01;
+    assert_eq!(t.named(), [(Kind::NetArea, outer)]);
+
+    for bad in [f64::MAX, -f64::MAX, f64::NAN, f64::INFINITY, 0.0] {
+        let mut t = twin("slotted-plate");
+        let outer = first(&t.found.profiles[0].outer);
+        t.found.profiles[0].net_area = bad;
+        assert_eq!(t.named(), [(Kind::NetArea, outer)], "{bad}");
+    }
+}
+
+/// Holes added to the outer area instead of subtracted from it.
+#[test]
+fn holes_added_instead_of_subtracted_are_named() {
+    let mut t = twin("slotted-plate");
+    let p = &mut t.found.profiles[0];
+    let outer = first(&p.outer);
+    p.net_area = p.outer.signed_area - p.holes.iter().map(|h| h.signed_area).sum::<f64>();
+    assert_eq!(t.named(), [(Kind::NetArea, outer)]);
+}
+
+/// A loop left uncompared leaves the net undecided: the open join is named,
+/// not also the net the open loop would have moved.
+#[test]
+fn a_net_area_is_not_compared_where_a_loop_is_open() {
+    let mut t = twin("slotted-plate-coincident");
+    let hole = &t.found.profiles[0].holes[0];
+    let hole_first = first(hole);
+    let lines: Vec<EntityId> = hole
+        .edges
+        .iter()
+        .map(|e| e.entity)
+        .filter(|e| matches!(t.sketch.entity(*e), Some(Entity::Line { .. })))
+        .collect();
+    let end = t.ends(lines[0])[0];
+    t.shift(end, Coordinate::X, 5.0);
+    t.found.profiles[0].net_area *= 2.0;
+    assert_eq!(t.named(), [(Kind::OpenJoin, hole_first)]);
 }
 
 #[test]
@@ -287,59 +351,99 @@ fn a_loop_reversed_is_named_by_its_orientation() {
     let outer = &mut t.found.profiles[0].outer;
     turned_round(outer);
     outer.signed_area = -outer.signed_area;
-    assert_eq!(t.kinds(), [Kind::Orientation]);
+    let named = first(outer);
+    assert_eq!(t.named(), [(Kind::Orientation, named)]);
 
     // Edges turned and the area left: the area is wrong as well.
     let mut t = twin("slotted-plate");
     turned_round(&mut t.found.profiles[0].holes[0]);
-    assert_eq!(t.kinds(), [Kind::Area, Kind::Orientation]);
+    let named = first(&t.found.profiles[0].holes[0]);
+    assert_eq!(t.named(), [(Kind::Area, named), (Kind::Orientation, named)]);
 }
 
 #[test]
 fn a_hole_moved_to_the_wrong_parent_is_named() {
-    // The plate's hole given to the island, which lies inside it: the hole
-    // is outside the island, and the island is inside a plate with no hole.
+    // The plate's hole given to the island, which lies inside it: both
+    // nets are wrong, the hole is outside the island, and the island is
+    // inside a plate with no hole.
     let mut t = twin("plate-island");
     assert_eq!(t.found.profiles.len(), 2);
+    let (plate, island) = (
+        first(&t.found.profiles[0].outer),
+        first(&t.found.profiles[1].outer),
+    );
     let holes = std::mem::take(&mut t.found.profiles[0].holes);
+    let hole = first(&holes[0]);
     t.found.profiles[1].holes = holes;
-    assert_eq!(t.kinds(), [Kind::Containment, Kind::Containment]);
+    assert_eq!(
+        t.named(),
+        [
+            (Kind::NetArea, plate),
+            (Kind::NetArea, island),
+            (Kind::Containment, hole),
+            (Kind::Containment, island),
+        ]
+    );
 
     // The island listed as a second hole of the plate: inside, but turning
-    // the wrong way for a hole.
+    // the wrong way for a hole, and subtracted from the plate's net.
     let mut t = twin("plate-island");
+    let plate = first(&t.found.profiles[0].outer);
     let island = t.found.profiles.pop().unwrap().outer;
+    let named = first(&island);
     t.found.profiles[0].holes.push(island);
-    assert_eq!(t.kinds(), [Kind::Orientation]);
+    assert_eq!(
+        t.named(),
+        [(Kind::Orientation, named), (Kind::NetArea, plate)]
+    );
 }
 
 #[test]
 fn an_edge_dropped_or_repeated_is_named() {
     let mut t = twin("dangling-edge");
+    let dangling = t.found.dangling[0];
     t.found.dangling.clear();
-    assert_eq!(t.kinds(), [Kind::Uncovered]);
+    assert_eq!(t.named(), [(Kind::Uncovered, Some(dangling))]);
 
     let mut t = twin("dangling-edge");
     let dangling = t.found.dangling.clone();
-    t.found.open_chains.push(dangling);
-    assert_eq!(t.kinds(), [Kind::Repeated]);
+    t.found.open_chains.push(dangling.clone());
+    assert_eq!(t.named(), [(Kind::Repeated, Some(dangling[0]))]);
 
     // Out of a loop: it no longer closes, and the edge is in no list.
     let mut t = twin("rectangle");
-    t.found.profiles[0].outer.edges.pop();
-    assert_eq!(t.kinds(), [Kind::NotChained, Kind::Uncovered]);
+    let outer = first(&t.found.profiles[0].outer);
+    let dropped = t.found.profiles[0].outer.edges.pop().unwrap().entity;
+    assert_eq!(
+        t.named(),
+        [(Kind::NotChained, outer), (Kind::Uncovered, Some(dropped))]
+    );
 
     let mut t = twin("rectangle");
+    let outer = first(&t.found.profiles[0].outer);
     let again = t.found.profiles[0].outer.edges[0];
     t.found.profiles[0].outer.edges.push(again);
-    assert_eq!(t.kinds(), [Kind::NotChained, Kind::Repeated]);
+    assert_eq!(
+        t.named(),
+        [
+            (Kind::NotChained, outer),
+            (Kind::Repeated, Some(again.entity))
+        ]
+    );
 }
 
 #[test]
 fn a_stale_id_or_a_wrong_kind_is_named() {
     let mut t = twin("rectangle");
+    let was = t.found.profiles[0].outer.edges[1].entity;
     t.found.profiles[0].outer.edges[1].entity = EntityId(9999);
-    assert_eq!(t.kinds(), [Kind::NotAnEdge, Kind::Uncovered]);
+    assert_eq!(
+        t.named(),
+        [
+            (Kind::NotAnEdge, Some(EntityId(9999))),
+            (Kind::Uncovered, Some(was))
+        ]
+    );
 
     let mut t = twin("rectangle");
     let point = t
@@ -347,12 +451,16 @@ fn a_stale_id_or_a_wrong_kind_is_named() {
         .entities()
         .find_map(|(id, e)| matches!(e, Entity::Point { .. }).then_some(id))
         .unwrap();
+    let was = t.found.profiles[0].outer.edges[2].entity;
     t.found.profiles[0].outer.edges[2].entity = point;
-    assert_eq!(t.kinds(), [Kind::NotAnEdge, Kind::Uncovered]);
+    assert_eq!(
+        t.named(),
+        [(Kind::NotAnEdge, Some(point)), (Kind::Uncovered, Some(was))]
+    );
 
     let mut t = twin("dangling-edge");
     t.found.open_chains.push(vec![EntityId(9999)]);
-    assert_eq!(t.kinds(), [Kind::NotAnEdge]);
+    assert_eq!(t.named(), [(Kind::NotAnEdge, Some(EntityId(9999)))]);
 }
 
 #[test]
@@ -363,21 +471,23 @@ fn an_empty_loop_is_named_and_never_panics() {
         signed_area: -1.0,
         joins: Vec::new(),
     });
-    assert_eq!(t.kinds(), [Kind::NotChained]);
+    assert_eq!(t.named(), [(Kind::NotChained, None)]);
 }
 
 #[test]
 fn values_moved_after_extraction_are_named() {
-    // A corner moved: the area is no longer the reported one.
+    // A corner moved: neither the area nor the net is the reported one.
     let mut t = twin("rectangle");
+    let outer = first(&t.found.profiles[0].outer);
     let corner = t.ends(t.found.profiles[0].outer.edges[0].entity)[1];
     t.shift(corner, Coordinate::X, 10.0);
-    assert_eq!(t.kinds(), [Kind::Area]);
+    assert_eq!(t.named(), [(Kind::Area, outer), (Kind::NetArea, outer)]);
 
     // One end of a joining coincident moved away: the join is open and the
     // loop's area is not compared.
     let mut t = twin("slotted-plate-coincident");
     let hole = &t.found.profiles[0].holes[0];
+    let named = first(hole);
     let lines: Vec<EntityId> = hole
         .edges
         .iter()
@@ -386,10 +496,11 @@ fn values_moved_after_extraction_are_named() {
         .collect();
     let end = t.ends(lines[0])[0];
     t.shift(end, Coordinate::X, 5.0);
-    assert_eq!(t.kinds(), [Kind::OpenJoin]);
+    assert_eq!(t.named(), [(Kind::OpenJoin, named)]);
 
     // An arc's centre moved off its bisector: its ends are at two radii.
     let mut t = twin("slotted-plate");
+    let named = first(&t.found.profiles[0].holes[0]);
     let arc = t.found.profiles[0].holes[0]
         .edges
         .iter()
@@ -399,9 +510,8 @@ fn values_moved_after_extraction_are_named() {
     let centre = t.ends(arc)[2];
     t.shift(centre, Coordinate::X, 1.0);
     t.shift(centre, Coordinate::Y, 0.7);
-    assert_eq!(t.kinds(), [Kind::ArcOffRadius]);
+    assert_eq!(t.named(), [(Kind::ArcOffRadius, named)]);
 }
-
 #[test]
 fn a_coordinate_the_values_lack_is_listed_never_judged() {
     for bad in [None, Some(f64::NAN), Some(f64::INFINITY)] {

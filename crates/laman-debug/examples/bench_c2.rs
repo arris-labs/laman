@@ -18,12 +18,16 @@ use std::time::{Duration, Instant};
 // ROADMAP.md C2's budget per try, including diagnostics: a frame is one try, or
 // one more than its halvings when it was bisected, and its time is divided.
 const BUDGET: Duration = Duration::from_millis(4);
+// ADR-0014's number for the profile cells at 500 entities: extraction is not
+// a frame step, so its cells are read against this, not the 4 ms.
+const PROFILE_BUDGET: Duration = Duration::from_micros(1500);
 // Slow first samples already establish a large miss; do not repeat them.
 const FIRST_LIMIT: Duration = Duration::from_millis(100);
 // Five samples give a median without making a baseline a prolonged load test.
 const RUNS: usize = 5;
 // Includes construction, initial solve/session opening, and all timed samples.
-// At most 48 workers: the entire run takes at most 240 s plus process overhead.
+// At most 62 workers (52 solver cells, 10 profile cells): the entire run takes
+// at most 310 s plus process overhead.
 const WORKER_LIMIT: Duration = Duration::from_secs(5);
 const FAMILIES: [&str; 3] = ["rectangles", "slots", "triangles"];
 const OPERATIONS: [&str; 5] = ["static", "edit", "drag", "bisect", "bisect-deep"];
@@ -228,7 +232,7 @@ impl Measurement {
         }
     }
 
-    fn completed(mut self) -> Result<String, Error> {
+    fn completed(mut self, budget: Duration) -> Result<String, Error> {
         if self.timing_since.is_some() || self.samples.is_empty() {
             return Err("worker ended without a completed sample".into());
         }
@@ -241,7 +245,7 @@ impl Measurement {
         let tries = self.samples[count - 1].1;
         let mut report = format!(
             "{}; median {:.3} ms, worst {:.3} ms (n={count}{})",
-            if worst > BUDGET { "over" } else { "under" },
+            if worst > budget { "over" } else { "under" },
             median.as_secs_f64() * 1000.0,
             worst.as_secs_f64() * 1000.0,
             if count == 1 {
@@ -260,7 +264,7 @@ impl Measurement {
     }
 }
 
-fn monitor(mut child: Child, limit: Duration) -> Result<String, Error> {
+fn monitor(mut child: Child, limit: Duration, budget: Duration) -> Result<String, Error> {
     let stdout = child.stdout.take().ok_or("worker stdout missing")?;
     let (send, receive) = mpsc::channel();
     let reader = std::thread::spawn(move || {
@@ -285,7 +289,7 @@ fn monitor(mut child: Child, limit: Duration) -> Result<String, Error> {
             Err(mpsc::RecvTimeoutError::Timeout) => break Ok(measured.timeout()),
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 break if child.wait()?.success() {
-                    measured.completed()
+                    measured.completed(budget)
                 } else {
                     Err("worker failed".into())
                 };
@@ -348,7 +352,7 @@ fn run() -> Result<(), Error> {
         std::thread::available_parallelism().map_or(1, usize::from)
     );
     println!(
-        "budget: {BUDGET:?}; repeat limit: {FIRST_LIMIT:?}; samples: {RUNS}; worker wall limit including setup: {WORKER_LIMIT:?}"
+        "budget: {BUDGET:?} (profiles {PROFILE_BUDGET:?}); repeat limit: {FIRST_LIMIT:?}; samples: {RUNS}; worker wall limit including setup: {WORKER_LIMIT:?}"
     );
     if cfg!(debug_assertions) {
         println!("warning: use --release for the baseline");
@@ -373,7 +377,7 @@ fn run() -> Result<(), Error> {
                             ])
                             .stdout(Stdio::piped())
                             .spawn()?;
-                        monitor(child, WORKER_LIMIT)?
+                        monitor(child, WORKER_LIMIT, BUDGET)?
                     };
                     println!(
                         "{} {} {algorithm} {operation}: {result}",
@@ -404,7 +408,7 @@ fn run() -> Result<(), Error> {
             .spawn()?;
         println!(
             "{name} {entities} profiles: {}",
-            monitor(child, WORKER_LIMIT)?
+            monitor(child, WORKER_LIMIT, PROFILE_BUDGET)?
         );
     }
     Ok(())
@@ -432,7 +436,7 @@ mod tests {
             .stdout(Stdio::piped())
             .spawn()
             .unwrap();
-        monitor(child, Duration::from_millis(50)).unwrap()
+        monitor(child, Duration::from_millis(50), BUDGET).unwrap()
     }
     #[test]
     fn deadlines_distinguish_setup_and_timed_operations() {
@@ -444,7 +448,7 @@ mod tests {
         let mut measurement = Measurement::default();
         measurement.receive("timing").unwrap();
         measurement.receive("sample 200000000 1").unwrap();
-        let report = measurement.completed().unwrap();
+        let report = measurement.completed(BUDGET).unwrap();
         assert!(report.contains("median 200.000 ms, worst 200.000 ms (n=1"));
         assert!(report.starts_with("over;"));
     }
@@ -454,7 +458,7 @@ mod tests {
         // 27 ms over 9 tries is 3 ms a try: under; the same frame as one try is over.
         measurement.receive("timing").unwrap();
         measurement.receive("sample 27000000 9").unwrap();
-        let report = measurement.completed().unwrap();
+        let report = measurement.completed(BUDGET).unwrap();
         assert!(report.starts_with("under;"), "{report}");
         assert!(
             report.contains("worst 3.000 ms") && report.contains("9 tries"),
@@ -468,6 +472,6 @@ mod tests {
         measurement.receive("sample 1000000 1").unwrap();
         measurement.receive("timing").unwrap();
         measurement.receive("sample 1000000 1").unwrap();
-        assert!(measurement.completed().unwrap().starts_with("over;"));
+        assert!(measurement.completed(BUDGET).unwrap().starts_with("over;"));
     }
 }

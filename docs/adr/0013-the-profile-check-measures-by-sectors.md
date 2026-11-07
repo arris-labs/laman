@@ -156,3 +156,25 @@ allowance is `L·P + ½·D·Σg + ROUNDING·M`.
 - The term is relative to the measure's own sums, so it scales with the
   sketch as `L` does and holds at 1e±300. It loosens the check by about
   `4ε·n` of the area on an `n`-edge loop: 4e-13 at 500 edges.
+
+## Addendum: the net area is compared (2026-11-08, `plans/m10-profile-check` review)
+
+D2 and D3 compared each loop's area and left `Profile::net_area` unread,
+so a net with the holes added instead of subtracted passed. The check also
+compares it, as `NetArea { first, measured, reported }`, `first` the
+profile's outer loop.
+
+- The measure is the outer loop's area less each hole's magnitude, from the
+  loop measures D1 gives. A reversed loop is named by its own violation,
+  not also by the net. A loop inside a hole is a profile of its own, with
+  its own net.
+- The loops' frames differ, so each term is brought to the largest frame by
+  an exact power of two (downward only, nothing overflows) and the
+  allowance is the loops' allowances brought the same way and summed.
+- D3 holds as for a loop: a reported `±f64::MAX` agrees with a measure at
+  or past it of the same sign, a reported zero or subnormal with a measure
+  that underflows, NaN agrees with nothing, and no verdict is NaN.
+- It is skipped, as D2 skips the area, when any loop of the profile is
+  unmeasured (a stale id, an unchained loop, a missing coordinate), has an
+  open join or has an arc off its radius: the loop is named, and a net
+  built on it is undecided.

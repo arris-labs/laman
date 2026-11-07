@@ -29,6 +29,20 @@ pub enum ProfileViolation {
         /// The loop's `signed_area`.
         reported: f64,
     },
+    /// A profile's net area, measured by the checker as its outer loop less
+    /// its holes (each by its magnitude), differs from the reported one by
+    /// more than the loops' allowances summed (ADR-0013 addendum). Not
+    /// compared where a loop of the profile is unmeasured, has an open join
+    /// or has an arc off its radius. Both in the caller's units squared,
+    /// saturated at `±f64::MAX`.
+    NetArea {
+        /// The profile's outer loop's first edge.
+        first: Option<EntityId>,
+        /// The checker's measure.
+        measured: f64,
+        /// The profile's `net_area`.
+        reported: f64,
+    },
     /// The loop turns the wrong way for its role: an outer loop clockwise or
     /// a hole counter-clockwise, by the checker's measured sign.
     Orientation {
@@ -110,7 +124,9 @@ impl ProfileReport {
 /// constraints, and measured by sectors about its first point; its area and
 /// orientation are compared with the report's within the allowance, except
 /// where a join is open or an arc is off its radius, which are named
-/// instead. Every non-construction edge of the sketch must be listed
+/// instead. A profile's net area is compared likewise, against its outer
+/// loop less its holes, unless one of those loops was left uncompared.
+/// Every non-construction edge of the sketch must be listed
 /// exactly once across the loops and the other lists. Any `Profiles` value
 /// is an input: an empty loop, a stale id or a wrong kind is a violation. A
 /// parameter missing from `values`, or not finite, is listed as
@@ -155,8 +171,20 @@ pub fn check_profiles(sketch: &Sketch, values: &Coordinates, found: &Profiles) -
         let mut check = |l: &Loop, outer: bool| {
             check_loop(sketch, values, &tolerances, &classes, l, outer, &mut report)
         };
-        let outer = check(&profile.outer, true);
-        let holes = profile.holes.iter().map(|h| check(h, false)).collect();
+        let (outer, outer_term) = check(&profile.outer, true);
+        let mut terms = vec![outer_term.map(|t| (t, 1.0))];
+        let mut holes = Vec::with_capacity(profile.holes.len());
+        for h in &profile.holes {
+            let (bound, term) = check(h, false);
+            holes.push(bound);
+            terms.push(term.map(|t| (t, -1.0)));
+        }
+        net_area(
+            profile.outer.edges.first().map(|t| t.entity),
+            profile.net_area,
+            &terms,
+            &mut report,
+        );
         plates.push(Plate { outer, holes });
     }
     containment(&plates, &mut report);
@@ -367,6 +395,58 @@ fn agrees(m: &Measured, reported: f64, allowance: f64) -> bool {
     (m.area - m.area_of(reported)).abs() <= allowance
 }
 
+/// A loop compared, as the net area reads it: its measured area and
+/// allowance in its frame, whose area exponent is `exponent`.
+#[derive(Clone, Copy)]
+struct Term {
+    area: f64,
+    allowance: f64,
+    exponent: i32,
+}
+
+/// Compare a profile's `reported` net area with the measure
+/// `Σ sign·|area|` of its loops (outer `+1`, holes `-1`), all brought to
+/// the largest loop's frame, within the allowances summed. A loop not
+/// compared (`None`) leaves the net undecided. Same extremes rules as
+/// [`agrees`]; never a NaN verdict.
+fn net_area(
+    first: Option<EntityId>,
+    reported: f64,
+    terms: &[Option<(Term, f64)>],
+    report: &mut ProfileReport,
+) {
+    let Some(terms) = terms.iter().copied().collect::<Option<Vec<_>>>() else {
+        return;
+    };
+    let Some(frame) = terms.iter().map(|(t, _)| t.exponent).max() else {
+        return;
+    };
+    let (mut net, mut allowance) = (0.0, 0.0);
+    for (t, sign) in &terms {
+        let down = t.exponent.saturating_sub(frame);
+        net += sign * libm::scalbn(t.area.abs(), down);
+        allowance += libm::scalbn(t.allowance, down);
+    }
+    let caller = libm::scalbn(net, frame);
+    // A saturated report agrees with a measure at or past the saturation,
+    // a zero or subnormal one with a measure that underflows.
+    let saturated = reported.abs() == f64::MAX
+        && caller.abs() >= f64::MAX
+        && caller.signum() == reported.signum();
+    let underflowed = reported.abs() < f64::MIN_POSITIVE && caller.abs() < f64::MIN_POSITIVE;
+    let agree = !reported.is_nan()
+        && (saturated
+            || underflowed
+            || (net - libm::scalbn(reported, frame.saturating_neg())).abs() <= allowance);
+    if !agree {
+        report.violations.push(ProfileViolation::NetArea {
+            first,
+            measured: caller.clamp(-f64::MAX, f64::MAX),
+            reported,
+        });
+    }
+}
+
 fn check_loop(
     sketch: &Sketch,
     values: &Coordinates,
@@ -375,7 +455,7 @@ fn check_loop(
     l: &Loop,
     outer: bool,
     report: &mut ProfileReport,
-) -> Option<Bound> {
+) -> (Option<Bound>, Option<Term>) {
     let first = l.edges.first().map(|t| t.entity);
     let edges = match resolve(sketch, l) {
         Ok(r) => r.edges,
@@ -385,20 +465,20 @@ fn check_loop(
                     .violations
                     .push(ProfileViolation::NotAnEdge { entity });
             }
-            return None;
+            return (None, None);
         }
     };
     if !chained(classes, &edges) {
         report
             .violations
             .push(ProfileViolation::NotChained { first });
-        return None;
+        return (None, None);
     }
     let (m, segs) = match shape(values, &edges) {
         Ok(m) => m,
         Err(gap) => {
             report.missing.push(gap);
-            return None;
+            return (None, None);
         }
     };
     let tolerance = edges
@@ -422,7 +502,7 @@ fn check_loop(
         skipped = true;
     }
     if skipped {
-        return bound;
+        return (bound, None);
     }
     let allowance = m.allowance(tolerance);
     if !agrees(&m, l.signed_area, allowance) {
@@ -438,7 +518,12 @@ fn check_loop(
             .violations
             .push(ProfileViolation::Orientation { first });
     }
-    bound
+    let term = Term {
+        area: m.area,
+        allowance,
+        exponent: m.area_exponent(),
+    };
+    (bound, Some(term))
 }
 
 /// A loop the check could measure, as containment needs it.
@@ -579,6 +664,105 @@ fn coverage(sketch: &Sketch, found: &Profiles, report: &mut ProfileReport) {
             report
                 .violations
                 .push(ProfileViolation::Uncovered { entity: id });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
+
+    use super::*;
+    use laman::model::profile::Profile;
+
+    /// A square plate of side `4s` with a clockwise square hole of side
+    /// `2s`, the profile reporting `net` and the loops' own areas.
+    fn plate(s: f64, net: f64) -> (Sketch, Profiles) {
+        let mut sk = Sketch::new();
+        let mut square = |corners: [(f64, f64); 4]| {
+            let p: Vec<_> = corners
+                .iter()
+                .map(|&(x, y)| sk.point(x * s, y * s).unwrap())
+                .collect();
+            let edges: Vec<_> = (0..4)
+                .map(|i| Traversal {
+                    entity: sk.line(p[i], p[(i + 1) % 4]).unwrap().id(),
+                    reversed: false,
+                })
+                .collect();
+            edges
+        };
+        let outer = square([(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)]);
+        let hole = square([(1.0, 1.0), (1.0, 3.0), (3.0, 3.0), (3.0, 1.0)]);
+        let saturate = |a: f64| a.clamp(-f64::MAX, f64::MAX);
+        let found = Profiles {
+            profiles: vec![Profile {
+                outer: Loop {
+                    edges: outer,
+                    signed_area: saturate(16.0 * s * s),
+                    joins: vec![],
+                },
+                holes: vec![Loop {
+                    edges: hole,
+                    signed_area: saturate(-4.0 * s * s),
+                    joins: vec![],
+                }],
+                net_area: net,
+            }],
+            ..Profiles::default()
+        };
+        (sk, found)
+    }
+
+    fn net_violations(s: f64, net: f64) -> Vec<ProfileViolation> {
+        let (sk, found) = plate(s, net);
+        let report = check_profiles(&sk, &sk.coordinates(), &found);
+        assert!(report.missing.is_empty(), "{report:#?}");
+        report
+            .violations
+            .into_iter()
+            .filter(|v| matches!(v, ProfileViolation::NetArea { .. }))
+            .collect()
+    }
+
+    /// The net area at the extremes of the caller's units (ADR-0013 D3): a
+    /// saturated or underflowed report agrees with a measure at or past it,
+    /// a wrong one is named, and no verdict is NaN.
+    #[test]
+    fn net_area_is_compared_in_the_frame_at_1e300() {
+        // 12 s² overflows at 1e300 and underflows at 1e-300.
+        assert!(net_violations(1.0, 12.0).is_empty());
+        assert!(net_violations(1e300, f64::MAX).is_empty());
+        assert!(net_violations(1e-300, 0.0).is_empty());
+        assert!(net_violations(1e-300, 5e-324).is_empty());
+        for (s, wrong) in [
+            (1e300, -f64::MAX),
+            (1e300, 1e300),
+            (1e300, 0.0),
+            (1e300, f64::NAN),
+            (1e-300, 1e-300),
+            (1e-300, f64::MAX),
+            (1e-300, f64::NAN),
+        ] {
+            let found = net_violations(s, wrong);
+            assert_eq!(found.len(), 1, "scale {s:e}, reported {wrong:e}");
+            if let ProfileViolation::NetArea { measured, .. } = &found[0] {
+                assert!(!measured.is_nan() && measured.abs() <= f64::MAX);
+            }
+        }
+    }
+
+    /// Where the net is a few ulps off, the allowance forgives it; a hole
+    /// added instead of subtracted, or a net 0.1% off, is past it. Scales
+    /// stop short of the tolerances' absolute floor, which at tiny scales
+    /// swallows any area (ADR-0004).
+    #[test]
+    fn net_area_allowance_and_sign_hold_across_scales() {
+        for s in [1e-3, 1.0, 1e5, 1e100] {
+            let net = 12.0 * s * s;
+            assert!(net_violations(s, net * (1.0 + 1e-14)).is_empty(), "{s:e}");
+            assert_eq!(net_violations(s, 20.0 * s * s).len(), 1, "{s:e}");
+            assert_eq!(net_violations(s, net * 1.001).len(), 1, "{s:e}");
         }
     }
 }

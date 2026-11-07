@@ -53,9 +53,12 @@ other profile's plate the same way, islands included.
 **D5. Public types, `laman-check`, additive.**
 `check_profiles(&Sketch, &Coordinates, &Profiles) -> ProfileReport`;
 `ProfileReport { violations: Vec<ProfileViolation>, missing: Vec<Missing> }`
-with `is_clean`; `ProfileViolation`, each variant naming a loop by its first
-edge id: `Area { measured, reported }`, `Orientation`, `NotChained`, `OpenJoin`,
-`ArcOffRadius`, `NotAnEdge`, `Repeated`, `Uncovered`, `Containment`. Join
+with `is_clean`; `ProfileViolation`, each loop variant naming its loop by
+`first: Option<EntityId>` (its first edge, `None` for an empty loop):
+`Area { first, measured, reported }`, `NetArea { first, measured, reported }`
+(the profile's outer loop, ADR-0013 addendum), `Orientation`, `NotChained`,
+`OpenJoin`, `ArcOffRadius`, `Containment`; and by `entity: EntityId`:
+`NotAnEdge`, `Repeated`, `Uncovered`. Join
 classes are the checker's own walk over `coincident`, not `laman::profile`.
 Any `Profiles` value is an input: an empty loop, a stale id or a wrong kind
 is a violation, never a panic.
