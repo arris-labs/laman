@@ -24,6 +24,7 @@ use std::fmt;
 mod constraint;
 #[cfg(feature = "serde")]
 mod form;
+pub mod profile;
 pub mod tolerance;
 
 pub use constraint::{Constraint, ConstraintKind, Contact, Round, Sense, Span};

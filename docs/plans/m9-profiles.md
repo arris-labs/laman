@@ -73,8 +73,11 @@ so that M10's checker can name them under the layer rule: `Profiles {
 profiles, open_chains, dangling, branched, degenerate, unjoined }`, `Profile {
 outer: Loop, holes: Vec<Loop>, net_area }`, `Loop { edges: Vec<Traversal>,
 signed_area, joins: Vec<ConstraintId> }` (the joining `coincident`s), `Traversal {
-entity, reversed }`. All are `Debug, Clone, PartialEq`, and every list is ordered
-by smallest id. The extraction is `laman::profile::profiles(&Sketch,
+entity, reversed }`. The lists' elements (settled in step 3): `open_chains:
+Vec<Vec<EntityId>>` (edge ids), `dangling` and `degenerate: Vec<EntityId>`,
+`branched: Vec<Branched { edges, joins }>` (`joins` the hub points, by smallest
+point id), `unjoined: Vec<Unjoined { first, second }>` (point ids). All are
+`Debug, Clone, PartialEq`, and every list is ordered by smallest id. The extraction is `laman::profile::profiles(&Sketch,
 &Coordinates) -> Result<Profiles, ProfileError>`, with `ProfileError::Missing {
 entity }` and `NonFinite { entity }` naming the caller's id. It takes no
 `Solution`: a solution's `coordinates` is the input. No existing signature
@@ -100,7 +103,7 @@ algorithm whose robustness or bound is established here.
   D shape, and an arc at sweeps near 0, π and 2π. Scales 1e-6 to 1e6,
   translations up to 1e4 times the scale, magnitudes near 1e±300, and
   points near an arc's chord and arc. Measures the small-θ threshold.
-- [ ] Step 3 **[2]** — D5 types and D2 topology. Join classes, pruning,
+- [x] Step 3 **[2]** — D5 types and D2 topology. Join classes, pruning,
   loops, branched and degenerate cores, still without geometry. Unit
   tests: a rectangle, the same joined by `coincident`, an open chain, a
   dangling edge, two rectangles sharing an edge, a figure-8, a self-joined

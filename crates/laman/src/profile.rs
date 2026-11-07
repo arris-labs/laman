@@ -14,3 +14,14 @@
     )
 )]
 mod geometry;
+
+// The extraction that calls the topology lands in plans/m9-profiles step 4;
+// until then only its tests do. `expect` fails the build once it is called.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "called by the extraction, plans/m9-profiles step 4"
+    )
+)]
+mod topology;
