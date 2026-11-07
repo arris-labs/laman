@@ -141,7 +141,7 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5, M6 and M7 done; M8's four plans done: the 500-entity edits and the slot drag are inside 4 ms, the rectangle drag and the slot bisect are not.** M5: the generated
+**Status: M5, M6 and M7 done; M8's five plans done: the 500-entity edits and the slot drag are inside 4 ms, a bisected frame inside 4 ms a try, the rectangle drag at 6.0 ms (the stop rule, ADR-0011).** M5: the generated
 corpus, construction properties and bounded release benchmark. M6: every
 component solved and diagnosed by stages (ADR-0009); an edit keeps every
 bit outside its stage's downstream closure (`upstream-edit-drift`
@@ -175,6 +175,11 @@ per staged component, each component's reads once, the solve's and the
 diagnosis's coordinates in a dense table) took all six 500-entity edits
 inside 4 ms (worst 1.95–3.78 ms) and the slot drag to 3.5–3.8 ms. Over: the
 rectangle drag (15.3 ms, pursuit 75 % of it) and the slot bisect (8.1 ms).
+M8's fifth plan (`plans/m8-pursuit`: the pursuit's damping read against the
+goal's own scale, a QR that skips exact zeros, multipliers read from the
+pivoted QR, the bench judged on the worst sample and per try) took the
+rectangle drag to 5.3–5.9 ms and the bisect to 2.4–2.7 ms a try (the
+refused-at-every-halving cell 3.7–4.2); ADR-0011.
 
 - **M7 — drag robustness and conflicts**: done (status line).
 - **M8 — the frame budget at 500 entities**: profile the 500-entity edit
@@ -184,11 +189,10 @@ rectangle drag (15.3 ms, pursuit 75 % of it) and the slot bisect (8.1 ms).
   500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
   *Accept*). After four plans every 500-entity edit (worst 1.95–3.78 ms) and the slot
   drag's first step (3.5–3.8 ms) are inside 4 ms; the rectangle drag (15.3 ms)
-  and the slot bisect (8.1 ms) are not. Rigid bodies in the remainder
-  (option A, ARCHITECTURE.md §Frame budget) could close the rectangle drag
-  only by taking 97 % of its pursuit and cannot close the bisect. Whether
-  those two cells stay in C2's *Accept* or move to a later cycle is the
-  human's question.
+  and the slot bisect (8.1 ms) were not; the fifth plan took the bisect to
+  2.4–2.7 ms a try and the rectangle drag to 5.9 ms worst across three runs,
+  where the stop rule ends the work (ADR-0011): C2's *Accept* carries 6.0 ms
+  for that cell. Rigid bodies in the remainder are not built.
 
 The risk this cycle retires is locality: that a decomposition into stages
 makes a local edit cost a local solve, without changing a diagnostic or a
@@ -213,7 +217,9 @@ bit outside the stages it reaches.
   release-workflow backlog; new constraint kinds.
 - Accept: on 500-entity sketches, a drag step and a one-dimension edit each
   re-solve in ≤ 4 ms (a quarter of a 60 Hz frame) on the reference
-  machine, bisected drag frames included; geometry outside the edited
+  machine, the rectangle drag excepted at its measured 6.0 ms, and every
+  try of a bisected drag frame ≤ 4 ms (a frame's time divided by its tries,
+  ADR-0011); geometry outside the edited
   stages' downstream closure keeps its bits; DoF, redundant sets, and
   conflict sets where the whole-sketch solve's are unsatisfiable, equal
   to those of a whole-sketch solve; no flip across the generated drags; no radius

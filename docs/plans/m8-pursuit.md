@@ -163,7 +163,7 @@ robustness, convergence or bound has to be established here.
   (1 ms of `conclude`). One pass, no second profile.
 - [x] Step 6 **[2]** — Three full `bench_c2` runs. Record each 500-entity cell's
   worst across runs here, and apply the stop rule to the rectangle drag.
-- [ ] Step 7 **[1]** — D5: ADR-0011 and ROADMAP.md's *Accept* and M8 lines, with
+- [x] Step 7 **[1]** — D5: ADR-0011 and ROADMAP.md's *Accept* and M8 lines, with
   step 6's numbers.
 
 ## Acceptance
