@@ -98,7 +98,7 @@ established here, or a rule the design leaves open.
   in `tests/c3_review.rs`, each naming the variant it must raise (area nudged,
   a loop reversed, a hole moved to the wrong parent, an edge dropped or
   repeated, a stale id, an empty loop, values moved after extraction).
-- [ ] Step 6 **[2]** — `c3_props.rs`: `check_profiles` clean on every built
+- [x] Step 6 **[2]** — `c3_props.rs`: `check_profiles` clean on every built
   nest under every transform and in `extreme` at 1e±300. A failure is
   shrunk to a fixture under `regression/`.
 - [ ] Step 7 **[2]** — `profiles_sketch` fuzz target: the check on found and

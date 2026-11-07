@@ -342,6 +342,13 @@ fn extreme(scale: f64, clockwise: bool) {
     sk.circle(centre, 0.5 * scale).unwrap();
     let found = profiles(&sk, &sk.coordinates()).unwrap();
     assert_eq!(found.profiles.len(), 2, "scale {scale:e}");
+    // The checker's own measure agrees at the extremes, and none of its
+    // verdicts is NaN (ADR-0013 D3).
+    let report = laman_check::check_profiles(&sk, &sk.coordinates(), &found);
+    assert!(
+        report.is_clean(),
+        "scale {scale:e} clockwise {clockwise}: {report:#?}"
+    );
     let plate = &found.profiles[0];
     assert_eq!(plate.holes.len(), 1);
     assert_eq!(plate.outer.edges.len(), 4);
