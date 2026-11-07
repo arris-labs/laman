@@ -41,6 +41,7 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - `augment`'s buffer reuse (M8 frame floor step 6) has no equality test of their own, only the stage tests against `reference_rank` and the splitter property
 - Review leftovers from m8-dense-rank: the extremes test in `diagnose/tests.rs` asserts one staged factorization per scale over the families, not per case (check 1e±150 and 1e300 per case, keep the sum for 1e-300 only); `diagnose_on` (`solution.rs`) overlays the caller's map on the sketch's, so a partial or stale map no longer comes back unchanged, which `reference::diagnose`'s doc promises; the `DIRECT_FACTOR` comment in `values.rs` counts entities, not parameterised ids (a rectangle chain's ids interleave with its lines'); `values.rs` casts `slot as u32` and `id * KINDS` unchecked; `Values::to_map` repeats `Dense::to_coordinates`; the huge-id test builds a sketch, not a file
 - Review leftovers from m8-pursuit: `diagnose::multipliers` factorizes the unit rows again beside `null_space`'s QR (one factorization per pursuit iteration would be cheaper); no test asserts the 498 rectangle drag's pursuit iterations; the zero-skipping QR proptest never draws `-0.0` (the skip may leave a `-0.0` the dense method turns to `+0.0`); `null_space` and `far_goal_stationary` tests use unnamed `1e-10`/`1e-9`; the `b -= (v·b) v` projection is written three times; `refused_drag`'s `FAR` works only between 3000 and 10000 radii
+- Close-cycle drift left in code: `bench_c2.rs:1,25` still say "C2 baseline" and 48 workers / 240 s (it is 52 / 260 s); about 33 comments in `crates/laman/src`, `crates/laman/Cargo.toml` and `crates/laman-debug/examples` cite deleted `plans/<slug>`; `values` and `residual` import each other through a type alias (`values.rs:11`, `residual.rs:30`), against ARCHITECTURE.md's module-table rule; ARCHITECTURE.md §Drag sessions' bisection cost on `bisect-stuck` (280 µs against 42 µs) is the C1 figure, not re-measured; the 498-entity rectangle DogLeg edit touched 4.155 ms in one sample (median 2.97)
 
 ## Findings
 
@@ -64,14 +65,6 @@ A defect a run measured, one block each:
 - Measured: status UnderConstrained, DoF 5, checker violation measured NaN
 - State: regression/extreme-point-on-line
 
-### dogleg-conflict-inconclusive
-- What: a contradictory distance framework: Levenberg-Marquardt proves the conflict, DogLeg ends `NotConverged`
-- Where: `laman::diagnose` (conflict analysis) under `Algorithm::DogLeg`
-- Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, M2 step 8
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored dogleg`
-- Measured: 6 points, 8 distances; LM `Unsatisfiable`, DogLeg `NotConverged`. The same holds for DogLeg on `false-conflict-rigid-framework` and `false-conflict-excludes-contradiction`, whose LM halves are fixed (`*_dogleg`, ignored)
-- State: fixed (plans/m7-drag-conflicts step 5, with `*_dogleg`: every filter test re-solved by Levenberg–Marquardt, ADR-0005 third amendment; the cause is `staged-conflict-inconclusive`'s); regression/dogleg-conflict-inconclusive
-
 ### framework-conflict-inconclusive
 - What: the same family, both algorithms `NotConverged` with no conflict named
 - Where: `laman::diagnose`
@@ -89,22 +82,6 @@ A defect a run measured, one block each:
 - Measured: status `UnderConstrained` (as expected), checker violation `Symmetric` measured NaN, the axis degenerate `ZeroLengthLine`; same family as `extreme-point-on-line`
 - State: regression/symmetric-subnormal-axis
 
-### negative-radius-solve
-- What: a solve returns a circle radius below zero (-7.6e90) that `Sketch::apply` refuses; no flip is named
-- Where: `laman::solve` / `laman::solution` (the radius parameter is not bounded below)
-- Seen: property `any_point_of_any_sketch_drags_to_any_targets`, M3 step 7
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored negative_radius_solve`
-- Measured: externally tangent circles of radius 0.001 and 3e91 with centres 764.76 apart; both algorithms
-- State: fixed (plans/m7-drag-conflicts step 1: the radius bound, ADR-0010); regression/negative-radius-solve
-
-### drag-negative-radius
-- What: a drag step returns a radius of -2.55e-19 (a circle tangent to a line through its own centre, so r is forced to 0), which `apply` refuses, so `DragSession::finish` does not apply
-- Where: `laman::drag`, `laman::solution` (same cause as `negative-radius-solve`)
-- Seen: same property, M3 step 7
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored drag_negative_radius`
-- Measured: DogLeg ends at -2.55e-19, Levenberg-Marquardt at +3.7e-14
-- State: fixed (plans/m7-drag-conflicts step 1: the radius bound, ADR-0010); regression/drag-negative-radius
-
 ### satisfied-status-degenerate-tangent
 - What: a static solve reports `UnderConstrained` where the checker finds the tangency violated (NaN measure) and the circle and line degenerate
 - Where: `laman::diagnose` (status at degenerate coordinates), same family as `drag-negative-radius`
@@ -112,31 +89,6 @@ A defect a run measured, one block each:
 - Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored satisfied_status_degenerate_tangent`
 - Measured: a line of length 1.04e-209 through the centre of a circle of radius 0.001, tangent; Levenberg-Marquardt ends at r = 3.7e-14
 - State: regression/satisfied-status-degenerate-tangent
-
-### upstream-edit-drift
-- What: an edit to a downstream distance changes the previously solved coordinate bits of its upstream point
-- Where: `laman::solve`, whole-component edit re-solve under both algorithms
-- Seen: M5 step 4 shared C2 runner, baseline `87cc742`, 2026-11-04
-- Reproduce: `cargo test -p laman-debug --test solve_regression upstream_edit_drift`
-- Measured: three points, two distances, second edited 20 → 22; upstream x moves by 248 ULP (LM) or 1 ULP (DogLeg); FullyConstrained, DoF 0 and checker clean before/after
-- State: fixed (plans/m6-stages step 4: the staged solve leaves a satisfied stage's bits); regression/upstream-edit-drift
-
-### whole-false-certificate
-- What: the whole path names a conflict set that holds together: its conflict filter drops a true distance (`spared`) on a certified stationary point of a satisfiable subset (ADR-0005's certificate is local); the staged path solves that subset and keeps `spared`, so staged and whole conflict sets differ (the plan's "staged = reference on conflict sets" fails here)
-- Where: `laman::diagnose::analysis` (`test`, `certified`) on `Path::Whole`: `laman::reference::solve`, and the fallback of a failed component
-- Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `aa67e2f4…`, plans/m6-stages step 7, 2026-11-04; also red at 3495a4b (step 5)
-- Reproduce: `cargo test -p laman-debug --test solve_regression -- --ignored whole_false_certificate`
-- Measured: LM whole names {1, 3–9, `stretched`}, staged {`spared`, 1, 3–9, `stretched`}; a checker-clean witness of everything but `spared` is in the fixture; DogLeg ends `NotConverged` on both paths
-- State: fixed (plans/m7-drag-conflicts step 4: every filter test re-solved by the default staged solve, ADR-0005 second amendment); regression/whole-false-certificate
-
-### staged-conflict-inconclusive
-- What: under DogLeg the staged conflict analysis ends `NotConverged` with no set where the whole-component path (`laman::reference::solve`) proves one
-- Where: `laman::diagnose::analysis`, the deletion filter's re-solves of subsets by the staged solve, `Algorithm::DogLeg`
-- Seen: property `an_extra_distance_is_redundant_when_true_and_a_conflict_when_false`, seed `4ca64a2b…` (kept in `solved.proptest-regressions`), M6 retirement, 2026-11-04
-- Reproduce: `PROPTEST_CASES=1 cargo test -p laman-debug --test solved an_extra` with a strict staged = whole comparison
-- Measured: 6 construction steps, `false_by` 2.03; whole DogLeg names {5, 11, 12}, staged DogLeg names nothing; the property exempts an inconclusive side from the staged = whole comparison until this is shrunk to a fixture and fixed (M7's conflict work)
-- Cause: under DogLeg every filter test of the subset {leg-a, leg-b, span} with constraint 10 (as many equations as parameters, inconsistent: its least-squares point is where the Jacobian is singular) ended at the 128-iteration cap 2–5× above `STATIONARY` (ratios 2.2e-6, 4.6e-6; the dog leg needs about 200 iterations there, LM 85). Which path concluded was decided by the budget share an earlier, satisfied component left (2 iterations staged, 4 whole), not by staging
-- State: fixed (plans/m7-drag-conflicts step 5: every filter test re-solved by Levenberg–Marquardt, ADR-0005 third amendment); regression/staged-conflict-inconclusive (shrunk to 7 points, 9 distances; the set is the triangle inequality {leg-a, leg-b, span})
 
 ### far-goal-stationary
 - What: a goal at 1e300 is called stationary at once and the frame ends converged where it started: `norm(&g)` overflows to infinity, so `|p| <= acceptance + GOAL_ROUNDING * |g|` passes

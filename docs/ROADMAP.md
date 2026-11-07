@@ -7,7 +7,8 @@ compresses to its status line (`/close-cycle`), and the next is appended
 below.
 
 Spine: **C1** M0 → M1 → M2 → M3 → M4 (the vertical slice), then **C2**
-(the sketcher gate), then the later cycles one at a time.
+(the sketcher gate), **C3** (profiles), then the later cycles one at a
+time.
 
 ---
 
@@ -32,7 +33,7 @@ is a regression guard, blessed from the first green run, and
 its acceptance is equality across targets. Coordinates compare within
 `1e-9` of the sketch's size unless a fixture says otherwise. The test for
 a fixture loads it, solves, runs the checker, compares, and compares the
-digest; the same fixture runs from pytest in M4.
+digest; the C1 fixtures run from pytest too.
 
 ---
 
@@ -141,97 +142,78 @@ step in ≤ 1 ms.
 drags at 100 to 500 entities solve inside a frame, keep their branch and
 leave unrelated geometry where it was.*
 
-**Status: M5, M6 and M7 done; M8's five plans done: the 500-entity edits and the slot drag sit at the 4 ms line (medians 3.2–3.8 ms, single samples to 4.4), a bisected frame at about 4 ms a try, the rectangle drag at 6.0 ms (the stop rule, ADR-0011).** M5: the generated
-corpus, construction properties and bounded release benchmark. M6: every
-component solved and diagnosed by stages (ADR-0009); an edit keeps every
-bit outside its stage's downstream closure (`upstream-edit-drift`
-lifted); staged DoF, per-entity DoF, direction span and redundant sets
-equal the whole path's, and conflict sets wherever the whole path's are
-unsatisfiable. The 4 ms acceptance is **not met** at 500 entities: edit
-medians 10.8–22.5 ms, first drag step 20 ms, both algorithms; 98/99
-entities 1.1–2.8 ms (ARCHITECTURE.md §Frame budget, with the two measured
-cost sources). M7: no radius below 0 in a solve or drag (ADR-0010), conflict
-sets equal on the staged and whole paths and the fundamental circuit where
-the stretch is small (ADR-0005 amendments), a frame that jumps an arc's
-sweep bisected and marked (`Diagnostics::bisection`, ADR-0006). M8's first
-plan (staged rank and tolerances once per frame, the extent split): the
-500-entity edits are 6–11 ms, the first drag step 12–17 ms, the bisected
-frame 29–30 ms, still over 4 ms; the profile in ARCHITECTURE.md §Frame budget
-chose a frame floor first (`plans/m8-frame-floor`: sparse staged rank,
-satisfaction without a Jacobian, the splitter in O(parts), set-up once a
-frame): the 500-entity edits are now 4.4–5.8 ms medians (worst 4.6–6.4),
-the first drag step 6.0 (slots) and 15–16 ms (rectangles), the bisected
-frame 15 ms, all still over 4 ms. Rigid bodies in the remainder reach only
-the drag and bisect cells (the edits have no remainder), by a measured
-ceiling of about 5.8, 4.8 and 9.4 ms; they do not close M8 alone. M8's third
-plan (`plans/m8-setup`: one cut a frame shared by the solve and the
-diagnosis, parts read off the cut, the cut's evaluation once per source, a
-descent trial in place) took the edits to 2.9–6.1 ms worst: the triangles
-(3.3, 2.9) and the rectangles LM edit (3.9) are inside 4 ms; the rectangles
-DogLeg edit (4.2) and the slot edits (6.0, 4.7) are not. The first drag
-step is 14.5 ms (rectangles) and 5.0 (slots), the bisected frame 11.6. M8's
-fourth plan (`plans/m8-dense-rank`: one row pass and one satisfaction test
-per staged component, each component's reads once, the solve's and the
-diagnosis's coordinates in a dense table) took all six 500-entity edits
-inside 4 ms (worst 1.95–3.78 ms) and the slot drag to 3.5–3.8 ms. Over: the
-rectangle drag (15.3 ms, pursuit 75 % of it) and the slot bisect (8.1 ms).
-M8's fifth plan (`plans/m8-pursuit`: the pursuit's damping read against the
-goal's own scale, a QR that skips exact zeros, multipliers read from the
-pivoted QR, the bench judged on the worst sample and per try) took the
-rectangle drag to 5.3–5.9 ms and the bisect to 2.4–2.7 ms a try (the
-refused-at-every-halving cell 3.7–4.2); ADR-0011.
-
-- **M7 — drag robustness and conflicts**: done (status line).
-- **M8 — the frame budget at 500 entities**: profile the 500-entity edit
-  and drag step first, then remove what it confirms (the per-part extent
-  measurement, the diagnosis's recompile and re-cut of the placed sketch,
-  repeated linear scans), one path, no public type. Accept: every
-  500-entity bench cell, edit and first drag step, ≤ 4 ms (the cycle's
-  *Accept*). After four plans every 500-entity edit (worst 1.95–3.78 ms) and the slot
-  drag's first step (3.5–3.8 ms) are inside 4 ms; the rectangle drag (15.3 ms)
-  and the slot bisect (8.1 ms) were not; the fifth plan took the bisect to
-  2.4–2.7 ms a try and the rectangle drag to 5.9 ms worst across three runs,
-  where the stop rule ends the work (ADR-0011): C2's *Accept* carries 6.0 ms
-  for that cell. Rigid bodies in the remainder are not built.
-
-The risk this cycle retires is locality: that a decomposition into stages
-makes a local edit cost a local solve, without changing a diagnostic or a
-bit outside the stages it reaches.
+**Status: done 2026-11-07.** Retired the locality risk: a local edit costs a
+local solve, without changing a diagnostic or a bit outside the stages it
+reaches. ADRs 0009 (stages), 0010 (a radius is bounded below by zero) and
+0011 (the budget per try, and the stop at the rectangle drag); ADR-0005 and
+ADR-0006 amended. The frame budget's numbers are in ARCHITECTURE.md §Frame
+budget.
 
 - In: subsystem decomposition into stages (Dulmage–Mendelsohn on the
-  compiled equations, ADR-0009; no pebble game); incremental
-  edits that re-solve only the stages they reach; generated sketches of
-  about 100 to 500 entities as fixtures by construction: shared-edge
-  rectangle chains (98/248/498), slot grids (98/248/498), and nested
-  triangle strips (99/249/501). M5 supplies these families and the bench;
-  M6 supplies the decomposition. Drag robustness: a frame that
-  moves an arc's tracked sweep more than a named fraction of a turn is
-  bisected; a frame solved at a bisected target is marked in its
-  `Solution`; a bisected frame is held to the frame budget; the drag
-  property's construction gets an observed subject, so it can fail on a
-  flip. A radius never ends below zero (findings `negative-radius-solve`,
-  `drag-negative-radius`; their fixtures lifted).
+  compiled equations, ADR-0009; no pebble game); incremental edits that
+  re-solve only the stages they reach; generated sketches of about 100 to
+  500 entities as fixtures by construction: shared-edge rectangle chains
+  (98/248/498), slot grids (98/248/498), and nested triangle strips
+  (99/249/501). Drag robustness: a frame that moves an arc's tracked sweep
+  more than a named fraction of a turn is bisected; a frame solved at a
+  bisected target is marked in its `Solution`; a bisected frame is held to
+  the frame budget; the drag property's construction gets an observed
+  subject, so it can fail on a flip. A radius never ends below zero.
 - Out: a named consumer's fixtures (none is named yet; they join when one
   is, and integrate on its own schedule); the conflict analysis's cost and
   the inconclusive-conflict findings (`docs/BACKLOG.md`); the Python and
-  release-workflow backlog; new constraint kinds.
+  release-workflow backlog; new constraint kinds; rigid bodies in the
+  remainder (rejected, ADR-0011).
 - Accept: on 500-entity sketches, a drag step and a one-dimension edit each
   re-solve in ≤ 4 ms (a quarter of a 60 Hz frame) on the reference
-  machine (a single sample of three runs may touch 4.4 ms, accepted as noise), the rectangle drag excepted at its measured 6.0 ms, and every
+  machine (a single sample of three runs may touch 4.4 ms, accepted as
+  noise), the rectangle drag excepted at its measured 6.0 ms, and every
   try of a bisected drag frame ≤ 4 ms (a frame's time divided by its tries,
-  ADR-0011); geometry outside the edited
-  stages' downstream closure keeps its bits; DoF, redundant sets, and
-  conflict sets where the whole-sketch solve's are unsatisfiable, equal
-  to those of a whole-sketch solve; no flip across the generated drags; no radius
-  below zero from any solve or drag the properties draw; conflict sets
-  measured against the exact minimum where ADR-0005 says they are
-  approximate; the C1 corpus and its digests unchanged, or re-blessed with
-  the reason.
+  ADR-0011); geometry outside the edited stages' downstream closure keeps
+  its bits; DoF, redundant sets, and conflict sets where the whole-sketch
+  solve's are unsatisfiable, equal to those of a whole-sketch solve; no
+  flip across the generated drags; no radius below zero from any solve or
+  drag the properties draw; conflict sets measured against the exact
+  minimum where ADR-0005 says they are approximate; the C1 corpus and its
+  digests unchanged, or re-blessed with the reason.
+
+## C3 — profiles
+
+*Goal: a sketcher can ask a solved sketch for its closed loops and holes —
+ordered, oriented and nested — and extrude or fill them, from the same
+solved coordinates and without a new solve.*
+
+The risk this cycle retires is topology on solved geometry: that loops,
+orientation and nesting come out right and the same bits on every target,
+including the degenerate cases (an open chain, a dangling edge, a loop
+touching itself), which are reported, never errors or panics.
+
+- In: profile extraction from the solved, non-construction lines, arcs and
+  circles: edges joined at shared points, loops as ordered, directed edge
+  lists, outer boundaries counter-clockwise and holes clockwise, nesting by
+  containment, signed area; open chains, dangling edges and self-touching
+  loops named in the result with the caller's ids; the checker's own
+  independent measure of area and orientation (`laman-check`, model types
+  only); `laman-py` over the new API with stubs; the digest extended over
+  profiles. ⚠ OPEN: whether distinct points that coincide in the solution
+  join a loop, or only a shared point id does (decide by ADR before the
+  first step).
+- Out: trim, extend, split at intersections and any change to the sketch
+  (the Edits cycle); curves that cross without a shared point; ellipses and
+  splines; filling, meshing, booleans; a named consumer's fixtures.
+- Accept: fixtures by construction, every number from a closed form: the
+  rectangle (area 120 × 60 = 7200, outer counter-clockwise); the C1 slotted
+  plate (one outer, one hole, net area 7200 − (40 × 10 + 25π) = 6721.46);
+  a plate with an island inside a hole; two disjoint loops; a circle alone;
+  an open chain and a dangling edge, each reported by id; the generated
+  slot grids give their known loop and hole counts; the checker agrees on
+  every fixture and fails each broken twin; every digest equal natively
+  and on wasm32-wasip1; pytest reproduces every number; extraction at 500
+  entities inside a budget named when the first plan measures it (⚠ OPEN,
+  by the stop rule of ADR-0011).
 
 ## Later cycles, one line each, unordered
 
-- **Profiles**: closed loops and holes from the solved, non-construction
-  curves.
 - **Edits**: trim, extend, offset and mirror.
 - **Ellipses** and their arcs.
 - **B-splines**.

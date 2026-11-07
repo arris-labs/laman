@@ -170,6 +170,24 @@ The free parameters connected through shared equations, solved as one
 problem (ARCHITECTURE.md §Solve).
 _Avoid_: subsystem (until it means a rigid cluster), island
 
+**Part**:
+One piece of a component's Dulmage–Mendelsohn cut: the head, a stage or
+the remainder, solved in that order, each with the earlier parts'
+parameters as constants (ARCHITECTURE.md §Solve, ADR-0009).
+_Avoid_: block, subproblem
+
+**Whole path**:
+A component solved and diagnosed as one, without its parts: the fallback
+of a component whose staged solve fails, and what `laman::reference`
+compares the staged path with (ADR-0009).
+_Avoid_: unstaged solve, full solve
+
+**Downstream closure**:
+The parameters a change to one constraint can move: those of the part
+holding its equations and of every later part that reads one of them,
+transitively (`laman::reference::downstream`). An edit keeps the bits of everything
+outside it.
+
 **Stage**:
 One of a component's square parts: a strongly connected set of required
 equations with the free parameters they fix, from the Dulmage–Mendelsohn
@@ -179,8 +197,9 @@ _Avoid_: block, cluster
 
 **Head**:
 A component's over-determined part, solved first: more equations than the
-parameters they fix, so every redundancy and conflict lives here. It
-reads nothing outside itself.
+parameters they fix, so in a satisfied component every redundancy lives
+here when the later parts have full row rank (ADR-0009). It reads nothing
+outside itself.
 
 **Remainder**:
 A component's under-determined part, solved after its stages with least
@@ -233,6 +252,16 @@ Halving a drag step that flips, or moves an arc's tracked sweep past
 `MAX_SWEEP_STEP` (a sweep jump), toward the last good target, at most
 `max_bisections` times, so the step keeps its branch (ADR-0006).
 _Avoid_: backtracking, line search
+
+**Edit**:
+A change to a solved sketch's dimension (one value replaced), re-solved
+warm from the last solution; it moves only its downstream closure. Not
+the later cycle's trim, extend, offset and mirror (ROADMAP.md).
+
+**Frame**:
+One step of a drag session (`DragSession::to`): its tries and the
+`Solution` it returns; "drag step" means the same.
+_Avoid_: tick
 
 **Try**:
 One solve inside a drag frame, at the target or a halving of it; a frame
@@ -294,4 +323,4 @@ _Avoid_: CI (CI runs the gate and more)
 
 **Frame budget**:
 The time an interactive solve must fit in, stated per sketch size in the
-roadmap.
+roadmap; a bisected frame is held to it per try (ADR-0011).

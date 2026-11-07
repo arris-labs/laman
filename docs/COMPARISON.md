@@ -4,7 +4,7 @@ A survey for someone choosing a 2D constraint solver for Rust or Python,
 and the check on laman's own reason to exist (SEED.md §3, §4). Surveyed
 2026-11-01 from each project's own pages and registry metadata, cited
 inline; no benchmark was run. Three of the Rust solvers were also run on
-laman's C1 fixtures (§The comparison run). Laman's row is what it does
+laman's ten fixture sketches (§The comparison run). Laman's row is what it does
 today: it solves, drags and checks sketches from Rust and Python
 (`CHANGELOG.md`), with cross-OS wheel builds in CI and its digests held
 equal on five OS/arch runners and wasm32.
@@ -74,7 +74,7 @@ other solvers' future.
 ## The comparison run
 
 Run 2026-11-03: `sketch-solver` 0.1.0, `acs-solver` 0.1.19 and `ezpz` 0.2.29
-(each pinned exactly) were run out of process, each on the ten C1 sketches
+(each pinned exactly) were run out of process, each on laman's ten fixture sketches
 (the four fixtures and their six twins under `tests/fixtures/c1/`), started
 from the fixture's guesses. Each translation was proven before its numbers
 count: each solver's own equations are satisfied, within a tolerance, at the
@@ -145,7 +145,7 @@ Versions: sketch-solver 0.1.0, acs-solver 0.1.19, ezpz 0.2.29.
 compares on satisfaction only, and its "unsatisfied" does not tell a
 conflict from a failure to converge. Laman's own row is each fixture's
 `expected.json`, derived by construction, not laman's output; laman's solve
-meets it (the C1 acceptance tests).
+meets it (laman's fixture tests).
 
 ### Where the solvers differ from laman
 
@@ -156,7 +156,7 @@ Laman's set is the conflict set, checked by hand against the construction
 (the fixture has `a` = (50, 0), `b` = (18, 24)): `base` fixes `a` 50 from the
 origin `o`, `apex` puts `b` on the 60° line through `o`, and `a` is
 50·sin 60° = 43.3 from that line while `right` allows `|ab|` = 40
-(ROADMAP.md §C1 acceptance 1). These three are contradictory whatever `left`
+(fixture 1 in ROADMAP.md). These three are contradictory whatever `left`
 says, and none of them depends on the rotation `horizontal` removes. For
 inclusion-minimality every pair must also be satisfiable: `base` + `right`
 + `left` is the triangle, `base` + `apex` + `left` puts `b` 30 along the 60°

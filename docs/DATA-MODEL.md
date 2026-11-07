@@ -106,14 +106,14 @@ stored with it (ARCHITECTURE.md §Branches).
   configurations and the near-degenerate ones a strategy can reach (a line
   of length `1e-6` times the sketch's size, a point on the line, tangent
   circles of nearly equal radius) (`.agents/rules/solver.md`).
-- **Not in cycle 1**: point–circle distance, concentric, collinear (two
+- **Not yet**: point–circle distance, concentric, collinear (two
   `point_on_line`), diameter (a `radius` of half), arc length, sweep
   angle, ellipses, splines (SEED.md §6, later cycles). A kind enters when
   a consumer reaches it (SEED.md §8).
 
 ## Diagnostics
 
-The M2 contract uses `J`, the Jacobian of required equations after
+The diagnostics use `J`, the Jacobian of required equations after
 structural contact regularization (ADR-0002), including intrinsic equations,
 with respect to the `n` free parameters. Rank, DoF, per-entity DoF and
 free directions, redundant, conflicting and degenerate sets are computed
@@ -147,7 +147,8 @@ free directions, redundant, conflicting and degenerate sets are computed
   guesses; it is satisfiable when either converges, and unsatisfiable when
   neither does and one ends at a least-squares point that is evaluable,
   outside tolerance and certified stationary (`|Jᵀf| ≤ STATIONARY ·
-  |(f_i |J_i|)|`). That certificate is local: it rules out a solution near
+  |(f_i |J_i|)|`, the gradient projected where a radius is held at 0,
+  ADR-0010). That certificate is local: it rules out a solution near
   that point, not one in another basin, so no start's certificate settles a
   subset another start satisfies. Linear dependence or a failed numerical solve alone proves
   nothing. Each set is inclusion-minimal: every member has a removal

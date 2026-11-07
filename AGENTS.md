@@ -35,13 +35,13 @@ with its 50 digests equal on five OS/arch runners and wasm32-wasip1, the
 oracle run in `docs/COMPARISON.md` (ADRs 0001–0007). The claim rests on
 the Python gap, the checker and deterministic branch-keeping drag
 (`docs/COMPARISON.md`, SEED.md §3 note).
-**C2 M5-M8 done, ready for `/close-cycle`:** generated corpus and bench;
-stages (ADR-0009), edits keep unreached bits; no radius below 0 (ADR-0010);
-sweep-jump frames bisected. M8's five plans bring all six 500-entity edits
-inside 4 ms (worst 1.95-3.78), the slot drag to about 4 and a bisected
-frame to 2.4-2.7 ms a try (ADR-0011). Three slot cells touch 4.0-4.4 ms in
-single samples, accepted as noise; the rectangle drag (5.9 ms) is accepted
-at 6.0 ms, where the stop rule ends the work (`docs/ROADMAP.md`).
+**C2 closed** (2026-11-07): stages (ADR-0009), edits keep unreached bits, no
+radius below 0 (ADR-0010), sweep-jump frames bisected; at 500 entities every
+edit and the slot drag are inside 4 ms, a bisected frame 4 ms a try, the
+rectangle drag accepted at 6.0 ms (ADR-0011, `docs/ROADMAP.md`). Release
+0.2.0 is due (`/release`).
+**Next:** C3, profiles (closed loops and holes from solved curves): first
+`/idea` or `/plan` for the join rule (⚠ OPEN in `docs/ROADMAP.md`).
 
 ## Rules that are not derivable from the code
 
