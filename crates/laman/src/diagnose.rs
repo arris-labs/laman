@@ -819,13 +819,71 @@ fn component_qr(system: &System<'_>, component: &Component, values: &(impl Value
 /// The row scaled to unit Euclidean norm; `None` for a zero or non-finite row.
 /// Dividing by the largest magnitude first keeps the squares representable.
 fn unit_row(row: Vec<f64>) -> Option<Vec<f64>> {
+    unit_row_scaled(row).map(|(unit, _)| unit)
+}
+
+/// [`unit_row`] with the factor that scales the unit row back to the row;
+/// `None` too when that factor is not finite.
+fn unit_row_scaled(row: Vec<f64>) -> Option<(Vec<f64>, f64)> {
     let big = row.iter().fold(0.0, |m: f64, x| m.max(x.abs()));
     if big == 0.0 || !big.is_finite() {
         return None;
     }
     let scaled: Vec<f64> = row.iter().map(|x| x / big).collect();
     let norm = scaled.iter().fold(0.0, |s, x| s + x * x).sqrt();
-    Some(scaled.into_iter().map(|x| x / norm).collect())
+    let scale = big * norm;
+    scale
+        .is_finite()
+        .then(|| (scaled.into_iter().map(|x| x / norm).collect(), scale))
+}
+
+/// The least-squares multipliers `λ = −(Jᵀ)⁺ b` of the equations whose
+/// Jacobian is `jacobian` (`n` columns), read from a pivoted QR of the unit
+/// rows: the same minimum-norm solution as an SVD's when the rows are
+/// independent, and the minimum-norm one over the rows *as scaled to unit
+/// length* when they are dependent. `b` is first cut to its part in the range
+/// of `Jᵀ` by taking `null_basis` (orthonormal, the null space in hand) out of
+/// it. A zero row has multiplier 0. `None` for a non-finite input.
+pub(crate) fn multipliers(
+    jacobian: &[Vec<f64>],
+    n: usize,
+    b: &[f64],
+    null_basis: &[Vec<f64>],
+) -> Option<Vec<f64>> {
+    if b.len() != n || !jacobian.iter().flatten().chain(b).all(|x| x.is_finite()) {
+        return None;
+    }
+    let mut rows = Vec::with_capacity(jacobian.len());
+    let mut scales = Vec::with_capacity(jacobian.len());
+    let mut origin = Vec::with_capacity(jacobian.len());
+    for (i, row) in jacobian.iter().enumerate() {
+        if let Some((unit, scale)) = unit_row_scaled(row.clone()) {
+            rows.push(unit);
+            scales.push(scale);
+            origin.push(i);
+        }
+    }
+    let qr = Qr::new(rows, n);
+    let mut b = b.to_vec();
+    for v in null_basis {
+        let d = dot(v, &b);
+        for (x, y) in b.iter_mut().zip(v) {
+            *x -= d * y;
+        }
+    }
+    // R₁₁ᵀ y = (Pᵀ b)₁..r, forward substitution down the columns of R₁₁.
+    let r = qr.rank;
+    let mut y = vec![0.0; qr.a.len()];
+    for i in 0..r {
+        let s = (0..i).fold(b[qr.perm[i]], |s, j| s - qr.a[j][i] * y[j]);
+        y[i] = s / qr.a[i][i];
+    }
+    qr.apply_q(&mut y);
+    let mut lambda = vec![0.0; jacobian.len()];
+    for ((i, scale), mu) in origin.into_iter().zip(scales).zip(y) {
+        lambda[i] = -mu / scale;
+    }
+    lambda.iter().all(|x| x.is_finite()).then_some(lambda)
 }
 
 /// Column-pivoted Householder QR of an `m × n` matrix, stopped at the first
@@ -836,6 +894,8 @@ struct Qr {
     a: Vec<Vec<f64>>,
     perm: Vec<usize>,
     rank: usize,
+    /// The reflectors, `H_k = I − 2 v vᵀ / vv` on rows `k..`: `v` and `vv`.
+    reflectors: Vec<(Vec<f64>, f64)>,
 }
 
 impl Qr {
@@ -843,6 +903,7 @@ impl Qr {
         let m = a.len();
         let mut perm: Vec<usize> = (0..n).collect();
         let mut rank = 0;
+        let mut reflectors = Vec::new();
         // A column's norm over rows k.. is recomputed from scratch (no
         // downdating, so the bits are the dense method's) only when the
         // last reflector changed the column or the row just retired was
@@ -908,9 +969,26 @@ impl Qr {
                     stale[col] = true;
                 }
             }
+            reflectors.push((v, vv));
             rank += 1;
         }
-        Self { a, perm, rank }
+        Self {
+            a,
+            perm,
+            rank,
+            reflectors,
+        }
+    }
+
+    /// `x ← Q x`, `Q = H_0 H_1 … H_{rank−1}`, `x` one entry per row.
+    fn apply_q(&self, x: &mut [f64]) {
+        for (k, (v, vv)) in self.reflectors.iter().enumerate().rev() {
+            let d = v.iter().zip(&x[k..]).fold(0.0, |s, (a, b)| s + a * b);
+            let f = 2.0 * d / vv;
+            for (xi, vi) in x[k..].iter_mut().zip(v) {
+                *xi -= f * vi;
+            }
+        }
     }
 
     /// ADR-0003's null basis: one vector per non-pivot column in original

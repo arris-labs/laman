@@ -1211,3 +1211,158 @@ proptest::proptest! {
         assert_parts_equal_the_filter("strategy", &through_serde(&sk));
     }
 }
+
+/// How far the QR's multipliers may sit from the SVD's: rounding of order-one
+/// sums over matrices of a few rows, far above the double-precision floor and
+/// below anything the curvature's forward difference can tell.
+const MULTIPLIER_ERROR: f64 = 1e-9;
+
+/// An orthonormal basis of the null space of `rows`, from the SVD of the
+/// matrix padded with zero rows to square, so `Vᵀ` is complete.
+fn null_space(rows: &[Vec<f64>]) -> Vec<Vec<f64>> {
+    let n = rows[0].len();
+    let j = DMatrix::<f64>::from_fn(rows.len().max(n), n, |r, c| {
+        rows.get(r).map_or(0.0, |row| row[c])
+    });
+    let svd = j.svd(true, true);
+    let (v_t, values) = (svd.v_t.unwrap(), svd.singular_values);
+    let top = values.iter().copied().fold(0.0, f64::max);
+    (0..n)
+        .filter(|i| values[*i] <= 1e-10 * top)
+        .map(|i| (0..n).map(|c| v_t[(i, c)]).collect())
+        .collect()
+}
+
+/// The multipliers by the SVD (`gauss_newton` of the transpose) and by the QR,
+/// for the pulled gradient `b`.
+fn both_multipliers(rows: &[Vec<f64>], b: &[f64]) -> (Vec<f64>, Vec<f64>) {
+    let n = rows[0].len();
+    let basis = null_space(rows);
+    // The part of b in the range of Jᵀ is what the SVD sees; give it that.
+    let mut inside = b.to_vec();
+    for v in &basis {
+        let d = dot(v, b);
+        for (x, y) in inside.iter_mut().zip(v) {
+            *x -= d * y;
+        }
+    }
+    let transposed = Evaluation {
+        values: inside,
+        jacobian: (0..n)
+            .map(|c| rows.iter().map(|row| row[c]).collect())
+            .collect(),
+        satisfied: false,
+        valid: true,
+    };
+    let svd = gauss_newton(&transposed, GN_CUTOFF).unwrap();
+    let qr = crate::diagnose::multipliers(rows, n, b, &basis).unwrap();
+    (svd, qr)
+}
+
+fn assert_close(a: &[f64], b: &[f64]) {
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(b) {
+        assert!(
+            (x - y).abs() <= MULTIPLIER_ERROR * (1.0 + x.abs()),
+            "{a:?} vs {b:?}"
+        );
+    }
+}
+
+/// The row of `|p_i − p_j|` over the coordinates of `points` (x, y each).
+fn distance_row(points: &[(f64, f64)], i: usize, j: usize) -> Vec<f64> {
+    let (dx, dy) = (points[i].0 - points[j].0, points[i].1 - points[j].1);
+    let d = libm::hypot(dx, dy);
+    let mut row = vec![0.0; 2 * points.len()];
+    row[2 * i] = dx / d;
+    row[2 * i + 1] = dy / d;
+    row[2 * j] = -dx / d;
+    row[2 * j + 1] = -dy / d;
+    row
+}
+
+#[test]
+fn qr_multipliers_equal_the_svd_ones() {
+    // A four-bar linkage, bent: four sides and a diagonal, one dof left.
+    let bar = [(0.0, 0.0), (4.0, 0.3), (3.1, 2.7), (-0.4, 2.2)];
+    let rows: Vec<Vec<f64>> = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 2)]
+        .iter()
+        .map(|&(i, j)| distance_row(&bar, i, j))
+        .collect();
+    let b = [0.0, 0.0, 0.3, -0.2, 0.0, 0.0, -0.5, 0.9];
+    let (svd, qr) = both_multipliers(&rows, &b);
+    assert_close(&svd, &qr);
+    assert!(qr.iter().any(|x| x.abs() > 0.01), "a vacuous comparison");
+
+    // A chain of 40 points, rows overlapping in a band.
+    let chain: Vec<(f64, f64)> = (0..40)
+        .map(|i| (i as f64 * 0.9, libm::sin(i as f64 * 0.4)))
+        .collect();
+    let rows: Vec<Vec<f64>> = (0..39).map(|i| distance_row(&chain, i, i + 1)).collect();
+    let mut b = vec![0.0; 80];
+    b[78] = 0.7;
+    b[79] = -0.2;
+    let (svd, qr) = both_multipliers(&rows, &b);
+    assert_close(&svd, &qr);
+    assert!(qr.iter().any(|x| x.abs() > 0.01), "a vacuous comparison");
+
+    // Rows of mixed norm: the same linkage, rows scaled 1e2 and 1e-2.
+    let bar_rows: Vec<Vec<f64>> = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 2)]
+        .iter()
+        .zip([1e2, 1.0, 1e-2, 7.0, 3e-2])
+        .map(|(&(i, j), s)| distance_row(&bar, i, j).iter().map(|x| x * s).collect())
+        .collect();
+    let b = [0.0, 0.0, 0.3, -0.2, 0.0, 0.0, -0.5, 0.9];
+    let (svd, qr) = both_multipliers(&bar_rows, &b);
+    assert_close(&svd, &qr);
+
+    // A zero row has multiplier exactly 0 and moves nothing.
+    let mut with_zero = rows[..3].to_vec();
+    with_zero.insert(1, vec![0.0; 80]);
+    let b = vec![0.1; 80];
+    let (svd, qr) = both_multipliers(&with_zero, &b);
+    assert_close(&svd, &qr);
+    assert_eq!(qr[1], 0.0);
+}
+
+#[test]
+fn qr_multipliers_on_redundant_rows_solve_the_same_equation() {
+    // A whole-path component: the diagonal stated twice, once at a tenth of
+    // its length. Dependent rows have many multiplier vectors; the QR's is
+    // the minimum-norm one over unit rows, the SVD's over the rows as given,
+    // so they are compared on what they must agree on: Jᵀλ = −b.
+    let bar = [(0.0, 0.0), (4.0, 0.3), (3.1, 2.7), (-0.4, 2.2)];
+    let diagonal = distance_row(&bar, 0, 2);
+    let tenth: Vec<f64> = diagonal.iter().map(|x| x * 0.1).collect();
+    let rows = vec![
+        distance_row(&bar, 0, 1),
+        diagonal.clone(),
+        distance_row(&bar, 1, 2),
+        tenth,
+        distance_row(&bar, 2, 3),
+        distance_row(&bar, 3, 0),
+    ];
+    let b = [0.2, 0.1, 0.3, -0.2, 0.4, 0.0, -0.5, 0.9];
+    let basis = null_space(&rows);
+    let lambda = crate::diagnose::multipliers(&rows, 8, &b, &basis).unwrap();
+    let mut inside = b.to_vec();
+    for v in &basis {
+        let d = dot(v, &b);
+        for (x, y) in inside.iter_mut().zip(v) {
+            *x -= d * y;
+        }
+    }
+    for c in 0..8 {
+        let pulled = rows.iter().zip(&lambda).fold(0.0, |s, (r, l)| s + r[c] * l);
+        assert!(
+            (pulled + inside[c]).abs() <= MULTIPLIER_ERROR,
+            "{c}: {pulled} {}",
+            inside[c]
+        );
+    }
+    // With the duplicate at equal norm the multipliers are the SVD's.
+    let mut twin = rows.clone();
+    twin[3] = diagonal;
+    let (svd, qr) = both_multipliers(&twin, &b);
+    assert_close(&svd, &qr);
+}

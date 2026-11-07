@@ -102,7 +102,7 @@ robustness, convergence or bound has to be established here.
 - [x] Step 2 **[2]** — D2: zero-skipping `Qr::new`. A test keeps the dense
   version as a reference and compares R, `perm`, rank and basis **by bits** on
   random matrices with structural zeros, rank-deficient ones included.
-- [ ] Step 3 **[2]** — D3: `λ` from the kept factorization. Tests against
+- [x] Step 3 **[2]** — D3: `λ` from the kept factorization. Tests against
   `gauss_newton` within a named tolerance: a curved linkage, a chain, rows of
   mixed norm, a zero row, and redundant rows (a whole-path component).
 - [ ] Step 4 **[2]** — D4: the verdict on the worst sample, tries and time per

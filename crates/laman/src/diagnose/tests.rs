@@ -772,7 +772,12 @@ fn dense_qr(mut a: Vec<Vec<f64>>, n: usize) -> Qr {
         }
         rank += 1;
     }
-    Qr { a, perm, rank }
+    Qr {
+        a,
+        perm,
+        rank,
+        reflectors: vec![],
+    }
 }
 
 fn bits(rows: &[Vec<f64>]) -> Vec<Vec<u64>> {

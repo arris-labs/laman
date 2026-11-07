@@ -962,7 +962,7 @@ impl Pursuit<'_, '_> {
     /// The reduced Hessian of the goal objective (halved) in the null basis
     /// `N`: `H = (J_g N)ᵀ (J_g N) + Nᵀ W N`, `W = Σ λ_i ∇²c_i` the required
     /// equations' curvature weighted by their least-squares multipliers
-    /// `λ = −(J_rᵀ)⁺ J_gᵀ g`. `W N_k` is a forward difference of the analytic
+    /// `λ = −(J_rᵀ)⁺ J_gᵀ g`, read from the pivoted QR the diagnostics use. `W N_k` is a forward difference of the analytic
     /// required Jacobian along each null vector, one evaluation each, at
     /// [`CURVATURE_STEP`]. That curvature is what the Gauss–Newton model in
     /// the null space misses: a linkage reaching for a target beyond it bends
@@ -1017,15 +1017,7 @@ impl Pursuit<'_, '_> {
             pulled[*i] += r;
         }
         let m = jr.jacobian.len();
-        let transposed = Evaluation {
-            values: pulled,
-            jacobian: (0..n)
-                .map(|c| jr.jacobian.iter().map(|row| row[c]).collect())
-                .collect(),
-            satisfied: false,
-            valid: true,
-        };
-        let lambda = gauss_newton(&transposed, GN_CUTOFF)?;
+        let lambda = crate::diagnose::multipliers(&jr.jacobian, n, &pulled, basis)?;
         let mut curvature = Vec::with_capacity(basis.len());
         for v in basis {
             if !out.evaluations_left(self.options) {
