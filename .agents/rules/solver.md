@@ -44,7 +44,9 @@ reasons are in `SEED.md` §5 and §9.
   sketch, committed under `tests/fixtures/regression/<slug>/` with the
   *desired* assertion and `#[ignore = "…"]`. The fixing commit lifts the
   ignore. Never kept as accepted behaviour, never deleted once fixed.
-  Procedure: `inspect` skill.
+  Procedure: `inspect` skill. The gate's `tools/check-fixtures.sh`
+  refuses a `"tolerance"` outside `regression/` unless the fixture's
+  README cites the ADR that decided it.
 - **Property tests over hand-picked cases**: random sketches built by
   construction (`proptest`, `hypothesis`), shrinking to fixtures.
 - **A guarantee over all finite input is tested at f64's extremes**
