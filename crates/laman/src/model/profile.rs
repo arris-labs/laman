@@ -118,7 +118,9 @@ pub struct Profiles {
     pub dangling: Vec<EntityId>,
     /// Cores no profile takes (see [`Branched`]).
     pub branched: Vec<Branched>,
-    /// Edges whose two ends are one join, left out.
+    /// Self-joined edges: those whose two ends are one join, left out. (Not
+    /// the geometry that collapsed at a solution, which the diagnostics call
+    /// degenerate.)
     pub degenerate: Vec<EntityId>,
     /// Free ends that coincide without a join.
     pub unjoined: Vec<Unjoined>,

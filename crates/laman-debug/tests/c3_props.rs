@@ -308,7 +308,7 @@ proptest! {
     }
 }
 
-/// The same plate with a slotted hole and an island circle, drawn clockwise
+/// The same plate with a slotted hole and a circle inside it, drawn clockwise
 /// and counter-clockwise, at `scale` with its centre `scale` away from the
 /// origin: the structure and every sign survive where the areas overflow or
 /// underflow, and no area is ever non-finite.

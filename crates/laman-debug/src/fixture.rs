@@ -262,7 +262,7 @@ pub struct ExpectedProfiles {
     pub dangling: Vec<EntityId>,
     /// The branched cores.
     pub branched: Vec<Branched>,
-    /// The degenerate edges.
+    /// The self-joined edges.
     pub degenerate: Vec<EntityId>,
     /// The unjoined coincidences.
     pub unjoined: Vec<Unjoined>,

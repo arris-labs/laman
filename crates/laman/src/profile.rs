@@ -154,9 +154,9 @@ fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
 /// through a chain of `coincident` constraints. The coordinates give only
 /// area, orientation and nesting, so a solution's `coordinates` are as good
 /// an input as any others. Every outer loop is counter-clockwise and every
-/// hole clockwise, whatever order the edges were drawn in; an island inside
+/// hole clockwise, whatever order the edges were drawn in; a loop inside
 /// a hole is a profile of its own. Open chains, dangling edges, branched
-/// cores and degenerate edges are reported by id in the result, never as
+/// cores and self-joined edges are reported by id in the result, never as
 /// errors; so are free ends that lie within tolerance of one another
 /// without a join, which are never joined for it.
 ///

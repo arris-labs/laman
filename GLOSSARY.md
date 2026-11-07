@@ -82,6 +82,25 @@ or two loops share edges. Its edges are reported and enter no profile
 (ADR-0012).
 _Avoid_: self-intersecting
 
+**Self-joined edge**:
+An edge whose two ends are one join, so it closes on itself. Reported in
+`Profiles::degenerate` and left out of every loop; not the *Degenerate* of
+geometry that collapsed at a solution, which is a diagnostic about
+coordinates (ADR-0012).
+_Avoid_: degenerate edge
+
+**Free end**:
+An edge end alone in its join: no other edge end meets it. Pruning starts at
+free ends; they are what an open chain and a dangling edge have in common
+(ADR-0012).
+_Avoid_: loose end, endpoint
+
+**Unjoined**:
+Two free ends that lie within tolerance of one another in the coordinates
+without a join between them; reported by the two end points' ids, never
+joined for it (ADR-0012 D4).
+_Avoid_: near miss, gap
+
 **Constraint**:
 A relation the solve must make true between entities, written as one or
 more residual equations. A dimension is a constraint with a value.

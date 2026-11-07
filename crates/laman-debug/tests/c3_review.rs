@@ -118,8 +118,8 @@ fn a_violated_joining_coincident_still_closes_its_loop_and_is_named() {
     assert!(found.open_chains.is_empty() && found.unjoined.is_empty());
 }
 
-/// An edge whose two ends are one join is reported as `degenerate` and left
-/// out of every other list.
+/// An edge whose two ends are one join is a self-joined edge, listed in
+/// `Profiles::degenerate` and left out of every other list.
 #[test]
 fn a_self_joined_edge_is_reported_degenerate() {
     let mut sk = Sketch::new();
