@@ -134,3 +134,62 @@ fn the_acceptance_numbers() {
     assert_eq!(area("shared-edge").branched.len(), 1);
     assert!(area("shared-edge").profiles.is_empty());
 }
+
+/// A slot grid has exactly one profile, the plate, with one hole per slot,
+/// and the net area is the plate less the slots, in closed form
+/// (plans/m9-profiles step 7). The plate is `W` by `H` and each slot
+/// `2·length·r + πr²` (`corpus::slot_grid` fixes length 40 and radius 5);
+/// the expected coordinates are the construction's, never a solve.
+#[test]
+fn slot_grids_are_one_plate_with_a_hole_per_slot() {
+    use laman_debug::corpus::slot_grid;
+    let (length, radius) = (40.0, 5.0);
+    for rows in 1..=7 {
+        for cols in 1..=7 {
+            let case = slot_grid(rows, cols).unwrap();
+            let mut values = case.sketch.coordinates();
+            for (key, value) in &case.expected.coordinates {
+                values.insert(*key, *value);
+            }
+            let found = profiles(&case.sketch, &values).unwrap();
+            let name = format!("slot-grid-{rows}x{cols}");
+            if (rows, cols) == (7, 7) {
+                assert_eq!(case.sketch.entities().count(), 498, "{name}");
+            }
+            assert_eq!(found.profiles.len(), 1, "{name}");
+            assert!(found.open_chains.is_empty(), "{name}");
+            assert!(found.dangling.is_empty(), "{name}");
+            assert!(found.branched.is_empty(), "{name}");
+            assert!(found.degenerate.is_empty(), "{name}");
+            assert!(found.unjoined.is_empty(), "{name}");
+            let plate = &found.profiles[0];
+            assert_eq!(plate.holes.len(), rows * cols, "{name}");
+            // The plate's size, from `corpus::slot_grid`'s pitch and margin.
+            let width = cols as f64 * (2.0 * length + 4.0 * radius) + 4.0 * radius;
+            let height = rows as f64 * 6.0 * radius + 4.0 * radius;
+            let slot = 2.0 * length * radius + std::f64::consts::PI * radius * radius;
+            let n = (rows * cols) as f64;
+            let net = width * height - n * slot;
+            assert!(
+                (plate.outer.signed_area - width * height).abs() <= 1e-9 * width * height,
+                "{name}: plate {} vs {}",
+                plate.outer.signed_area,
+                width * height
+            );
+            assert!(
+                (plate.net_area - net).abs() <= 1e-9 * (width * height),
+                "{name}: net {} vs {net}",
+                plate.net_area
+            );
+            for hole in &plate.holes {
+                assert!(hole.signed_area < 0.0, "{name}");
+                assert!(
+                    (hole.signed_area + slot).abs() <= 1e-9 * slot,
+                    "{name}: hole {} vs {slot}",
+                    hole.signed_area
+                );
+                assert_eq!(hole.edges.len(), 4, "{name}");
+            }
+        }
+    }
+}

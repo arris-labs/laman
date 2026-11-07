@@ -118,7 +118,7 @@ algorithm whose robustness or bound is established here.
   `coincident` twin; plate with an island in a hole; two disjoint loops; a
   circle alone; an open chain; a dangling edge; shared-edge rectangles
   (branched).
-- [ ] Step 7 **[1]** — Slot grids (`corpus::slot_grid`, 1×1 to 7×7 and the
+- [x] Step 7 **[1]** — Slot grids (`corpus::slot_grid`, 1×1 to 7×7 and the
   498-entity one). Exactly one profile per grid, with `rows·cols` holes and
   net area `W·H − n(2·length·r + πr²)`.
 - [ ] Step 8 **[2]** — A property test. Random disjoint, nested rectangles,
