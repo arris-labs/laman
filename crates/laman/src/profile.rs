@@ -163,7 +163,8 @@ fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
 /// Refuses only values that lack, or hold a non-finite, coordinate of a
 /// point or circle an edge uses ([`ProfileError`]). Curves that cross or
 /// touch without a shared point give a deterministic result whose nesting is
-/// not specified.
+/// not specified, but no loop is dropped: each is an outer boundary or a hole
+/// of one.
 ///
 /// ```
 /// use laman::model::{Coordinate, Sketch};
@@ -223,11 +224,29 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         containers.push(inside);
     }
 
-    // Even depth is an outer boundary, odd a hole of its innermost
-    // container; flip a loop that turns the other way.
+    // A loop is a hole when its innermost container is an outer boundary,
+    // and an outer boundary otherwise: for nested loops that is the parity of
+    // the depth. Innermost is the container with the most containers itself
+    // (the later of equals), and only loops of a lower rank (containers,
+    // then index) count, so curves that cross without a shared point still
+    // give every loop a role and none is dropped. Flip a loop that turns the
+    // other way.
+    let rank = |i: usize| (containers[i].len(), i);
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&i| rank(i));
+    let mut parent: Vec<Option<usize>> = vec![None; n];
+    let mut is_hole = vec![false; n];
+    for &j in &order {
+        parent[j] = containers[j]
+            .iter()
+            .copied()
+            .filter(|&i| rank(i) < rank(j))
+            .max_by_key(|&i| rank(i));
+        is_hole[j] = parent[j].is_some_and(|p| !is_hole[p]);
+    }
     let mut finished: Vec<Option<(Loop, (f64, i32))>> = Vec::with_capacity(n);
     for (j, l) in loops.iter().enumerate() {
-        let hole = containers[j].len() % 2 == 1;
+        let hole = is_hole[j];
         let wrong = match l.orientation {
             Orientation::CounterClockwise => hole,
             Orientation::Clockwise => !hole,
@@ -259,18 +278,15 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         )));
     }
 
-    let depth = |j: usize| containers[j].len();
     let mut out = Profiles::default();
     let mut holes: Vec<Vec<usize>> = vec![Vec::new(); n];
-    for (j, inside) in containers.iter().enumerate() {
-        if inside.len() % 2 == 1
-            && let Some(&parent) = inside.iter().max_by_key(|&&i| depth(i))
-        {
-            holes[parent].push(j);
+    for (j, p) in parent.iter().enumerate() {
+        if let (true, Some(p)) = (is_hole[j], p) {
+            holes[*p].push(j);
         }
     }
     for (j, own) in holes.iter().enumerate() {
-        if depth(j) % 2 == 1 {
+        if is_hole[j] {
             continue;
         }
         let Some((outer, exact)) = finished[j].take() else {
