@@ -1,5 +1,6 @@
 //! The determinism corpus: the digest of every C1 fixture and twin, blessed
-//! in `tests/fixtures/c1/digests.txt`. `tools/digest-wasm.sh` runs this same test natively and on
+//! in `tests/fixtures/c1/digests.txt`, and of every C3 fixture's profiles, in
+//! `tests/fixtures/c3/digests.txt`. `tools/digest-wasm.sh` runs this same test natively and on
 //! wasm32-wasip1 and diffs the `digest <name> <hex>` lines it prints, so the
 //! fixtures are embedded, not read (a WASI run preopens no directory).
 //! A change that moves a digest re-blesses it in the same commit, saying why.

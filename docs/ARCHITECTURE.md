@@ -639,6 +639,11 @@ ProfileError>` reads any coordinates, a solution's included, and takes no
   Containment is the winding number at the midpoint of the inner loop's
   first edge; a loop is a hole exactly when its innermost container is an outer
   boundary, and that container is its parent. Extraction is quadratic in the number of loops.
+- **Open joins.** A loop whose joins are violated by its coordinates (a
+  `coincident` the coordinates do not meet) still closes, but its area
+  depends on the origin it is summed from; extraction measures from the
+  loop's first join, so such a loop's area is not comparable and the
+  checker leaves it uncompared ([ADR-0013](adr/0013-the-profile-check-measures-by-sectors.md)).
 - **Why the types sit under `model`.** `Profiles`, `Profile`, `Loop`,
   `Traversal`, `Branched` and `Unjoined` live in `model::profile` so that
   the checker may name them under the layer rule.
@@ -654,6 +659,23 @@ measured value and the wanted one. It also reports degenerate entities.
 It is written from DATA-MODEL.md's definitions, not from `laman::residual`
 (the layer rule above), and measures differently where it can: residuals
 are written for the solver's conditioning, the check for readability.
+
+`laman_check::check_profiles(&Sketch, &Coordinates, &Profiles) ->
+ProfileReport` re-measures what extraction reported, from model types only
+([ADR-0013](adr/0013-the-profile-check-measures-by-sectors.md)). It walks
+`coincident` itself for join classes and measures each loop by sectors about
+its first point (a line is a triangle, an arc triangle, sector, triangle, a
+circle `πr²`), in a power-of-two frame. It names, by the loop's first edge
+id (`None` for an empty loop): `Area`, `Orientation`, `NetArea`,
+`NotChained`, `OpenJoin`, `ArcOffRadius`, `NotAnEdge`, `Repeated`,
+`Uncovered` and `Containment` (signed ray crossings of each hole's probe
+against its parent only, and of each outer probe against every other
+profile's plate). A loop with an open join or an off-radius arc is named
+and its area not compared. An absent or non-finite coordinate leaves its
+loop unmeasured and listed in `missing`. Any `Profiles` value is an input:
+a stale id or an empty loop is a violation, never a panic. The
+classification of open, dangling and branched edges is not re-derived: the
+check holds that each edge is listed once.
 
 Every test that solves runs the checker on the result; a fixture that
 expects violations lists them. The Python package exposes it as

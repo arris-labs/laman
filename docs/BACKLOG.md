@@ -8,6 +8,8 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 [Findings](#findings) below, in the fixed shape.
 
 - Profiles: split a branched core into separate regions (two rectangles sharing an edge); needs angular ordering of curved edges at a join
+- `check_profiles`: re-derive the open, dangling and branched classification (it holds only that each edge is listed once, not which list)
+- `check_profiles`: a hole inside a sibling hole, or an island listed as a hole and turned clockwise, passes; D4 tests a hole only against its parent (found by the m10 review)
 - A re-pointing edit, so a shared point can be detached without removing its entity (a join by declaration cannot be undone otherwise)
 - Solver stop leaves tangent double roots off by about √residual (the coincident-joined slotted plate's contact points are 3.7e-5 out; ignored fixture `regression/coincident-contact-drift`)
 - The gate takes 2m18s (2026-11-07, m9-profiles retirement), past `.agents/rules/git.md`'s one minute: time its stages and split it by an ADR, or raise the bar there
