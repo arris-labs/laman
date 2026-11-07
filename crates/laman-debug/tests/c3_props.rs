@@ -361,6 +361,12 @@ fn extreme(scale: f64, clockwise: bool) {
         // The areas saturate at the largest finite value, keeping signs.
         assert_eq!(plate.outer.signed_area, f64::MAX);
         assert_eq!(plate.holes[0].signed_area, -f64::MAX);
+        // The net is summed before it saturates: the plate less the slot is
+        // still far above f64::MAX, not the 0 of two saturated terms
+        // cancelling.
+        assert_eq!(plate.net_area, f64::MAX, "scale {scale:e}");
+    } else {
+        assert!(plate.net_area >= 0.0, "scale {scale:e}");
     }
 }
 

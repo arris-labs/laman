@@ -60,6 +60,8 @@ struct Candidate {
     circle: Option<([f64; 2], f64)>,
     area: f64,
     orientation: Orientation,
+    /// The area unsaturated, as `(twice, exponent)` for [`geometry::net`].
+    exact: (f64, i32),
 }
 
 impl Candidate {
@@ -122,10 +124,12 @@ fn measure(
         circle,
         area: 0.0,
         orientation: Orientation::Flat,
+        exact: (0.0, 0),
     };
     let a = geometry::area(&cand.boundary(&edges));
     cand.area = a.signed;
     cand.orientation = a.orientation;
+    cand.exact = (a.twice, a.exponent);
     Ok(cand)
 }
 
@@ -221,7 +225,7 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
 
     // Even depth is an outer boundary, odd a hole of its innermost
     // container; flip a loop that turns the other way.
-    let mut finished: Vec<Option<Loop>> = Vec::with_capacity(n);
+    let mut finished: Vec<Option<(Loop, (f64, i32))>> = Vec::with_capacity(n);
     for (j, l) in loops.iter().enumerate() {
         let hole = containers[j].len() % 2 == 1;
         let wrong = match l.orientation {
@@ -229,26 +233,30 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
             Orientation::Clockwise => !hole,
             Orientation::Flat => false,
         };
-        let (edges, area) = if wrong {
+        let (edges, area, exact) = if wrong {
             let edges = flipped(&l.edges);
             let shape = directed(sketch, values, &edges)?;
-            let mut flip = Candidate {
+            let flip = Candidate {
                 edges,
                 joins: Vec::new(),
                 circle: l.circle,
                 area: 0.0,
                 orientation: Orientation::Flat,
+                exact: (0.0, 0),
             };
-            flip.area = geometry::area(&flip.boundary(&shape)).signed;
-            (flip.edges, flip.area)
+            let a = geometry::area(&flip.boundary(&shape));
+            (flip.edges, a.signed, (a.twice, a.exponent))
         } else {
-            (l.edges.clone(), l.area)
+            (l.edges.clone(), l.area, l.exact)
         };
-        finished.push(Some(Loop {
-            edges,
-            signed_area: area,
-            joins: l.joins.clone(),
-        }));
+        finished.push(Some((
+            Loop {
+                edges,
+                signed_area: area,
+                joins: l.joins.clone(),
+            },
+            exact,
+        )));
     }
 
     let depth = |j: usize| containers[j].len();
@@ -265,21 +273,21 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         if depth(j) % 2 == 1 {
             continue;
         }
-        let Some(outer) = finished[j].take() else {
+        let Some((outer, exact)) = finished[j].take() else {
             continue;
         };
         let mut hs = Vec::new();
-        let mut net = outer.signed_area;
+        let mut terms = vec![exact];
         for &h in own {
-            if let Some(hole) = finished[h].take() {
-                net += hole.signed_area;
+            if let Some((hole, exact)) = finished[h].take() {
+                terms.push(exact);
                 hs.push(hole);
             }
         }
         out.profiles.push(Profile {
             outer,
             holes: hs,
-            net_area: net.clamp(-f64::MAX, f64::MAX),
+            net_area: geometry::net(&terms),
         });
     }
     out.open_chains = topo.open_chains;

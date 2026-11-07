@@ -84,6 +84,24 @@ pub(crate) struct Area {
     /// `orientation`.
     pub signed: f64,
     pub orientation: Orientation,
+    /// The area unsaturated: `twice · 2^exponent`, with `twice` of an extent
+    /// near 1, so areas can be summed ([`net`]) where each alone overflows.
+    pub twice: f64,
+    pub exponent: i32,
+}
+
+/// The sum of areas given as `(twice, exponent)`, saturated once at
+/// `±f64::MAX`: summed in the frame of the largest exponent, so terms that
+/// each overflow cancel as they should.
+pub(crate) fn net(terms: &[(f64, i32)]) -> f64 {
+    let Some(top) = terms.iter().filter(|t| t.0 != 0.0).map(|t| t.1).max() else {
+        return 0.0;
+    };
+    let mut sum = 0.0;
+    for &(twice, e) in terms {
+        sum += libm::scalbn(twice, e - top);
+    }
+    saturating_scale(sum, top)
 }
 
 /// Below this sweep, in radians, `θ − sin θ` is summed from its Taylor
@@ -282,6 +300,8 @@ pub(crate) fn area(boundary: &Boundary<'_>) -> Area {
             Area {
                 signed: saturating_scale(twice, 2 * frame.exponent() - 1),
                 orientation: orientation(twice),
+                twice,
+                exponent: 2 * frame.exponent() - 1,
             }
         }
         Boundary::Circle {
@@ -292,6 +312,8 @@ pub(crate) fn area(boundary: &Boundary<'_>) -> Area {
             Area {
                 signed: saturating_scale(twice, 2 * e - 1),
                 orientation: orientation(twice),
+                twice,
+                exponent: 2 * e - 1,
             }
         }
     }

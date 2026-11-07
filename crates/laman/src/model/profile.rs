@@ -58,7 +58,9 @@ pub struct Profile {
     pub outer: Loop,
     /// The holes directly inside it, ordered by smallest edge id.
     pub holes: Vec<Loop>,
-    /// The outer area less the holes' areas.
+    /// The outer area less the holes' areas, summed before it saturates at
+    /// `±f64::MAX`: where the plate's area overflows, so does the net, with
+    /// the sign of the true sum (not the 0 of two saturated terms).
     pub net_area: f64,
 }
 
