@@ -31,7 +31,6 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Digest of the sketch hashes its JSON text, so a `serde_json` float-printing change would move every blessed digest; hash the f64 bits instead (M2, when `Solution` joins the digest)
 - Checker gaps: it does not compare fixed parameters with the sketch's values; `laman-debug`'s runner fills missing expected coordinates with the guesses; `tools/check-layers.sh` is evaded by `use laman as l` or a renamed dependency (a `cargo tree` check would close it)
 - Malformed file shapes (an untagged tangent or span form matching no variant) arrive as a serde error without the id; a span with both `line` and `a`/`b` silently takes `line`
-- The A plan's rigid bodies in the remainder, for the drag and bisect cells: its ceiling on the rectangle drag is 3.7 ms only if it takes 97 % of the pursuit, and it cannot close the slot bisect; whether those two cells stay in C2's *Accept* is the human's question
 - Frame-budget sources left at 5 % or more after the dense table (none is the solve's arithmetic; the edits are inside 4 ms without them): the cut (`Decompositions::of`, 13–15 % of an edit, a diagnosis cache is S2); `Tolerances::build` (15–18 %); the per-part `split` and `Scope::measured` (6–11 %); the parts built and `remeasured` in the triangles (8.7 %); `freedom_on` factorizing again a drag frame whose pursuit moved the coordinates (16.7 % of the slot drag)
 - Fuzz target: also call `to_form` and `check(&sk, &sk.coordinates())`; the serde property only mints dense ids, so `to_form`'s dependency-first reordering is covered by one hand test
 - The checker's `ANGLE` is absolute; short lines far from the origin can fail it at rounding level: input to the M2 tolerance ADR
@@ -140,3 +139,4 @@ A defect a run measured, one block each:
 ## Rejected
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)
+- Rigid bodies in the remainder, for the rectangle drag and the slot bisect: they remove the same factorizations a pursuit plan removes more cheaply, cannot go below the same 3.4–3.9 ms floor, and C2's stop rule no longer calls for them (ADR-0011)

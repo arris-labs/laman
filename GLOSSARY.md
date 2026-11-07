@@ -189,8 +189,8 @@ change: where every freedom, and every drag, lives.
 **Rigid cluster**:
 A part of a sketch that is rigid by itself, as a pebble game
 (`laman::rigidity`) would find it, solved as one rigid body. Not built:
-C2 decomposes into stages, and rigid clusters join only if a remainder
-misses the frame budget (ROADMAP.md §C2, M8).
+C2 decomposes into stages, and solving rigid clusters in a remainder was
+rejected (`docs/BACKLOG.md` §Rejected).
 _Avoid_: block, group
 
 **Generic rigidity**:
@@ -213,6 +213,9 @@ stationary when unreachable; never seen by a diagnostic or blamed in a
 conflict.
 _Avoid_: soft constraint, weight
 
+**Pursuit**:
+The goal phase of a solve, in the null space the required equations leave.
+
 **Observation**:
 What no equation holds, recorded per subject at a solution: an arc's
 tracked sweep, a circle's radius, a line pair's orientation under
@@ -230,6 +233,10 @@ Halving a drag step that flips, or moves an arc's tracked sweep past
 `MAX_SWEEP_STEP` (a sweep jump), toward the last good target, at most
 `max_bisections` times, so the step keeps its branch (ADR-0006).
 _Avoid_: backtracking, line search
+
+**Try**:
+One solve inside a drag frame, at the target or a halving of it; a frame
+makes at most `max_bisections` + 1.
 
 **Bisected frame**:
 A drag frame that was halved at least once toward the last target; its
