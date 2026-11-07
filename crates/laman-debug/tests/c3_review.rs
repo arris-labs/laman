@@ -70,3 +70,33 @@ fn unjoined_names_the_edges_end_points() {
         (a.id(), e.id())
     );
 }
+
+/// `Loop::joins` names the `coincident`s that join two or more distinct end
+/// points of the loop, not one that only ties a corner to a point no edge of
+/// the loop uses.
+#[test]
+fn loop_joins_exclude_coincidents_to_points_off_the_loop() {
+    let mut sk = Sketch::new();
+    let (a, e) = open_square(&mut sk);
+    let q = sk.point(0.0, 0.0).unwrap(); // on no edge
+    let join = sk.coincident(a, e).unwrap();
+    let off = sk.coincident(a, q).unwrap();
+    let found = profiles(&sk, &sk.coordinates()).unwrap();
+    assert_eq!(found.profiles.len(), 1);
+    let joins = &found.profiles[0].outer.joins;
+    assert!(joins.contains(&join), "{joins:?}");
+    assert!(!joins.contains(&off), "{joins:?}");
+}
+
+/// A chain through a point no edge uses is a join: both links are named.
+#[test]
+fn loop_joins_name_a_chain_through_an_off_loop_point() {
+    let mut sk = Sketch::new();
+    let (a, e) = open_square(&mut sk);
+    let q = sk.point(0.0, 0.0).unwrap();
+    let first = sk.coincident(a, q).unwrap();
+    let second = sk.coincident(q, e).unwrap();
+    let found = profiles(&sk, &sk.coordinates()).unwrap();
+    assert_eq!(found.profiles.len(), 1);
+    assert_eq!(found.profiles[0].outer.joins, vec![first, second]);
+}

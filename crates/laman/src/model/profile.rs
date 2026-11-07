@@ -38,8 +38,10 @@ pub struct Loop {
     /// The area the loop encloses, positive counter-clockwise, in the
     /// caller's units squared; saturates at `±f64::MAX`.
     pub signed_area: f64,
-    /// The `coincident` constraints that join this loop's ends, by id. A
-    /// violated one is named too: the solve's status reports it.
+    /// The `coincident` constraints that join this loop's ends, by id: those
+    /// on a chain between two distinct end points of its edges, not one that
+    /// only ties an end to a point no edge of the loop uses. A violated one
+    /// is named too: the solve's status reports it.
     pub joins: Vec<ConstraintId>,
 }
 

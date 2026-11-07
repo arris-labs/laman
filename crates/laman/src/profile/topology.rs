@@ -249,8 +249,11 @@ fn walk(
         }
     }
 
-    // The coincident constraints whose class holds two or more distinct
-    // end points of this loop.
+    // The coincident constraints on a path between two distinct end points
+    // of this loop. A class holds the loop's end points; links to a point no
+    // edge of the loop uses are pruned from the leaves in, so a constraint
+    // that only ties a corner to such a point is not a join, while a chain
+    // through one is.
     let mut ends: BTreeMap<EntityId, BTreeSet<EntityId>> = BTreeMap::new();
     for &i in core {
         for end in 0..2 {
@@ -259,16 +262,32 @@ fn walk(
                 .insert(edges[i].points[end]);
         }
     }
-    let mut joins = Vec::new();
+    let terminals: BTreeSet<EntityId> = ends.values().flatten().copied().collect();
+    let mut links: Vec<(ConstraintId, EntityId, EntityId)> = Vec::new();
     for (id, c) in sketch.constraints() {
-        if let Constraint::Coincident { p, .. } = c
+        if let Constraint::Coincident { p, q } = c
+            && p.id() != q.id()
             && ends
                 .get(&classes.find(p.id()))
                 .is_some_and(|points| points.len() > 1)
         {
-            joins.push(id);
+            links.push((id, p.id(), q.id()));
         }
     }
+    loop {
+        let mut degree: BTreeMap<EntityId, usize> = BTreeMap::new();
+        for &(_, p, q) in &links {
+            *degree.entry(p).or_default() += 1;
+            *degree.entry(q).or_default() += 1;
+        }
+        let leaf = |x: EntityId| !terminals.contains(&x) && degree.get(&x) == Some(&1);
+        let before = links.len();
+        links.retain(|&(_, p, q)| !leaf(p) && !leaf(q));
+        if links.len() == before {
+            break;
+        }
+    }
+    let joins = links.into_iter().map(|(id, _, _)| id).collect();
     EdgeLoop {
         edges: order,
         joins,
