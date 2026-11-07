@@ -42,6 +42,46 @@ A flag on an entity: it solves like any other and is left out of profiles
 (ARCHITECTURE.md §The sketch and its ids).
 _Avoid_: helper geometry, reference geometry
 
+**Join**:
+Two edge ends of a profile meet: they are one point id, or a chain of
+`coincident` constraints links them. Declared, never measured; two ends
+that merely coincide in the solution are not joined
+(ADR-0012).
+_Avoid_: connect, snap, weld
+
+**Profile**:
+An outer loop (counter-clockwise) with the loops it holds as holes
+(clockwise), and the net area between them. An island inside a hole is a
+profile of its own (ADR-0012).
+_Avoid_: region, face, contour
+
+**Loop**:
+A closed, ordered list of directed edges, each end joined to the next; its
+signed area is positive counter-clockwise (ADR-0012).
+_Avoid_: ring, wire
+
+**Edge**:
+A non-construction line or arc as profile extraction sees it, its two ends
+being join classes; a non-construction circle is a loop without edges
+(ADR-0012).
+_Avoid_: segment
+
+**Open chain**:
+Edges that join end to end but never close: pruning at their free ends
+leaves nothing. Reported by id, never an error (ADR-0012).
+_Avoid_: unclosed loop
+
+**Dangling edge**:
+An edge pruned from a component that still has a loop: it hangs from the
+loop at one end and is free at the other. Reported by id (ADR-0012).
+_Avoid_: spur, stub
+
+**Branched**:
+A core where three or more edges meet at one join, so a loop touches itself
+or two loops share edges. Its edges are reported and enter no profile
+(ADR-0012).
+_Avoid_: self-intersecting
+
 **Constraint**:
 A relation the solve must make true between entities, written as one or
 more residual equations. A dimension is a constraint with a value.

@@ -195,9 +195,8 @@ touching itself), which are reported, never errors or panics.
   loops named in the result with the caller's ids; the checker's own
   independent measure of area and orientation (`laman-check`, model types
   only); `laman-py` over the new API with stubs; the digest extended over
-  profiles. ⚠ OPEN: whether distinct points that coincide in the solution
-  join a loop, or only a shared point id does (decide by ADR before the
-  first step).
+  profiles. Joins are declared, by a shared point id or a `coincident`
+  chain, never measured (ADR-0012).
 - Out: trim, extend, split at intersections and any change to the sketch
   (the Edits cycle); curves that cross without a shared point; ellipses and
   splines; filling, meshing, booleans; a named consumer's fixtures.
