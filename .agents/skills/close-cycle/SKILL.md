@@ -11,6 +11,9 @@ argument-hint: <cycle, e.g. C1 — and optionally the next cycle's theme>
 shrinks to its status line and the next is appended below it. Never a
 second roadmap file — git holds the history.
 
+The session needs tier 2 (`.agents/tiers.md`): only the review in steps
+3–4 needs tier 3, and that is a subagent.
+
 ## Do
 
 1. **Check it is finished.** Every line of the section done or moved to
@@ -23,16 +26,24 @@ second roadmap file — git holds the history.
 2. **Reconcile the findings** (`docs/BACKLOG.md` §Findings): every block's
    `State` current, `Reproduce` still replays, fixed blocks deleted with
    their fixture lifted.
-3. **Drift review** — the only place it happens (`docs/README.md`): read
-   `ARCHITECTURE.md`, `DATA-MODEL.md`, `ROADMAP.md` and `GLOSSARY.md`
-   against the code and fix every sentence no longer true; a term the docs
-   now use and the glossary lacks gets its entry. List the fixes, or say
-   why nothing drifted.
-4. **Public docs**: `README.md` and `docs/COMPARISON.md` read against the
-   code and `CHANGELOG.md`: every capability claimed exists, every
-   limitation still holds, every link resolves, each comparison cell is
-   true at the version being cut with its source. Neither names a cycle or
-   a plan.
+3. **Drift review** (`docs/README.md`), with step 4, in one subagent on
+   tier 3, started once steps 1–2 are done: the two read the same code, and
+   its reads stay out of this session. It edits the docs itself, commits
+   nothing, reads as `.agents/review.md` §How to read says, and returns the
+   list of fixes, or why nothing drifted. A sentence true of the design
+   but not of the code comes back as a finding, unedited.
+   It reads `ARCHITECTURE.md`, `DATA-MODEL.md`, `ROADMAP.md` and
+   `GLOSSARY.md` whole against the code and fixes every sentence no longer
+   true; a term the docs now use and the glossary lacks gets its entry.
+   `/retire-plan` checked the docs each plan touched, so it looks hardest
+   at what no plan touched and at plans that contradict each other. `git
+   diff <last close>..HEAD` says which code to read, the last close being
+   `git log -1 --format=%h --grep='^docs: close'`.
+4. **Public docs**, the same subagent: `README.md` and `docs/COMPARISON.md`
+   read against the code and `CHANGELOG.md`: every capability claimed
+   exists, every limitation still holds, every link resolves, each
+   comparison cell is true at the version being cut with its source.
+   Neither names a cycle or a plan.
 5. **Compress the finished section** to: goal, one `**Status: done
    <date>.**` line naming the risk retired and the ADRs taken, then the in
    / out / accept lists. Before deleting a sentence, grep `docs/`,

@@ -29,7 +29,8 @@ the harness's current release of that family.
 
 The conductor needs no tier of its own: it starts steps, checks what
 landed and runs `/retire-plan`, whose review and hard fixes are
-subagents. Tier 2 is enough.
+subagents. Tier 2 is enough. The same holds for a `/close-cycle` session,
+whose review is a subagent.
 
 ## ChatGPT (OpenAI models)
 

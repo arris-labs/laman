@@ -29,6 +29,19 @@ rule broken) or **judgement** (a smell worth a look).
 
 Under 500 words in all; nothing found on an axis is reported as such.
 
+## How to read
+
+Every turn re-reads the whole context, so a turn costs more than the bytes
+it fetches.
+
+- Take all the commits in the first turn: one `git show` per commit, sent
+  as parallel calls in one message. Not one `git log -p`: a large output
+  is cut off.
+- Batch what follows the same way: every file and grep a round of
+  suspicions needs, in one message, not one call per turn.
+- Grep `GLOSSARY.md` for the terms the diff adds and for its _Avoid_ lists;
+  do not read it whole.
+
 ## The standards
 
 `.agents/rules/solver.md` is the hard list: no panics, statuses not
