@@ -101,6 +101,26 @@ without a join between them; reported by the two end points' ids, never
 joined for it (ADR-0012 D4).
 _Avoid_: near miss, gap
 
+**Open join**:
+A join whose two edge ends lie more than the loop's length tolerance apart
+in the coordinates, as a violated `coincident` leaves one. The join still
+closes its loop (ADR-0012 D1), but the loop has no origin-free area, and
+the profile check names the join instead of comparing it (ADR-0013 D2).
+Not an *Unjoined* pair, which has no join at all.
+_Avoid_: broken join
+
+**Off-radius arc**:
+An arc whose end lies off its start's circle by more than the loop's length
+tolerance, its intrinsic equation violated: its area depends on which
+radius is read, so the profile check names it instead of comparing it
+(ADR-0013 D2).
+
+**Probe**:
+The point where a loop's containment is tested: its first edge's midpoint
+(an arc's at half its sweep), or a circle's point at angle 0 (ADR-0012 D3,
+ADR-0013 D4).
+_Avoid_: sample point, test point
+
 **Constraint**:
 A relation the solve must make true between entities, written as one or
 more residual equations. A dimension is a constraint with a value.
@@ -345,6 +365,12 @@ _Avoid_: configuration, mode
 `laman-check`: re-evaluates every constraint from solved coordinates with
 code that shares nothing with the solver's residuals.
 _Avoid_: validator, verifier
+
+**Allowance**:
+How far the profile check's area may differ from extraction's and still
+agree, `L·P + ½·D·Σg` (loop tolerance, perimeter, extent, join
+separations). An area within it of 0 has an undecided sign (ADR-0013 D2).
+_Avoid_: slack, margin (a margin is ADR-0006's, for branches)
 
 **Fixture**:
 A sketch with its expected values (coordinates, DoF, conflict sets),

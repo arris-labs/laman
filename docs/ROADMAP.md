@@ -199,10 +199,10 @@ touching itself), which are reported, never errors or panics.
   lists, outer boundaries counter-clockwise and holes clockwise, nesting by
   containment, signed area; open chains, dangling edges and self-touching
   loops named in the result with the caller's ids; the checker's own
-  independent measure of area and orientation (`laman-check`, model types
-  only); `laman-py` over the new API with stubs; the digest extended over
-  profiles. Joins are declared, by a shared point id or a `coincident`
-  chain, never measured (ADR-0012).
+  independent measure of area, orientation and containment (`laman-check`,
+  model types only, ADR-0013); `laman-py` over the new API with stubs; the
+  digest extended over profiles. Joins are declared, by a shared point id or
+  a `coincident` chain, never measured (ADR-0012).
 - Out: trim, extend, split at intersections and any change to the sketch
   (the Edits cycle); curves that cross without a shared point; ellipses and
   splines; filling, meshing, booleans; a named consumer's fixtures.

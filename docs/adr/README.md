@@ -29,3 +29,4 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0010](0010-a-radius-is-bounded-below-by-zero.md) | A radius is bounded below by zero, inside both engines | accepted; amends 0005, 0006 |
 | [0011](0011-the-frame-budget-is-per-try-and-c2-stops-at-the-rectangle-drag.md) | The frame budget is per try, and C2 stops at the rectangle drag | accepted; amends 0006 |
 | [0012](0012-profiles-join-by-declaration.md) | Profiles join by declaration | accepted |
+| [0013](0013-the-profile-check-measures-by-sectors.md) | The profile check measures by sectors, and an open join is not compared | accepted |
