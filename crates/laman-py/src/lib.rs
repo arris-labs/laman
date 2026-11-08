@@ -125,6 +125,9 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(debug::digest_run, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_solution, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_drag_step, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_profiles, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_solved_profiles, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::slot_grid, m)?)?;
     m.add_function(wrap_pyfunction!(debug::text, m)?)?;
     m.add_function(wrap_pyfunction!(debug::svg, m)?)?;
     m.add_function(wrap_pyfunction!(debug::solution_text, m)?)?;

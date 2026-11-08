@@ -1,13 +1,17 @@
 """`laman.profile`: the value classes round-trip through the Rust value, and
 `profiles` reads them from coordinates."""
 
+import json
 import math
 import struct
+from pathlib import Path
 
 import pytest
 
 import laman
-from laman.check import check_profiles
+from laman import Coordinates, Sketch
+from laman.check import check, check_profiles
+from laman.debug import digest_profiles, digest_solved_profiles, slot_grid
 from laman.profile import (
     Branched,
     Loop,
@@ -169,3 +173,60 @@ def test_a_removed_coordinate_is_missing() -> None:
     report = check_profiles(sk, laman.Coordinates(items), found)
     assert [(m.id, m.coordinate) for m in report.missing] == [(2, "x")]
     assert not report.is_clean()
+
+
+FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "c3"
+
+
+def blessed_digest(name: str) -> str:
+    for line in (FIXTURES / "digests.txt").read_text().splitlines():
+        key, digest = line.split(" ", 1)
+        if key == name:
+            return digest
+    raise AssertionError(name)
+
+
+def expected_run(name: str) -> tuple[Sketch, Coordinates]:
+    sketch = Sketch.from_json((FIXTURES / name / "sketch.json").read_text())
+    expected = json.loads((FIXTURES / name / "expected.json").read_text())
+    values = dict(sketch.coordinates().items())
+    for c in expected["coordinates"]:
+        values[(c["id"], c["coordinate"])] = float(c["value"])
+    return sketch, Coordinates(values)
+
+
+def test_the_rectangle_profile_run_equals_its_blessed_digest() -> None:
+    sketch, values = expected_run("rectangle")
+    found = profiles(sketch, values)
+    report = check_profiles(sketch, values, found)
+    assert report.is_clean()
+    assert digest_profiles(sketch, values, found, report) == blessed_digest("c3-rectangle")
+
+
+def test_the_solved_rectangle_equals_its_blessed_digest() -> None:
+    sketch, _ = expected_run("rectangle")
+    solution = sketch.solve()
+    run = check(sketch, solution.coordinates)
+    found = profiles(sketch, solution.coordinates)
+    report = check_profiles(sketch, solution.coordinates, found)
+    assert digest_solved_profiles(sketch, solution, run, found, report) == blessed_digest(
+        "c3-solved-lm-rectangle"
+    )
+
+
+def test_the_3x3_slot_grid_equals_its_blessed_digest() -> None:
+    sketch, values = slot_grid(3, 3)
+    found = profiles(sketch, values)
+    report = check_profiles(sketch, values, found)
+    assert report.is_clean()
+    assert digest_profiles(sketch, values, found, report) == blessed_digest("c3-slot-grid-3x3")
+
+
+def test_the_largest_slot_grid_has_498_entities() -> None:
+    sketch, _ = slot_grid(7, 7)
+    assert len(sketch.entities()) == 498
+
+
+def test_a_slot_grid_refuses_zero_rows() -> None:
+    with pytest.raises(ValueError):
+        slot_grid(0, 3)

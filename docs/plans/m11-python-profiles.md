@@ -101,7 +101,7 @@ and updates `_laman.pyi` and the module docstrings with its code.
   with `measured == 12.0` and `reported == 13.0`. A reversed outer gives
   `orientation`, a stale edge id `not_an_edge`, a removed coordinate one
   `missing`.
-- [ ] Step 4 **[1]** — `laman.debug.digest_profiles`,
+- [x] Step 4 **[1]** — `laman.debug.digest_profiles`,
   `digest_solved_profiles` and `slot_grid`. Test: `c3-rectangle` and
   `c3-slot-grid-3x3` equal their lines in `tests/fixtures/c3/digests.txt`.
   `slot_grid(7, 7)` has 498 entities.

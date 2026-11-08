@@ -41,9 +41,12 @@ __all__ = [
     "check_profiles",
     "check_sketch",
     "digest_drag_step",
+    "digest_profiles",
     "digest_run",
     "digest_solution",
+    "digest_solved_profiles",
     "rigidity",
+    "slot_grid",
     "solution_text",
     "svg",
     "text",
@@ -631,6 +634,20 @@ def digest_drag_step(
     solution: Solution,
     report: CheckReport,
 ) -> str: ...
+def digest_profiles(
+    sketch: Sketch,
+    coordinates: Coordinates,
+    profiles: Profiles,
+    report: CheckProfileReport,
+) -> str: ...
+def digest_solved_profiles(
+    sketch: Sketch,
+    solution: Solution,
+    report: CheckReport,
+    profiles: Profiles,
+    profile_report: CheckProfileReport,
+) -> str: ...
+def slot_grid(rows: int, cols: int) -> tuple[Sketch, Coordinates]: ...
 def text(sketch: Sketch, coordinates: Coordinates, report: CheckReport) -> str: ...
 def svg(sketch: Sketch, coordinates: Coordinates, report: CheckReport) -> str: ...
 def solution_text(sketch: Sketch, solution: Solution) -> str: ...
