@@ -1,5 +1,7 @@
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Self, final
+from typing import final
+
+from typing_extensions import Self
 
 from ._types import Algorithm, Sense, Status
 

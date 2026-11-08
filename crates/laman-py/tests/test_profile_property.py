@@ -79,7 +79,7 @@ def build(cells: list[tuple[str, object]]) -> Built:
                 net -= math.pi * r * r
                 b.holes.append(math.pi * r * r)
             elif hole == "island":
-                # A 24 hole holds an island of side 5..13.
+                # A 24 hole holds an island of side 3..13.
                 island = float(side // 2 + 1)
                 square(sk, cx - 12.0, cy - 12.0, 24.0)
                 square(sk, cx - island / 2, cy - island / 2, island)

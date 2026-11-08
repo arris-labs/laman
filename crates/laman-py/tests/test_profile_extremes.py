@@ -50,7 +50,7 @@ def test_a_square_of_side_1e_300_underflows_to_zero_or_a_subnormal() -> None:
     assert report.is_clean(), report.violations
     # The measure underflows to 0: its sign is undecided (ADR-0013 D2, "within
     # the allowance of 0"), so a reversed twin is not an orientation
-    # violation here. The plan's claim that it is was wrong (Settled, step 7).
+    # violation here.
     assert check_profiles(sk, values, reversed_twin(p.outer)).violations == []
 
 

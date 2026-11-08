@@ -11,3 +11,5 @@ uv pip install -q -p .venv "maturin>=1.7,<2" pytest mypy hypothesis
 uv run --no-project --python .venv maturin develop -q --release
 uv run --no-project --python .venv pytest -q "$@"
 uv run --no-project --python .venv mypy --strict tests
+# The stubs must also read under the oldest supported Python (typing.Self is 3.11+).
+uv run --no-project --python .venv mypy --python-version 3.10 python/laman/_laman.pyi
