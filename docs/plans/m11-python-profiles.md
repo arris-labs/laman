@@ -124,12 +124,14 @@ and updates `_laman.pyi` and the module docstrings with its code.
   the measure underflows to 0, whose sign is undecided (ADR-0013 D2), so
   its twin is accepted; a 1e-10 square carries the small-end orientation
   claim.
-- [ ] Step 8 **[2]** — a `hypothesis` property, `test_profile_property.py`:
+- [x] Step 8 **[2]** — a `hypothesis` property, `test_profile_property.py`:
   disjoint and nested axis-aligned rectangles and circles, each built by
   construction. Profile and hole counts and every area come from the
   construction, and the check is clean. A twin built in Python with one loop's
   area nudged by 1e-3 of its magnitude (far past ADR-0013's allowance)
   raises `area` on that loop and `net_area` on its profile, nothing else.
+  Settled: the twin's net is recomputed from its nudged loops, since the
+  check compares a net with its own measure, not with the loops' reported areas.
 - [ ] Step 9 **[1]** — README: a Python profiles example (the slotted plate
   or a rectangle with a round hole), held by `test_readme.py`. The status
   paragraph gains "read its profiles and re-check them".
