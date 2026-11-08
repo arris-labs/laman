@@ -113,7 +113,7 @@ and updates `_laman.pyi` and the module docstrings with its code.
   holds exactly 31 lines. Named numbers: the rectangle's outer is 7200
   and counter-clockwise, and the slotted plate's net area is
   `7200 − (400 + 25π)`.
-- [ ] Step 6 **[1]** — slot grids 1..7 × 1..7 from Python. One plate, a
+- [x] Step 6 **[1]** — slot grids 1..7 × 1..7 from Python. One plate, a
   hole per slot, nothing else listed. Plate, hole and net areas match
   `corpus::slot_grid`'s closed form within `1e-9` relative, and the check
   is clean.

@@ -172,3 +172,31 @@ def test_the_acceptance_numbers() -> None:
     assert abs(plate.net_area - want) <= AREA_TOLERANCE * 7200.0
     (hole,) = plate.holes
     assert hole.signed_area < 0.0
+
+
+@pytest.mark.parametrize("cols", range(1, 8))
+@pytest.mark.parametrize("rows", range(1, 8))
+def test_a_slot_grid_is_one_plate_with_a_hole_per_slot(rows: int, cols: int) -> None:
+    # corpus::slot_grid fixes the slot's length 40 and radius 5; the plate's
+    # size is its pitch and margin, the net area the plate less the slots.
+    length, radius = 40.0, 5.0
+    sketch, values = slot_grid(rows, cols)
+    found = profiles(sketch, values)
+    report = check_profiles(sketch, values, found)
+    assert report.is_clean(), report.violations
+    assert len(found.profiles) == 1
+    assert not found.open_chains and not found.dangling and not found.branched
+    assert not found.degenerate and not found.unjoined
+
+    (plate,) = found.profiles
+    assert len(plate.holes) == rows * cols
+    width = cols * (2.0 * length + 4.0 * radius) + 4.0 * radius
+    height = rows * 6.0 * radius + 4.0 * radius
+    slot = 2.0 * length * radius + math.pi * radius * radius
+    net = width * height - rows * cols * slot
+    assert abs(plate.outer.signed_area - width * height) <= 1e-9 * width * height
+    assert abs(plate.net_area - net) <= 1e-9 * width * height
+    for hole in plate.holes:
+        assert hole.signed_area < 0.0
+        assert abs(hole.signed_area + slot) <= 1e-9 * slot
+        assert len(hole.edges) == 4
