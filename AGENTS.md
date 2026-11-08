@@ -36,14 +36,14 @@ green from Rust and Python, digests equal on five runners and wasm32
 unreached bits, no radius below 0 (ADR-0010); at 500 entities every edit
 and the slot drag are inside 4 ms, the rectangle drag accepted at 6.0 ms
 (ADR-0011).
-**C3 closed** (2026-11-08): `laman::profile::profiles` gives loops, holes and
+**C3 closed, 0.3.0 published** (2026-11-08): `laman::profile::profiles` gives loops, holes and
 open ends with declared joins (ADR-0012); `laman_check::check_profiles`
 measures by sectors (ADR-0013); extraction at 500 entities inside 1.5 ms
 (ADR-0014); profiles and their check in Python, 31 digests equal natively
 and on wasm32.
 **Next:** C4 (shared edges and crossings: branched profiles, intersections,
 the tangent-contact drift), proposed in `docs/ROADMAP.md` for the human to
-confirm; edits follow as C5; release 0.3.0.
+confirm; edits follow as C5.
 
 ## Rules that are not derivable from the code
 

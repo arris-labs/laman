@@ -6,6 +6,8 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+## 0.3.0 — 2026-11-08
+
 - `laman::profile::profiles` turns a sketch and any coordinates, a
   solution's included, into profiles: every outer loop counter-clockwise
   with its holes clockwise, nested by containment, each with its signed and
