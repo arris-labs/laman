@@ -132,7 +132,7 @@ and updates `_laman.pyi` and the module docstrings with its code.
   raises `area` on that loop and `net_area` on its profile, nothing else.
   Settled: the twin's net is recomputed from its nudged loops, since the
   check compares a net with its own measure, not with the loops' reported areas.
-- [ ] Step 9 **[1]** — README: a Python profiles example (the slotted plate
+- [x] Step 9 **[1]** — README: a Python profiles example (the slotted plate
   or a rectangle with a round hole), held by `test_readme.py`. The status
   paragraph gains "read its profiles and re-check them".
 

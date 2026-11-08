@@ -19,7 +19,7 @@ Apache-2.0.
 Early. The sketch solver is being built in the open
 ([`SEED.md`](https://github.com/arris-labs/laman/blob/main/SEED.md) is the
 charter). In Python you can build a sketch, solve it, drag it, read every
-diagnostic and re-check the result; the package also holds the
+diagnostic, read its profiles and re-check them; the package also holds the
 combinatorial core the project is named after, the **generic rigidity
 count of a bar framework** in the plane.
 
@@ -56,6 +56,30 @@ assert solution.diagnostics.dof == 0
 assert abs(solution.coordinates[(b.id, "x")] - 50) < 1e-9
 assert abs(solution.coordinates[(c.id, "y")] - 24) < 1e-9
 assert check(sk, solution.coordinates).is_clean()  # re-checked, independently
+```
+
+The closed outlines of a sketch and the holes in them are its profiles:
+
+```python
+import math
+
+import laman
+from laman.check import check_profiles
+from laman.profile import profiles
+
+# A 40 x 30 plate with a round hole of radius 5.
+sk = laman.Sketch()
+corners = [sk.point(x, y) for x, y in [(0, 0), (40, 0), (40, 30), (0, 30)]]
+for i in range(4):
+    sk.line(corners[i], corners[(i + 1) % 4])
+sk.circle(sk.point(20, 15), 5)
+
+found = profiles(sk, sk.coordinates())
+(plate,) = found.profiles
+assert plate.outer.signed_area == 1200  # counter-clockwise: positive
+assert len(plate.holes) == 1 and plate.holes[0].signed_area < 0
+assert abs(plate.net_area - (1200 - 25 * math.pi)) < 1e-9
+assert check_profiles(sk, sk.coordinates(), found).is_clean()  # re-measured
 ```
 
 The generic rigidity count of a bar framework is `laman.rigidity`:
