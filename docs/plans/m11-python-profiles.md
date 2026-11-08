@@ -105,7 +105,7 @@ and updates `_laman.pyi` and the module docstrings with its code.
   `digest_solved_profiles` and `slot_grid`. Test: `c3-rectangle` and
   `c3-slot-grid-3x3` equal their lines in `tests/fixtures/c3/digests.txt`.
   `slot_grid(7, 7)` has 498 entities.
-- [ ] Step 5 **[2]** — `tests/test_c3.py`, the corpus: every directory of
+- [x] Step 5 **[2]** — `tests/test_c3.py`, the corpus: every directory of
   `tests/fixtures/c3/` is listed. Every fixture, at its expected
   coordinates and solved under LM and dogleg, gives `expected.json`'s
   profiles (edges, joins and lists exact, areas by the fixture's rule), and
