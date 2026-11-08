@@ -117,10 +117,13 @@ and updates `_laman.pyi` and the module docstrings with its code.
   hole per slot, nothing else listed. Plate, hole and net areas match
   `corpus::slot_grid`'s closed form within `1e-9` relative, and the check
   is clean.
-- [ ] Step 7 **[2]** — `f64`'s extremes from Python. A square of side 1e300
+- [x] Step 7 **[2]** — `f64`'s extremes from Python. A square of side 1e300
   saturates to `f64::MAX`, its net to `+f64::MAX`. One of side 1e-300
   gives `0.0` or a subnormal. The check is clean on both, and a reversed
-  twin of each still raises `orientation` (ADR-0013 D3).
+  twin of each still raises `orientation` (ADR-0013 D3). Settled: at 1e-300
+  the measure underflows to 0, whose sign is undecided (ADR-0013 D2), so
+  its twin is accepted; a 1e-10 square carries the small-end orientation
+  claim.
 - [ ] Step 8 **[2]** — a `hypothesis` property, `test_profile_property.py`:
   disjoint and nested axis-aligned rectangles and circles, each built by
   construction. Profile and hole counts and every area come from the
