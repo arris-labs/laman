@@ -41,8 +41,9 @@ open ends with declared joins (ADR-0012); `laman_check::check_profiles`
 measures by sectors (ADR-0013); extraction at 500 entities inside 1.5 ms
 (ADR-0014); profiles and their check in Python, 31 digests equal natively
 and on wasm32.
-**Next:** C4 (edits: intersections, split, trim, extend, mirror, offset),
-proposed in `docs/ROADMAP.md` for the human to confirm; release 0.3.0.
+**Next:** C4 (shared edges and crossings: branched profiles, intersections,
+the tangent-contact drift), proposed in `docs/ROADMAP.md` for the human to
+confirm; edits follow as C5; release 0.3.0.
 
 ## Rules that are not derivable from the code
 

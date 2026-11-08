@@ -116,6 +116,15 @@ without a join between them; reported by the two end points' ids, never
 joined for it (ADR-0012 D4).
 _Avoid_: near miss, gap
 
+**Intersection**:
+A place where two edges meet without a shared point or a declared join,
+measured from the coordinates. It is a **crossing** (the edges pass
+through each other), a **touch** (tangent, a double root) or an
+**overlap** (collinear lines, or concentric circles of one radius sharing
+a stretch). It joins nothing: only a split declares a join there
+(ROADMAP.md C4, ADR-0012).
+_Avoid_: hit, collision, cut
+
 **Open join**:
 A join whose two edge ends lie more than the loop's length tolerance apart
 in the coordinates, as a violated `coincident` leaves one. The join still

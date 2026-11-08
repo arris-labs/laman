@@ -216,40 +216,68 @@ extraction budget). The numbers are in ARCHITECTURE.md §Frame budget.
   and on wasm32-wasip1; pytest reproduces every number; extraction at 500
   entities inside 1.5 ms (the stop rule of ADR-0011, ADR-0014).
 
-## C4 — edits
+## C4 — shared edges and crossings
 
-*Goal: a sketcher can ask laman to trim, extend, split, mirror and offset
-geometry — and to re-point a joined edge — and get back a sketch that solves
-and extracts as if it had been drawn that way.*
+*Goal: a sketch drawn the way people draw it, with two rectangles sharing
+a wall or a window split into panes, gives one profile per enclosed area.
+Where curves cross without a shared point, laman says where they cross and
+how. Both come from the solved coordinates, with no edit and no new solve.*
 
-The risk this cycle retires is topology-changing edits on solved geometry:
-that a curve's intersections are found, ordered and named deterministically,
-and that the edit's result (new points, joins, constraints) leaves the
-sketch with the DoF, profiles and bits a hand-built equivalent has.
+The risk this cycle retires is read-only topology on solved geometry. A
+branched core has to split into its profiles, with edges at a join ordered
+by direction and then by curvature where two edges leave tangent. A crossing
+has to be found, classified and ordered the same way on every target. A
+tangent touch is a double root, so it is only as accurate as the solve that
+produced it, and it must be told apart from a crossing. Every later edit
+(split, trim, extend) is built on these three. Retiring them before any edit
+changes the sketch keeps a geometry bug from being mistaken for an edit bug.
 
-- In: intersections of lines, arcs and circles that cross without a shared
-  point (named, ordered, the same bits on every target); split at an
-  intersection; trim and extend to one; mirror and offset of lines, arcs
-  and circles; a re-pointing edit, so a shared point can be detached
-  without removing its entity; the checker's independent measure of each
-  result; `laman-py` over the new API with stubs.
-- Out: ellipses and splines; splitting a branched core into separate
-  regions (the profile extraction's backlog line, unless an edit needs it);
-  filling, meshing, booleans; snapping and inference; a named consumer's
-  fixtures.
-- Accept: fixtures by construction, every number from a closed form: a
-  crossing pair, a line through a circle, two circles, a tangent touch
-  (reported, not split); trim and extend of each on both sides; mirror and
-  offset of a slotted plate with the known DoF and profile areas; an
-  offset arc that collapses is reported by id; the checker agrees on every
-  fixture and fails each broken twin; every digest equal natively and on
-  wasm32-wasip1; pytest reproduces every number; each edit at 500 entities
-  inside the frame budget's stop rule (ADR-0011).
+- In: profiles of a branched core, joins still declared (ADR-0012 stands).
+  At each join the edges are ordered by tangent direction, then by
+  curvature; every bounded profile is reported, and so is an edge that
+  bounds a profile on both sides. Intersections of lines, arcs and circles
+  that meet without a shared point: each pair named by its entities, the
+  points ordered along each edge, each one classified as a crossing, a
+  touch or an overlap (collinear lines, or concentric equal circles or
+  arcs), and an arc's crossings bounded by its sweep. A tangent double root
+  solved to the coordinate tolerance (regression/`coincident-contact-drift`
+  lifted), because a touch cannot be classified at √residual. The checker's
+  independent measure of each intersection and of the branched profiles.
+  `laman-py` over the new API, with stubs. The digest extended over
+  intersections.
+- Out: any change to the sketch (C5). Profiles that use a crossing nobody
+  declared: a crossing joins nothing until C5's split declares it
+  (ADR-0012). Ellipses and splines. Filling, meshing, booleans. A named
+  consumer's fixtures.
+- Accept: fixtures by construction, every number from a closed form. Two
+  rectangles sharing an edge: two profiles, 60 × 60 each. A window of four
+  panes: a degree-4 join, four profiles. A slot whose arc leaves a join
+  tangent to a line: ordered by curvature. A figure eight touching itself
+  at one declared join: two profiles. A slot grid with shared walls: its
+  known profile count. Intersections: two crossing lines; a line through a
+  circle; two circles meeting at two points; a tangent touch, reported as a
+  touch; a collinear overlap; and an arc whose circle crosses a line outside
+  its sweep, which is no intersection. The same intersections at magnitudes
+  near 1e±300. The coincident-joined slotted plate at the shared-point
+  plate's accuracy. The checker agrees on every fixture and fails each
+  broken twin. Every digest is equal natively and on wasm32-wasip1. Pytest
+  reproduces every number. Extraction and intersections at 500 entities
+  stay inside ADR-0014's stop rule.
 
-*Proposed at the close of C3; theme and in/out split are the human's call.*
+*Proposed at the close of C3 and revised before planning: edits move to
+C5, which needs these intersections and branched profiles; mirror and
+offset wait for a consumer. Theme and in/out split are the human's call.*
 
 ## Later cycles, one line each, unordered
 
+- **Edits** (C5 when C4 closes): split at a C4 intersection, which
+  declares the join; trim and extend to one; re-point a shared point. An
+  ADR decides what each constraint on a split, trimmed or removed piece
+  becomes (moves, splits, drops, or is refused by id), and the result
+  matches a hand-built sketch in DoF, profiles and bits.
+- **Mirror and offset**, once a consumer asks. Mirror is copies plus
+  `symmetric` and needs no new kind. A live offset needs `concentric` and a
+  curve-to-curve distance, which are new kinds (DATA-MODEL.md §Not yet).
 - **Ellipses** and their arcs.
 - **B-splines**.
 - **External references**: projected geometry as ground.
