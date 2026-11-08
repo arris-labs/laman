@@ -12,8 +12,9 @@ release by release. Written in the commit that makes the change, under
   net area. Edges join at a shared point or through `coincident`
   constraints, never by being close. Open chains, dangling edges, branched
   cores and self-joined edges come back by id, and so do free ends that
-  coincide without a join (the join you probably meant); values missing a coordinate
-  are refused naming the point or circle.
+  coincide without a join (the join you probably meant); values missing a
+  coordinate, or holding one that is not finite, are refused naming the
+  point or circle.
 - In Python, `laman.profile.profiles` returns the same profiles, bit for
   bit, as value classes you can also build by hand; missing or non-finite
   coordinates raise `laman.ProfileError` (`Missing` or `NonFinite`) naming

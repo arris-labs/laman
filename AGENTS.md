@@ -28,26 +28,21 @@ rustup target add wasm32-unknown-unknown   # rust-toolchain.toml asks for it; th
 
 ## Current state
 
-**C1 closed and 0.1.0 published** (2026-11-03) on crates.io and PyPI as
-`laman`: the solver, its diagnostics, `DragSession`, the checker and
-`laman-py` over the whole API, the C1 corpus green from Rust and Python
-with its 50 digests equal on five OS/arch runners and wasm32-wasip1, the
-oracle run in `docs/COMPARISON.md` (ADRs 0001–0007). The claim rests on
-the Python gap, the checker and deterministic branch-keeping drag
-(`docs/COMPARISON.md`, SEED.md §3 note).
-**C2 closed** (2026-11-07): stages (ADR-0009), edits keep unreached bits, no
-radius below 0 (ADR-0010), sweep-jump frames bisected; at 500 entities every
-edit and the slot drag are inside 4 ms, a bisected frame 4 ms a try, the
-rectangle drag accepted at 6.0 ms (ADR-0011, `docs/ROADMAP.md`). **0.2.0 published** (2026-11-07).
-**C3 all milestones landed:** M9 landed (2026-11-07): `laman::profile::profiles` gives
-loops, holes and open ends with declared joins (ADR-0012), corpus green.
-M10 landed (2026-11-08): `laman_check::check_profiles` measures by sectors
-(ADR-0013), profile digests equal natively and on wasm32, extraction budget
-1.5 ms at 500 entities (ADR-0014).
-M11 landed (2026-11-08): `laman.profile.profiles`, `ProfileError` and
-`laman.check.check_profiles` in Python, the C3 corpus and its 31 digests
-reproduced by pytest.
-**Next:** `/close-cycle` C3.
+**C1 closed and 0.1.0 published** (2026-11-03): the solver, its diagnostics,
+`DragSession`, the checker and `laman-py` over the whole API, the corpus
+green from Rust and Python, digests equal on five runners and wasm32
+(ADRs 0001–0007, `docs/COMPARISON.md`).
+**C2 closed** (2026-11-07, 0.2.0 published): stages (ADR-0009), edits keep
+unreached bits, no radius below 0 (ADR-0010); at 500 entities every edit
+and the slot drag are inside 4 ms, the rectangle drag accepted at 6.0 ms
+(ADR-0011).
+**C3 closed** (2026-11-08): `laman::profile::profiles` gives loops, holes and
+open ends with declared joins (ADR-0012); `laman_check::check_profiles`
+measures by sectors (ADR-0013); extraction at 500 entities inside 1.5 ms
+(ADR-0014); profiles and their check in Python, 31 digests equal natively
+and on wasm32.
+**Next:** C4 (edits: intersections, split, trim, extend, mirror, offset),
+proposed in `docs/ROADMAP.md` for the human to confirm; release 0.3.0.
 
 ## Rules that are not derivable from the code
 

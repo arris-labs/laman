@@ -22,7 +22,8 @@ The unit of acceptance: a directory `tests/fixtures/<area>/<slug>/` with
   with the comparison tolerance, the redundant constraints and each
   conflict set **by tag**, and the expected flips (usually none); and, for
   a C3 fixture, `profiles`: every list of the extraction by id, each loop's
-  edges in order with `reversed`, and each area with its tolerance;
+  edges in order with `reversed` and its joins, and each area (its
+  tolerance where it is not the default, relative `1e-9`);
 - for a drag, `drag.json`: the dragged point, the targets in order, and the
   expected coordinates after chosen steps.
 
@@ -30,12 +31,13 @@ Expected values come from a closed form or from how the sketch was built,
 never from laman's output (`.agents/rules/solver.md`). The digest is the
 exception: it lives apart, one `<name> <hex>` per line in
 `tests/fixtures/c1/digests.txt` (with the conflicting twins' best-effort
-violations in `violations.json`), read by `determinism.rs` and by pytest. It
+violations in `violations.json`) and `tests/fixtures/c3/digests.txt`, read
+by `determinism.rs` and by pytest. It
 is a regression guard, blessed from the first green run, and
 its acceptance is equality across targets. Coordinates compare within
 `1e-9` of the sketch's size unless a fixture says otherwise. The test for
 a fixture loads it, solves, runs the checker, compares, and compares the
-digest; the C1 fixtures run from pytest too.
+digest; the C1 and C3 fixtures run from pytest too.
 
 ---
 
@@ -181,20 +183,16 @@ budget.
 
 ## C3 — profiles
 
-**Status: M9 landed 2026-11-07** (extraction, join rule ADR-0012, the C3
-corpus and slot grids, a property test); M10 landed 2026-11-08 (checker, ADR-0013;
-profile digests; budget 1.5 ms, ADR-0014); M11 landed 2026-11-08
-(Python over profiles and the check, the C3 corpus and its 31 digests from
-pytest).
-
 *Goal: a sketcher can ask a solved sketch for its closed loops and holes —
 ordered, oriented and nested — and extrude or fill them, from the same
 solved coordinates and without a new solve.*
 
-The risk this cycle retires is topology on solved geometry: that loops,
-orientation and nesting come out right and the same bits on every target,
-including the degenerate cases (an open chain, a dangling edge, a loop
-touching itself), which are reported, never errors or panics.
+**Status: done 2026-11-08.** Retired the topology risk: loops, orientation
+and nesting come out right and the same bits on every target, and the
+degenerate cases (an open chain, a dangling edge, a loop touching itself)
+are reported with the caller's ids, never errors or panics. ADRs 0012
+(joins are declared), 0013 (the check measures by sectors) and 0014 (the
+extraction budget). The numbers are in ARCHITECTURE.md §Frame budget.
 
 - In: profile extraction from the solved, non-construction lines, arcs and
   circles: edges joined at shared points, loops as ordered, directed edge
@@ -218,9 +216,40 @@ touching itself), which are reported, never errors or panics.
   and on wasm32-wasip1; pytest reproduces every number; extraction at 500
   entities inside 1.5 ms (the stop rule of ADR-0011, ADR-0014).
 
+## C4 — edits
+
+*Goal: a sketcher can ask laman to trim, extend, split, mirror and offset
+geometry — and to re-point a joined edge — and get back a sketch that solves
+and extracts as if it had been drawn that way.*
+
+The risk this cycle retires is topology-changing edits on solved geometry:
+that a curve's intersections are found, ordered and named deterministically,
+and that the edit's result (new points, joins, constraints) leaves the
+sketch with the DoF, profiles and bits a hand-built equivalent has.
+
+- In: intersections of lines, arcs and circles that cross without a shared
+  point (named, ordered, the same bits on every target); split at an
+  intersection; trim and extend to one; mirror and offset of lines, arcs
+  and circles; a re-pointing edit, so a shared point can be detached
+  without removing its entity; the checker's independent measure of each
+  result; `laman-py` over the new API with stubs.
+- Out: ellipses and splines; splitting a branched core into separate
+  regions (the profile extraction's backlog line, unless an edit needs it);
+  filling, meshing, booleans; snapping and inference; a named consumer's
+  fixtures.
+- Accept: fixtures by construction, every number from a closed form: a
+  crossing pair, a line through a circle, two circles, a tangent touch
+  (reported, not split); trim and extend of each on both sides; mirror and
+  offset of a slotted plate with the known DoF and profile areas; an
+  offset arc that collapses is reported by id; the checker agrees on every
+  fixture and fails each broken twin; every digest equal natively and on
+  wasm32-wasip1; pytest reproduces every number; each edit at 500 entities
+  inside the frame budget's stop rule (ADR-0011).
+
+*Proposed at the close of C3; theme and in/out split are the human's call.*
+
 ## Later cycles, one line each, unordered
 
-- **Edits**: trim, extend, offset and mirror.
 - **Ellipses** and their arcs.
 - **B-splines**.
 - **External references**: projected geometry as ground.

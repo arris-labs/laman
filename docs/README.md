@@ -9,8 +9,8 @@ stack, the decisions taken at kickoff.
 
 | Doc | What it holds |
 |---|---|
-| [architecture](ARCHITECTURE.md) | Crates and the layer rule, the arena and id model, the `solve` signature and error model, the drag session, the checker's place, determinism rules, wasm32 |
-| [data-model](DATA-MODEL.md) | Entity parametrisations, each constraint's equations and the DoF it removes, diagnostic semantics, the serde form and its versioning |
+| [architecture](ARCHITECTURE.md) | Crates and the layer rule, the arena and id model, the `solve` signature and error model, the drag session, profiles, the checker's place, determinism rules, wasm32 |
+| [data-model](DATA-MODEL.md) | Entity parametrisations, each constraint's equations and the DoF it removes, the profiles result, diagnostic semantics, the serde form and its versioning |
 | [roadmap](ROADMAP.md) | Cycles with acceptance fixtures as numbers; the named cycles not yet opened |
 | [comparison](COMPARISON.md) | SolveSpace, PlaneGCS and any Rust crates, surveyed with sources |
 | [adr/](adr/README.md) | Architecture decision records |

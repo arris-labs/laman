@@ -1,8 +1,9 @@
 # Architecture
 
 How laman is put together: the crates and the rule between them, the
-sketch and its ids, what `solve` takes and returns, the drag session, where
-the checker sits, and the rules that keep every target's bits the same.
+sketch and its ids, what `solve` takes and returns, the drag session,
+profiles, where the checker sits, and the rules that keep every target's
+bits the same.
 Entity parametrisations and constraint equations are in
 [DATA-MODEL.md](DATA-MODEL.md); the words are in
 [GLOSSARY.md](../GLOSSARY.md).
@@ -11,10 +12,10 @@ Entity parametrisations and constraint equations are in
 
 | Crate | Holds | Published | Depends on |
 |---|---|---|---|
-| `laman` | the sketch, entities, constraints and their residuals, the solver, diagnostics, drag sessions, `rigidity` | crates.io `laman` | `nalgebra`, `libm`, `thiserror`; `serde` behind the `serde` feature |
-| `laman-check` | the checker: every constraint re-evaluated from solved coordinates | no (`publish = false`) until the solver's first release (`docs/BACKLOG.md`) | `laman`'s **model** only |
-| `laman-debug` | text and SVG dumps, the fixture loader, `proptest` strategies, the generated corpus (`corpus`), the digest, benchmarks | no (`publish = false`) | `laman`, `laman-check`; `proptest` behind a default feature of the same name |
-| `laman-py` | the PyO3 binding, `laman`, `laman.check` and `laman.debug` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check`, `laman-debug` without `proptest` |
+| `laman` | the sketch, entities, constraints and their residuals, the solver, diagnostics, drag sessions, profiles, `rigidity` | crates.io `laman` | `nalgebra`, `libm`, `thiserror`; `serde` behind the `serde` feature |
+| `laman-check` | the checker: every constraint re-evaluated from solved coordinates, and profiles re-measured | no (`publish = false`; publishing it is a line in `docs/BACKLOG.md`) | `laman`'s **model** only, `libm` |
+| `laman-debug` | text and SVG dumps, the fixture loader, `proptest` strategies, the generated corpus (`corpus`), the digests, benchmarks | no (`publish = false`) | `laman`, `laman-check`; `proptest` behind a default feature of the same name |
+| `laman-py` | the PyO3 binding, `laman`, `laman.profile`, `laman.check` and `laman.debug` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check`, `laman-debug` without `proptest` |
 
 `laman-debug` is a dev-dependency, except under `laman-py`, without its
 `proptest` feature (ADR-0007; `tools/check-layers.sh` refuses `proptest` in
@@ -39,7 +40,7 @@ it in this list:
 
 | Module | Holds |
 |---|---|
-| `model` | `Sketch`, ids, `Entity`, `Constraint` (descriptions, no maths), `Coordinates`, tags and payloads, the serde form |
+| `model` | `Sketch`, ids, `Entity`, `Constraint` (descriptions, no maths), `Coordinates`, tags and payloads, `Tolerances`, the profile result types (`model::profile`), the serde form |
 | `values` | the `Values` trait a parameter's value is read through, over `Coordinates` and over `Dense`, the flat table a solve and the analysis hold (§Diagnose); it names only `residual`'s `Param` key |
 | `residual` | `equations(sketch, values, constraint)` and `intrinsic(sketch, values, entity)`: each an `Equation` (value, `Unit`, a degenerate flag, and its analytic gradient as terms keyed by `(EntityId, Coordinate)`, merged and sorted, at most 8) at any coordinates; total, no `Result` (DATA-MODEL.md §Constraints) |
 | `branch` | observations at coordinates (arc sweeps, circle radii, line-pair orientations) and the flips between two sets (§Branches) |
@@ -636,8 +637,9 @@ ProfileError>` reads any coordinates, a solution's included, and takes no
   so it neither overflows nor loses a small loop far from the origin; an
   arc adds its segment `r²(θ − sin θ)/2`, by a series below one radian
   (measured) and directly above. The area saturates at ±`f64::MAX`.
-  Containment is the winding number at the midpoint of the inner loop's
-  first edge; a loop is a hole exactly when its innermost container is an outer
+  Containment is the winding number at the inner loop's probe: its first
+  edge's midpoint (an arc's at half its sweep), or a circle's point at
+  angle 0; a loop is a hole exactly when its innermost container is an outer
   boundary, and that container is its parent. Extraction is quadratic in the number of loops.
 - **Open joins.** A loop whose joins are violated by its coordinates (a
   `coincident` the coordinates do not meet) still closes, but its area
@@ -719,8 +721,9 @@ and aarch64 (`ubuntu-24.04-arm`), macOS aarch64 (`macos-15`) and x86_64
 against the same committed digests. The Linux-only `wasm` job also
 compares native output with `wasm32-wasip1` under wasmtime
 (`tools/digest-wasm.sh`, compared sorted: the tests run in parallel).
-`laman-debug` holds the blessed digests, blessed only
-after `tests/c1.rs` has checked the same solves. A change that moves a
+`laman-debug`'s `determinism.rs` reads the blessed digests, blessed only
+after `tests/c1.rs` (and, for the profile runs, `tests/c3.rs`) has checked
+the same solves. A change that moves a
 solution's bits re-blesses them in the same commit, saying why
 (`.agents/review.md`).
 
@@ -737,7 +740,8 @@ clean on the found wherever `check` is clean).
 fixtures and each step of fixture 4's drag against the 1 ms frame budget and
 names the machine.
 
-The Rust-only `laman_debug::corpus` harness builds C2 sketches with
+The `laman_debug::corpus` harness (in Python only its slot grid,
+`laman.debug.slot_grid`) builds C2 sketches with
 closed-form coordinates, deterministic displaced guesses, dimension edits
 and drags. `Case` holds the static sketch and `Expected`, an `Edit` with
 its tag, replacement value, constructed answers and upstream `unmoved`
@@ -776,13 +780,24 @@ included.
 3–8; triangles draw 1–8 cells and sides 10–30. Each checks its static
 solve and warm-started edit against construction under both algorithms.
 
+`tests/c3.rs` solves each C3 fixture from its guesses under both
+algorithms, holds it to its expected coordinates and the checker, and
+extracts its profiles at the solution and at the expected coordinates,
+held to `expected.json`'s closed forms and to `check_profiles`.
+`tests/c3_props.rs` builds random nests of rectangles, circles and slots
+by construction (joined by shared points or `coincident`, lines drawn
+either way, the whole rotated, scaled and translated) and asserts loop
+counts, nesting, orientation, joins and areas against it.
+
 ### Frame budget
 
 The budgets are ROADMAP.md's: ≤ 1 ms for each C1 fixture and drag step;
 ≤ 4 ms for a one-dimension edit and a drag step at 500 entities, a bisected
-frame judged per try, the rectangle drag accepted at 6.0 ms (ADR-0011). The
-numbers below are one machine's (AMD Ryzen 9 7950X 16-Core Processor,
-Linux x86_64, 32 logical CPUs, release), measured 2026-11-07.
+frame judged per try, the rectangle drag accepted at 6.0 ms (ADR-0011);
+≤ 1.5 ms for profile extraction at 500 entities, not a frame step
+(ADR-0014). The numbers below are one machine's (AMD Ryzen 9 7950X 16-Core
+Processor, Linux x86_64, 32 logical CPUs, release), measured 2026-11-07,
+the profile cells 2026-11-08.
 
 **The C1 bench** (`bench`, median of 200 runs): the static bases and
 redundant twins take 0.02–0.04 ms (triangle), 0.06–0.13 ms (belt) and
@@ -891,7 +906,7 @@ empty on wasm32.
 
 The `serde` feature (on by default) gives `Sketch` and `Solution` their
 serde forms; the checker's `Report` has none (`laman-debug`'s dumps render
-it). The forms, their fields and their versioning are in DATA-MODEL.md §The
+it), nor do `Profiles` and `ProfileReport`. The forms, their fields and their versioning are in DATA-MODEL.md §The
 serde form.
 
 ## The Python binding
@@ -931,8 +946,9 @@ nothing.
   expected coordinates. Tooling, outside the stability promise (ADR-0007).
 - The corpora (`tests/fixtures/c1/` and `c3/`, each with `digests.txt`) are
   run by pytest under both algorithms; the C3 run holds the slot grids to
-  their closed forms and `f64`'s extremes bit for bit; `hypothesis` builds Henneberg frameworks and solves
-  them back. CI's `python` job runs `tools/py-test.sh` (pytest,
+  their closed forms and `f64`'s extremes bit for bit; `hypothesis` builds
+  Henneberg frameworks and solves them back, and plates with holes and
+  islands, read back as profiles. CI's `python` job runs `tools/py-test.sh` (pytest,
   `mypy.stubtest` and strict mypy) once, on Ubuntu with Python 3.10: the
   source build. The five platforms are covered by the wheels below. The
   script resolves venv executables through `uv run`, including Windows'

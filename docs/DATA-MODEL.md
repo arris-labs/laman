@@ -2,7 +2,8 @@
 
 What a sketch holds and what each part means as equations: entity
 parametrisations, every constraint's residuals and the DoF it removes,
-what the diagnostics report, and the serde form. How the pieces are
+what profile extraction returns, what the diagnostics report, and the
+serde form. How the pieces are
 stored and solved is [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Conventions
@@ -113,7 +114,8 @@ stored with it (ARCHITECTURE.md §Branches).
 
 ## Profiles
 
-The result of `profile::profiles` over a sketch and coordinates.
+The result of `profile::profiles` over a sketch and coordinates; joins
+are declared, never measured (ADR-0012).
 
 - `Profiles { profiles, open_chains, dangling, branched, degenerate,
   unjoined }`, every list ordered by smallest id and naming the caller's
@@ -127,6 +129,13 @@ The result of `profile::profiles` over a sketch and coordinates.
 - Area: a line contributes `½(x₁y₂ − x₂y₁)`; an arc its chord plus the
   segment `r²(θ − sin θ)/2`, θ the sweep above, negated when reversed;
   a circle `πr²`. Construction entities are never edges.
+- `open_chains` lists each chain's edges, `dangling` and `degenerate`
+  (self-joined edges) list edges, `branched` is `Branched { edges, joins }`
+  (each join by its smallest point id), and `unjoined` is `Unjoined {
+  first, second }`, the two end points' ids, smaller first.
+- Refused, as `ProfileError::Missing` or `NonFinite` naming the entity,
+  only when the coordinates lack, or hold a non-finite, coordinate of a
+  point or circle an edge uses.
 
 ## Diagnostics
 

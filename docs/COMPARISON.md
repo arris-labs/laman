@@ -8,8 +8,9 @@ laman's ten fixture sketches (§The comparison run). Laman's row is what it does
 today: it solves, drags and checks sketches from Rust and Python
 (`CHANGELOG.md`), with cross-OS wheel builds in CI and its digests held
 equal on five OS/arch runners and wasm32.
-`/close-cycle` re-reads this file against the code and the sources; a row
-that stops being true is fixed in the commit that makes it untrue.
+This file is re-read against the code and the sources before each minor
+release; a row that stops being true is fixed in the commit that makes it
+untrue.
 
 ## What changed since the seed
 

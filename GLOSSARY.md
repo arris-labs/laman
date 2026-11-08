@@ -49,6 +49,21 @@ that merely coincide in the solution are not joined
 (ADR-0012).
 _Avoid_: connect, snap, weld
 
+**Join class**:
+The points one chain of `coincident` constraints links (a point alone is
+its own class), named by its smallest point id: every edge end in a class
+is joined to every other (ADR-0012).
+
+**Profile extraction**:
+`laman::profile::profiles`: a sketch's profiles, open chains, dangling,
+branched and self-joined edges and unjoined pairs, read from its
+declarations and any coordinates, without a solve (ADR-0012).
+
+**Core**:
+What remains of a connected set of edges once edges with a free end are
+pruned away again and again: a loop when every join class in it has two edge ends,
+*branched* otherwise (ADR-0012).
+
 **Profile**:
 An outer loop (counter-clockwise) with the loops it holds as holes
 (clockwise), and the net area between them. An island inside a hole is a

@@ -10,7 +10,6 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Profiles: split a branched core into separate regions (two rectangles sharing an edge); needs angular ordering of curved edges at a join
 - `check_profiles`: re-derive the open, dangling and branched classification (it holds only that each edge is listed once, not which list)
 - `check_profiles`: a hole inside a sibling hole, or an island listed as a hole and turned clockwise, passes; D4 tests a hole only against its parent (found by the m10 review)
-- A re-pointing edit, so a shared point can be detached without removing its entity (a join by declaration cannot be undone otherwise)
 - Solver stop leaves tangent double roots off by about √residual (the coincident-joined slotted plate's contact points are 3.7e-5 out; ignored fixture `regression/coincident-contact-drift`)
 - The gate takes 2m18s (2026-11-07, m9-profiles retirement), past `.agents/rules/git.md`'s one minute: time its stages and split it by an ADR, or raise the bar there
 - Run SolveSpace and PlaneGCS through `tools/oracle/` for the Python column of COMPARISON.md (GPL/LGPL Python bindings; out of the Rust-field comparison)
@@ -29,7 +28,7 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Step 4 (DogLeg) of the m2 plan has no commit of its own: it landed inside the step 5 commit (e303c7e)
 - `release.yml`: refuse a tag whose commit is not on `main`; pin `crates-io-auth-action` and `pypi-publish` to commit SHAs
 - Wheels beyond the five platforms (musllinux, Windows aarch64, PyPy, free-threaded), and a CI job holding the MSRV (1.85)
-- `laman-check` on crates.io: ARCHITECTURE.md plans to publish it with the solver's first release (Python users get it as `laman.check`); reserve the name then
+- `laman-check` on crates.io: not published (Python users get it as `laman.check`); decide whether to publish it, and reserve the name then
 - Trademark search for "LAMAN" in software classes (WIPO, EUIPO, USPTO) before the solver's first public release (SEED.md §2); the human's
 - The GitHub repository `arris-labs/laman` (the crates' `repository` URL and the README's SEED link point there); the human's
 - `/retro`'s session digest: port arris's `session-digest` script when the first plan has sessions to mine
@@ -48,6 +47,8 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Review leftovers from m8-dense-rank: the extremes test in `diagnose/tests.rs` asserts one staged factorization per scale over the families, not per case (check 1e±150 and 1e300 per case, keep the sum for 1e-300 only); `diagnose_on` (`solution.rs`) overlays the caller's map on the sketch's, so a partial or stale map no longer comes back unchanged, which `reference::diagnose`'s doc promises; the `DIRECT_FACTOR` comment in `values.rs` counts entities, not parameterised ids (a rectangle chain's ids interleave with its lines'); `values.rs` casts `slot as u32` and `id * KINDS` unchecked; `Values::to_map` repeats `Dense::to_coordinates`; the huge-id test builds a sketch, not a file
 - Review leftovers from m8-pursuit: `diagnose::multipliers` factorizes the unit rows again beside `null_space`'s QR (one factorization per pursuit iteration would be cheaper); no test asserts the 498 rectangle drag's pursuit iterations; the zero-skipping QR proptest never draws `-0.0` (the skip may leave a `-0.0` the dense method turns to `+0.0`); `null_space` and `far_goal_stationary` tests use unnamed `1e-10`/`1e-9`; the `b -= (v·b) v` projection is written three times; `refused_drag`'s `FAR` works only between 3000 and 10000 radii
 - Close-cycle drift left in code: `bench_c2.rs:1,25` still say "C2 baseline" and 48 workers / 240 s (it is 52 / 260 s); about 33 comments in `crates/laman/src`, `crates/laman/Cargo.toml` and `crates/laman-debug/examples` cite deleted `plans/<slug>`; `values` and `residual` import each other through a type alias (`values.rs:11`, `residual.rs:30`), against ARCHITECTURE.md's module-table rule; ARCHITECTURE.md §Drag sessions' bisection cost on `bisect-stuck` (280 µs against 42 µs) is the C1 figure, not re-measured; the 498-entity rectangle DogLeg edit touched 4.155 ms in one sample (median 2.97)
+- Python tests: `test_profile.py` repeats `test_c3.py`'s `blessed`/expected-coordinates helpers and the 3x3 slot-grid digest test; share them. `test_profile_extremes.py` checks the 1e-300 area as a range, not bits against Rust; `test_c3.py` checks the net area against `1e-9 * width * height`, not `net`
+- Python `Profile.holes`, `Loop.edges` and `Branched.edges/joins` have no empty default in their constructors (only `Profiles` and `Loop.joins` do)
 
 ## Findings
 
@@ -108,5 +109,3 @@ A defect a run measured, one block each:
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)
 - Rigid bodies in the remainder, for the rectangle drag and the slot bisect: they remove the same factorizations a pursuit plan removes more cheaply, cannot go below the same 3.4–3.9 ms floor, and C2's stop rule no longer calls for them (ADR-0011)
-- Python tests: `test_profile.py` repeats `test_c3.py`'s `blessed`/expected-coordinates helpers and the 3x3 slot-grid digest test; share them. `test_profile_extremes.py` checks the 1e-300 area as a range, not bits against Rust; `test_c3.py` checks the net area against `1e-9 * width * height`, not `net`
-- Python `Profile.holes`, `Loop.edges` and `Branched.edges/joins` have no empty default in their constructors (only `Profiles` and `Loop.joins` do)
