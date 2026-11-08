@@ -1,5 +1,5 @@
 from collections.abc import Iterator, Mapping, Sequence
-from typing import final
+from typing import Self, final
 
 from ._types import Algorithm, Sense, Status
 
@@ -24,6 +24,12 @@ __all__ = [
     "CheckViolation",
     "Coordinates",
     "Diagnostics",
+    "Branched",
+    "Loop",
+    "Profile",
+    "Profiles",
+    "Traversal",
+    "Unjoined",
     "Rigidity",
     "RigidityError",
     "Sketch",
@@ -600,3 +606,85 @@ def digest_drag_step(
 def text(sketch: Sketch, coordinates: Coordinates, report: CheckReport) -> str: ...
 def svg(sketch: Sketch, coordinates: Coordinates, report: CheckReport) -> str: ...
 def solution_text(sketch: Sketch, solution: Solution) -> str: ...
+
+@final
+class Traversal:
+    """An edge as a loop traverses it."""
+
+    def __new__(cls, entity: int, reversed: bool) -> Self: ...
+    @property
+    def entity(self) -> int: ...
+    @property
+    def reversed(self) -> bool: ...
+
+@final
+class Loop:
+    """A closed boundary: edges end to end, or one circle."""
+
+    def __new__(
+        cls, edges: Sequence[Traversal], signed_area: float, joins: Sequence[int] = ...
+    ) -> Self: ...
+    @property
+    def edges(self) -> list[Traversal]: ...
+    @property
+    def signed_area(self) -> float: ...
+    @property
+    def joins(self) -> list[int]: ...
+
+@final
+class Profile:
+    """An outer loop, counter-clockwise, with its holes, clockwise."""
+
+    def __new__(cls, outer: Loop, holes: Sequence[Loop], net_area: float) -> Self: ...
+    @property
+    def outer(self) -> Loop: ...
+    @property
+    def holes(self) -> list[Loop]: ...
+    @property
+    def net_area(self) -> float: ...
+
+@final
+class Branched:
+    """A core of edges where some join has three or more of them."""
+
+    def __new__(cls, edges: Sequence[int], joins: Sequence[int]) -> Self: ...
+    @property
+    def edges(self) -> list[int]: ...
+    @property
+    def joins(self) -> list[int]: ...
+
+@final
+class Unjoined:
+    """Two free ends that coincide but are not joined."""
+
+    def __new__(cls, first: int, second: int) -> Self: ...
+    @property
+    def first(self) -> int: ...
+    @property
+    def second(self) -> int: ...
+
+@final
+class Profiles:
+    """What profile extraction finds in a sketch at some coordinates."""
+
+    def __new__(
+        cls,
+        profiles: Sequence[Profile] = ...,
+        open_chains: Sequence[Sequence[int]] = ...,
+        dangling: Sequence[int] = ...,
+        branched: Sequence[Branched] = ...,
+        degenerate: Sequence[int] = ...,
+        unjoined: Sequence[Unjoined] = ...,
+    ) -> Self: ...
+    @property
+    def profiles(self) -> list[Profile]: ...
+    @property
+    def open_chains(self) -> list[list[int]]: ...
+    @property
+    def dangling(self) -> list[int]: ...
+    @property
+    def branched(self) -> list[Branched]: ...
+    @property
+    def degenerate(self) -> list[int]: ...
+    @property
+    def unjoined(self) -> list[Unjoined]: ...

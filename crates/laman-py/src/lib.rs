@@ -12,6 +12,7 @@ mod debug;
 mod enums;
 mod errors;
 mod model;
+mod profile;
 mod solve;
 
 use pyo3::create_exception;
@@ -96,6 +97,12 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<solve::FlipSubject>()?;
     m.add_class::<solve::Flip>()?;
     m.add_class::<solve::Bisection>()?;
+    m.add_class::<profile::PyTraversal>()?;
+    m.add_class::<profile::PyLoop>()?;
+    m.add_class::<profile::PyProfile>()?;
+    m.add_class::<profile::PyBranched>()?;
+    m.add_class::<profile::PyUnjoined>()?;
+    m.add_class::<profile::PyProfiles>()?;
     // `laman.check` and `laman.debug` re-export these under their own names.
     m.add("CheckReport", m.py().get_type::<check::CheckReport>())?;
     m.add("CheckViolation", m.py().get_type::<check::CheckViolation>())?;
