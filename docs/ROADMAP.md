@@ -183,7 +183,9 @@ budget.
 
 **Status: M9 landed 2026-11-07** (extraction, join rule ADR-0012, the C3
 corpus and slot grids, a property test); M10 landed 2026-11-08 (checker, ADR-0013;
-profile digests; budget 1.5 ms, ADR-0014); M11 (Python) remains.
+profile digests; budget 1.5 ms, ADR-0014); M11 landed 2026-11-08
+(Python over profiles and the check, the C3 corpus and its 31 digests from
+pytest).
 
 *Goal: a sketcher can ask a solved sketch for its closed loops and holes —
 ordered, oriented and nested — and extrude or fill them, from the same

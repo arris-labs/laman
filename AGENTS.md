@@ -39,12 +39,15 @@ the Python gap, the checker and deterministic branch-keeping drag
 radius below 0 (ADR-0010), sweep-jump frames bisected; at 500 entities every
 edit and the slot drag are inside 4 ms, a bisected frame 4 ms a try, the
 rectangle drag accepted at 6.0 ms (ADR-0011, `docs/ROADMAP.md`). **0.2.0 published** (2026-11-07).
-**C3 under way:** M9 landed (2026-11-07): `laman::profile::profiles` gives
+**C3 all milestones landed:** M9 landed (2026-11-07): `laman::profile::profiles` gives
 loops, holes and open ends with declared joins (ADR-0012), corpus green.
 M10 landed (2026-11-08): `laman_check::check_profiles` measures by sectors
 (ADR-0013), profile digests equal natively and on wasm32, extraction budget
 1.5 ms at 500 entities (ADR-0014).
-**Next:** M11 (Python over profiles and the check).
+M11 landed (2026-11-08): `laman.profile.profiles`, `ProfileError` and
+`laman.check.check_profiles` in Python, the C3 corpus and its 31 digests
+reproduced by pytest.
+**Next:** `/close-cycle` C3.
 
 ## Rules that are not derivable from the code
 

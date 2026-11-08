@@ -678,8 +678,8 @@ classification of open, dangling and branched edges is not re-derived: the
 check holds that each edge is listed once.
 
 Every test that solves runs the checker on the result; a fixture that
-expects violations lists them. The Python package exposes it as
-`laman.check`.
+expects violations lists them. The Python package exposes both operations
+in `laman.check` (`check`, `check_profiles`).
 
 ## Determinism
 
@@ -914,11 +914,24 @@ nothing.
   every diagnostic are frozen classes with Rust's fields (tags `str | None`,
   payloads `bytes | None`; Rust enums with data are flattened to optional
   fields or strings).
-- `laman.check.check(sketch, coordinates) -> Report`.
-- `laman.debug`: `text`, `svg`, `solution_text` and the digests, as hex
-  strings. Tooling, outside the stability promise (ADR-0007).
-- The corpus (`tests/fixtures/c1/`, with `digests.txt`) is run by pytest
-  under both algorithms; `hypothesis` builds Henneberg frameworks and solves
+- `laman.check.check(sketch, coordinates) -> Report`, and
+  `check_profiles(sketch, coordinates, profiles) -> ProfileReport`, whose
+  `violations` flatten Rust's `ProfileViolation` by the rule above (`kind:
+  str`, then optional `first`, `entity`, `measured`, `reported`).
+- `laman.profile.profiles(sketch, coordinates) -> Profiles`, with the
+  frozen value classes `Profiles`, `Profile`, `Loop`, `Traversal`,
+  `Branched` and `Unjoined` under Rust's field names. `Profiles` holds the
+  Rust value, so a check and a digest read the bits extraction wrote; one
+  built by hand in Python converts to Rust (a negative or oversized id
+  raises `OverflowError`) and is re-measured like any other. Floats cross
+  unchanged, `±f64::MAX`, `-0.0` and subnormals included.
+- `laman.debug`: `text`, `svg`, `solution_text`, the digests (the profile
+  ones, `digest_profiles` and `digest_solved_profiles`, included) as hex
+  strings, and `slot_grid(rows, cols)`, the corpus's sketch with its
+  expected coordinates. Tooling, outside the stability promise (ADR-0007).
+- The corpora (`tests/fixtures/c1/` and `c3/`, each with `digests.txt`) are
+  run by pytest under both algorithms; the C3 run holds the slot grids to
+  their closed forms and `f64`'s extremes bit for bit; `hypothesis` builds Henneberg frameworks and solves
   them back. CI's `python` job runs `tools/py-test.sh` (pytest,
   `mypy.stubtest` and strict mypy) once, on Ubuntu with Python 3.10: the
   source build. The five platforms are covered by the wheels below. The
@@ -931,7 +944,7 @@ nothing.
   natively inside manylinux2014 containers (glibc ≥ 2.17), macOS arm64
   and x86_64 use their native runners, and Windows uses x86_64. Separate
   clean runners install each artefact on Python 3.10 and run the same
-  corpus, all 50 digests, stubtest and strict mypy, and the Linux x86_64
+  corpus, all 81 digests (50 + 31), stubtest and strict mypy, and the Linux x86_64
   runner repeats it on Python 3.13, the newest interpreter; `auditwheel show`
   checks both Linux wheels against `manylinux_2_17`. The sdist is built
   and installed in isolation on a separate Linux runner, with the same
@@ -947,11 +960,15 @@ nothing.
 |---|---|---|
 | `ModelError` | a mutation, a load or an `apply` that would make the sketch malformed or land a solution on a sketch it was not solved for | the ids involved and what was wrong |
 | `RigidityError` | `rigidity` given a bad bar | the bar index and point |
+| `ProfileError` | `profiles` given coordinates that miss a point or circle, or hold a non-finite value | the entity id |
 
 In Python every `ModelError` variant is a subclass of `laman.ModelError`
 (a `ValueError`), the ids as attributes, also reachable as
 `ModelError.<Variant>`; Rust's `Entity` and `Constraint` variants are
-`EntityError` and `ConstraintError`. Bad JSON text is a plain `ValueError`.
+`EntityError` and `ConstraintError`. `ProfileError` is a sibling
+`ValueError` with `ProfileError.Missing` and `ProfileError.NonFinite`, each
+carrying `entity`; a variant the binding lacks reaches Python as the base
+class. Bad JSON text is a plain `ValueError`.
 
 No other error type: solving, dragging and checking always return a
 value.

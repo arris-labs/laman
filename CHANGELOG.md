@@ -14,6 +14,10 @@ release by release. Written in the commit that makes the change, under
   cores and self-joined edges come back by id, and so do free ends that
   coincide without a join (the join you probably meant); values missing a coordinate
   are refused naming the point or circle.
+- In Python, `laman.profile.profiles` returns the same profiles, bit for
+  bit, as value classes you can also build by hand; missing or non-finite
+  coordinates raise `laman.ProfileError` (`Missing` or `NonFinite`) naming
+  the entity. `laman.check.check_profiles` re-measures any such value.
 
 ## 0.2.0 — 2026-11-07
 

@@ -20,7 +20,7 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - `tools/oracle/`: the three adapters repeat the run preamble, `TRANSLATION_TOLERANCE`, the translation-proof flow and the `a_wrong_expectation_is_an_error_not_numbers` test; share them. The adapters also drop laman's `sense` (the other solvers infer the side from the guesses), so a mirrored-branch agreement is possible
 - Python `id=` on a constraint builder mints, removes and re-adds, so it burns an id and can raise `IdsExhausted` where Rust would accept; give the Rust builder id-taking variants
 - `Sketch.from_json`/`to_json` go through `laman_debug::json`, which is tooling; move the JSON form into `laman` (ADR-0007 justifies the dependency only for the checker, dumps and digest)
-- Python tests: `DEFAULT_TOLERANCE` copies Rust's by hand and is absolute, not the sketch's size; `MIN_CROSS` in the hypothesis property is not scale-relative and may flake under the `ci` profile
+- Python tests: `DEFAULT_TOLERANCE` copies Rust's by hand and is absolute, not the sketch's size, and `test_c3.py` repeats the fixture area rule; `MIN_CROSS` in the hypothesis property is not scale-relative and may flake under the `ci` profile
 - The collapse-name mapping is written twice in `laman-py` (`solve.rs`, `check.rs`); no Python test produces a non-empty `flips` or `ill_conditioned`, or the `Origin::Arc` path
 - `IncompleteSolution` and `FixedMoved` are unreachable from Python; `Rigidity.is_rigid` re-derives `dof == 0` instead of calling Rust's
 - `cargo doc --document-private-items` with warnings denied fails in a checkout (found during m8 review; the gate's public doc stage passes): find the item and either fix it or decide private docs are not held
@@ -108,3 +108,5 @@ A defect a run measured, one block each:
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)
 - Rigid bodies in the remainder, for the rectangle drag and the slot bisect: they remove the same factorizations a pursuit plan removes more cheaply, cannot go below the same 3.4–3.9 ms floor, and C2's stop rule no longer calls for them (ADR-0011)
+- Python tests: `test_profile.py` repeats `test_c3.py`'s `blessed`/expected-coordinates helpers and the 3x3 slot-grid digest test; share them. `test_profile_extremes.py` checks the 1e-300 area as a range, not bits against Rust; `test_c3.py` checks the net area against `1e-9 * width * height`, not `net`
+- Python `Profile.holes`, `Loop.edges` and `Branched.edges/joins` have no empty default in their constructors (only `Profiles` and `Loop.joins` do)
