@@ -315,6 +315,9 @@ def test_loading_refusals_are_model_errors() -> None:
 def test_the_subclasses_hang_off_model_error() -> None:
     for name in errors.__all__:
         cls = getattr(errors, name)
+        if name.startswith("Profile"):  # a family of its own: tests/test_profile.py
+            assert issubclass(cls, errors.ProfileError) and issubclass(cls, ValueError)
+            continue
         assert issubclass(cls, ModelError) and issubclass(cls, ValueError)
     assert getattr(ModelError, "Stale") is errors.Stale
     assert getattr(ModelError, "Entity") is errors.EntityError

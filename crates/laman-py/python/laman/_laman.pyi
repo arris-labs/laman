@@ -28,6 +28,7 @@ __all__ = [
     "Loop",
     "Profile",
     "Profiles",
+    "profiles",
     "Traversal",
     "Unjoined",
     "Rigidity",
@@ -688,3 +689,5 @@ class Profiles:
     def degenerate(self) -> list[int]: ...
     @property
     def unjoined(self) -> list[Unjoined]: ...
+
+def profiles(sketch: Sketch, coordinates: Coordinates) -> Profiles: ...

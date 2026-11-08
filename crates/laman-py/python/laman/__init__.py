@@ -3,7 +3,8 @@
 A `Sketch` is built by hand (`point`, `line`, `distance`, `horizontal`, ...) or
 loaded from its JSON form, then solved, applied or dragged; the answer is a
 `Solution` with its status and diagnostics. A refused operation raises a
-`ModelError`. `laman.check` re-evaluates every constraint independently of the
+`ModelError`. `laman.profile` reads the closed loops and holes of a sketch's
+edges (a refusal is a `ProfileError`). `laman.check` re-evaluates every constraint independently of the
 solver; `laman.debug` holds tooling (digests, text and SVG dumps) outside the
 API's stability promise. The generic rigidity count of bar frameworks (Laman's
 theorem) is `rigidity`.
@@ -54,7 +55,7 @@ True
 True
 """
 
-from ._errors import ModelError
+from ._errors import ModelError, ProfileError
 from ._laman import (
     Arc,
     Bisection,
@@ -99,6 +100,7 @@ __all__ = [
     "ModelError",
     "Motion",
     "Point",
+    "ProfileError",
     "Removed",
     "Rigidity",
     "RigidityError",

@@ -19,6 +19,9 @@ __all__ = [
     "ModelError",
     "NoSuchParameter",
     "NonFinite",
+    "ProfileError",
+    "ProfileMissing",
+    "ProfileNonFinite",
     "RepeatedEntity",
     "Stale",
     "UnknownConstraint",
@@ -130,3 +133,14 @@ class InUse(ModelError):
     id: int
     entities: list[int]
     constraints: list[int]
+
+class ProfileError(ValueError):
+    def __init__(self, message: str = "", **fields: object) -> None: ...
+    Missing: ClassVar[type[ProfileMissing]]
+    NonFinite: ClassVar[type[ProfileNonFinite]]
+
+class ProfileMissing(ProfileError):
+    entity: int
+
+class ProfileNonFinite(ProfileError):
+    entity: int

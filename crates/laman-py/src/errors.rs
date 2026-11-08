@@ -1,6 +1,7 @@
 //! `laman::model::ModelError` as Python exceptions (`laman/_errors.py`).
 
 use laman::model::ModelError;
+use laman::profile::ProfileError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -134,4 +135,30 @@ fn build(py: Python<'_>, e: &ModelError) -> PyResult<PyErr> {
     let class = py.import("laman._errors")?.getattr(name)?;
     let instance = class.call((e.to_string(),), Some(&fields))?;
     Ok(PyErr::from_value(instance))
+}
+
+/// The exception for a `ProfileError`, with the entity as an attribute. A
+/// variant this binding lacks (`ProfileError` is `#[non_exhaustive]`) reaches
+/// Python as the base `ProfileError` carrying the message.
+#[allow(clippy::wildcard_enum_match_arm)]
+pub fn profile_error(py: Python<'_>, e: &ProfileError) -> PyErr {
+    let build = || -> PyResult<PyErr> {
+        let fields = PyDict::new(py);
+        let name = match e {
+            ProfileError::Missing { entity } => {
+                fields.set_item("entity", entity.0)?;
+                "ProfileMissing"
+            }
+            ProfileError::NonFinite { entity } => {
+                fields.set_item("entity", entity.0)?;
+                "ProfileNonFinite"
+            }
+            _ => "ProfileError",
+        };
+        let class = py.import("laman._errors")?.getattr(name)?;
+        Ok(PyErr::from_value(
+            class.call((e.to_string(),), Some(&fields))?,
+        ))
+    };
+    build().unwrap_or_else(|err| err)
 }

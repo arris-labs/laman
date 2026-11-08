@@ -90,7 +90,7 @@ and updates `_laman.pyi` and the module docstrings with its code.
   Rust and back equal, floats compared by `struct.pack` bits at `±f64::MAX`,
   `-0.0`, the smallest subnormal and `7200 - 400π`. A negative id raises
   `OverflowError`. `Profiles()` is empty.
-- [ ] Step 2 **[1]** — `laman.profile.profiles` and `laman.ProfileError`.
+- [x] Step 2 **[1]** — `laman.profile.profiles` and `laman.ProfileError`.
   Test: the 4 × 3 rectangle by hand gives one profile, net area 12.0. A
   removed coordinate raises `ProfileError.Missing` with its `entity`, a
   NaN raises `ProfileError.NonFinite`. Both are `isinstance` of
@@ -164,7 +164,10 @@ The C1 tests and their 50 digests are unchanged.
   digests are already equal natively and on wasm32, and the binding
   computes nothing. The release's wheel build runs the same tests on every
   runner. The human decides before step 5 whether to add a [CI] step.
-- ⚠ OPEN: `ProfileError` at the top level (`laman.ProfileError`, like
-  `ModelError` and `RigidityError`) or only as `laman.profile.ProfileError`?
-  Agent's pick: top level, re-exported in `laman.profile`, after
-  `ModelError`'s precedent. Decided by step 2.
+- Settled (step 2): `ProfileError` is at the top level (`laman.ProfileError`,
+  like `ModelError` and `RigidityError`) and re-exported in
+  `laman.profile`, after `ModelError`'s precedent. It is a sibling of
+  `ModelError`, not a subclass: both derive `ValueError`, and a profile
+  refusal is not a sketch refusal. The classes are `ProfileMissing` and
+  `ProfileNonFinite` in `_errors.py`, reached as `ProfileError.Missing` and
+  `ProfileError.NonFinite`.

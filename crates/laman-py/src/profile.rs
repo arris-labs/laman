@@ -4,6 +4,8 @@
 //! bits extraction wrote. A float crosses unchanged. An id is a `u32`: a
 //! negative or oversized one raises `OverflowError` on construction.
 
+use crate::errors::profile_error;
+use crate::model::{Coordinates, Sketch};
 use laman::model::profile::{Branched, Loop, Profile, Profiles, Traversal, Unjoined};
 use laman::model::{ConstraintId, EntityId};
 use pyo3::prelude::*;
@@ -356,4 +358,16 @@ impl PyProfiles {
             unjoined.join(", ")
         )
     }
+}
+
+/// The profiles of `sketch` at `coordinates` (`laman::profile::profiles`).
+#[pyfunction]
+pub fn profiles(
+    py: Python<'_>,
+    sketch: &Sketch,
+    coordinates: &Coordinates,
+) -> PyResult<PyProfiles> {
+    laman::profile::profiles(&sketch.inner, &coordinates.inner)
+        .map(|inner| PyProfiles { inner })
+        .map_err(|e| profile_error(py, &e))
 }
