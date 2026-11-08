@@ -20,6 +20,8 @@ __all__ = [
     "Motion",
     "CheckDegenerate",
     "CheckMissing",
+    "CheckProfileReport",
+    "CheckProfileViolation",
     "CheckReport",
     "CheckViolation",
     "Coordinates",
@@ -36,6 +38,7 @@ __all__ = [
     "Sketch",
     "Solution",
     "SolverOptions",
+    "check_profiles",
     "check_sketch",
     "digest_drag_step",
     "digest_run",
@@ -594,6 +597,30 @@ class CheckReport:
     def missing(self) -> list[CheckMissing]: ...
     def is_clean(self) -> bool: ...
 
+@final
+class CheckProfileViolation:
+    @property
+    def kind(self) -> str: ...
+    @property
+    def first(self) -> int | None: ...
+    @property
+    def entity(self) -> int | None: ...
+    @property
+    def measured(self) -> float | None: ...
+    @property
+    def reported(self) -> float | None: ...
+
+@final
+class CheckProfileReport:
+    @property
+    def violations(self) -> list[CheckProfileViolation]: ...
+    @property
+    def missing(self) -> list[CheckMissing]: ...
+    def is_clean(self) -> bool: ...
+
+def check_profiles(
+    sketch: Sketch, coordinates: Coordinates, profiles: Profiles
+) -> CheckProfileReport: ...
 def check_sketch(sketch: Sketch, coordinates: Coordinates) -> CheckReport: ...
 def digest_run(sketch: Sketch, report: CheckReport) -> str: ...
 def digest_solution(sketch: Sketch, solution: Solution, report: CheckReport) -> str: ...

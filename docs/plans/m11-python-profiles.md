@@ -95,7 +95,7 @@ and updates `_laman.pyi` and the module docstrings with its code.
   removed coordinate raises `ProfileError.Missing` with its `entity`, a
   NaN raises `ProfileError.NonFinite`. Both are `isinstance` of
   `ProfileError` and `ValueError`. Docstring example runs.
-- [ ] Step 3 **[1]** — `laman.check.check_profiles`, `ProfileReport`,
+- [x] Step 3 **[1]** — `laman.check.check_profiles`, `ProfileReport`,
   `ProfileViolation`. Test: the rectangle's found profiles check clean.
   A twin built in Python with area 13.0 gives exactly one `area` violation
   with `measured == 12.0` and `reported == 13.0`. A reversed outer gives

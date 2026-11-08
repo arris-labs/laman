@@ -112,7 +112,16 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     m.add("CheckMissing", m.py().get_type::<check::CheckMissing>())?;
     m.add_function(wrap_pyfunction!(profile::profiles, m)?)?;
+    m.add(
+        "CheckProfileViolation",
+        m.py().get_type::<check::CheckProfileViolation>(),
+    )?;
+    m.add(
+        "CheckProfileReport",
+        m.py().get_type::<check::CheckProfileReport>(),
+    )?;
     m.add_function(wrap_pyfunction!(check::check_sketch, m)?)?;
+    m.add_function(wrap_pyfunction!(check::check_profiles, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_run, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_solution, m)?)?;
     m.add_function(wrap_pyfunction!(debug::digest_drag_step, m)?)?;

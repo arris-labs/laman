@@ -7,6 +7,7 @@ import struct
 import pytest
 
 import laman
+from laman.check import check_profiles
 from laman.profile import (
     Branched,
     Loop,
@@ -123,3 +124,48 @@ def test_a_nan_raises_non_finite_with_its_entity() -> None:
 def test_profile_error_is_at_the_top_level_and_in_profile() -> None:
     assert laman.ProfileError is ProfileError
     assert not issubclass(ProfileError, laman.ModelError)
+
+
+def rect_with_found() -> tuple[laman.Sketch, laman.Coordinates, Profiles, Loop]:
+    sk = rectangle()
+    values = sk.coordinates()
+    found = profiles(sk, values)
+    return sk, values, found, found.profiles[0].outer
+
+
+def test_the_found_rectangle_checks_clean() -> None:
+    sk, values, found, _ = rect_with_found()
+    report = check_profiles(sk, values, found)
+    assert report.is_clean() and report.violations == [] and report.missing == []
+
+
+def test_a_wrong_area_is_one_area_violation() -> None:
+    sk, values, _, outer = rect_with_found()
+    twin = Profiles(profiles=[Profile(Loop(outer.edges, 13.0, outer.joins), [], 12.0)])
+    (v,) = check_profiles(sk, values, twin).violations
+    assert (v.kind, v.measured, v.reported) == ("area", 12.0, 13.0)
+    assert v.first == outer.edges[0].entity and v.entity is None
+
+
+def test_a_reversed_outer_is_an_orientation_violation() -> None:
+    sk, values, _, outer = rect_with_found()
+    turned = [Traversal(t.entity, not t.reversed) for t in reversed(outer.edges)]
+    twin = Profiles(profiles=[Profile(Loop(turned, -12.0, outer.joins), [], 12.0)])
+    kinds = [v.kind for v in check_profiles(sk, values, twin).violations]
+    assert kinds == ["orientation"]
+
+
+def test_a_stale_edge_id_is_not_an_edge() -> None:
+    sk, values, _, outer = rect_with_found()
+    stale = [*outer.edges[:3], Traversal(99, False)]
+    twin = Profiles(profiles=[Profile(Loop(stale, 12.0, outer.joins), [], 12.0)])
+    report = check_profiles(sk, values, twin)
+    assert [v.entity for v in report.violations if v.kind == "not_an_edge"] == [99]
+
+
+def test_a_removed_coordinate_is_missing() -> None:
+    sk, values, found, _ = rect_with_found()
+    items = [(k, v) for k, v in values.items() if k != (2, "x")]
+    report = check_profiles(sk, laman.Coordinates(items), found)
+    assert [(m.id, m.coordinate) for m in report.missing] == [(2, "x")]
+    assert not report.is_clean()
