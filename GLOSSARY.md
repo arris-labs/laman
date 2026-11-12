@@ -117,12 +117,15 @@ joined for it (ADR-0012 D4).
 _Avoid_: near miss, gap
 
 **Intersection**:
-A place where two edges meet without a shared point or a declared join,
-measured from the coordinates. It is a **crossing** (the edges pass
-through each other), a **touch** (tangent, a double root) or an
-**overlap** (collinear lines, or concentric circles of one radius sharing
-a stretch). It joins nothing: only a split declares a join there
-(ROADMAP.md C4, ADR-0012).
+A place where two non-construction lines, arcs or circles meet without a
+shared point or a declared join, measured from the coordinates at the
+pair's length tolerance. It is a **crossing** (a simple root: the curves'
+directions differ there), a **touch** (tangent within the tolerance, a
+double root, reported as one point) or an **overlap** (collinear lines, or
+concentric circles of one radius, sharing a stretch longer than the
+tolerance). An end lying on another curve is one of these, its parameter
+on its own curve 0 or 1. It joins nothing: only a split declares a join
+there (ADR-0016, ADR-0012).
 _Avoid_: hit, collision, cut
 
 **Open join**:

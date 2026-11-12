@@ -48,7 +48,9 @@ through join classes, shared id first so no existing contact changes; the
 last step is recorded as rejected.
 
 **D2 — ADR-0016, "Intersections are measured, classified, never joined".**
-Settled in step 3:
+Settled in step 3 (ADR-0016 holds the detail; it refines what follows: a
+round's frame origin is its centre, a degenerate line or round meets
+nothing, a touch is one point at the foot or on the line of centres):
 - *Which pairs*: non-construction lines, arcs and circles, each unordered
   pair once, the smaller id first. A meeting within the length tolerance
   of an end the two edges share by id or by join class is that join, not
@@ -58,8 +60,13 @@ Settled in step 3:
   an **overlap** (collinear lines, or concentric circles of one radius,
   sharing a stretch longer than the length tolerance, reported as its two
   ends). Tolerances come from `Tolerances::at` (ADR-0004); no new constant.
-- *An end on another edge* (a T, or an arc end on a line): the case is
-  ⚠ OPEN below, closed by this ADR.
+- *An end on another edge* (a T, or an arc end on a line): classified by
+  the same tests, a crossing or a touch, its parameter on its own curve 0
+  or 1 and its point the end's own (ADR-0016 D4).
+- *Below the floor*: `L` is `Tolerances::at`'s, floor included, so at
+  1e-300 `intersections()` classifies at ADR-0003's floor (everything a
+  touch or an overlap); the 1e-300 closed forms are held in the kernel,
+  which takes `L` as an input (ADR-0016 D2).
 - *Arcs*: a meeting of the arc's circle counts when its angle lies in the
   sweep, widened at each end by the length tolerance over the radius.
 - *Order*: each meeting carries its parameter on both edges (a line's `t`
@@ -104,7 +111,7 @@ an algorithm whose robustness or bound is established here.
   digests (`c3-solved-{lm,dogleg}-slotted-plate-coincident`, the only ones
   that moved) are re-blessed in step 1's commit; step 2 re-runs the rest
   (wasm32 included) and adds the coordinate check.
-- [ ] Step 3 **[3]** — ADR-0016 (D2), the end-on-edge case included.
+- [x] Step 3 **[3]** — ADR-0016 (D2), the end-on-edge case included.
   GLOSSARY: *Intersection* cites it; *Meeting* added if step 6 keeps it.
 - [ ] Step 4 **[3]** — The kernel: line–line, line–circle, circle–circle
   in the D2 frame, classified. Closed-form tests at scales 1e-6 to 1e6,
@@ -152,11 +159,14 @@ those step 2 re-blesses.
 
 ## Open questions
 
-- ⚠ OPEN: an end that lies on another edge's interior (a T) is a crossing,
-  a touch, or a kind of its own. Agent decides in step 3's ADR; the
-  default is a crossing when the curves' directions differ there and a
-  touch when they are tangent, the meeting's parameter at the end being
-  0 or 1.
+- *Settled* in step 3 (ADR-0016 D4): an end that lies on another edge's
+  interior (a T) is a crossing when the curves' directions differ there
+  and a touch when they are tangent, the meeting's parameter at the end 0
+  or 1; not a kind of its own, since C5 splits it as any meeting.
+- *Settled* in step 3 (ADR-0016 D2): "near 1e±300" holds the closed form
+  at 1e300 everywhere and at 1e-300 in the kernel; `intersections()` on
+  1e-300 geometry classifies at ADR-0003's length floor, as the solver
+  and checker do, and promises finite output, not the closed form.
 - ⚠ OPEN: C4's order. This plan puts intersections and the double root
   first (the solver change may move digests, and a touch is classified on
   it) and branched profiles second. Agent's pick; the roadmap's theme and
