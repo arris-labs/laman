@@ -88,3 +88,10 @@ diagnostics read one set of equations, as ADR-0002 does.
   but the equation then reads a point the original tangent does not, so its
   support differs from the equation it replaces; with the line end it reads
   the line's ends and the centre, as in ADR-0002's shared case. Rejected.
+
+## Amendment (2026-11-13)
+
+The "member" above is the joined point whose membership holds. The
+implementation does not store it: nothing reads it, since the equation uses
+the line end (see the alternatives), so `Contact` has no `member` field.
+The recognition rule is unchanged.

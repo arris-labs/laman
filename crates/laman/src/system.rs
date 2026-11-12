@@ -20,9 +20,6 @@ pub(crate) enum Membership {
 pub(crate) struct Contact {
     /// The line's end at the contact.
     pub point: Point,
-    /// The point whose membership of the round holds: `point` itself
-    /// (ADR-0002), or a point in its join class (ADR-0015).
-    pub member: Point,
     pub centre: Point,
     pub a: Point,
     pub b: Point,
@@ -115,7 +112,7 @@ impl<'a> System<'a> {
         let mut on_round: OnRound = BTreeMap::new();
         for (id, c) in sketch.constraints() {
             if let Constraint::PointOnCircle { p, on } = c {
-                on_round.entry((p.id(), on.id())).or_insert((id, *p));
+                on_round.entry((p.id(), on.id())).or_insert(id);
             }
         }
         let joins = Joins::of(sketch);
@@ -371,7 +368,7 @@ impl<'a> System<'a> {
 
 /// Each point's first explicit membership of each round, by (point, round):
 /// the constraint and the point.
-type OnRound = BTreeMap<(EntityId, EntityId), (ConstraintId, Point)>;
+type OnRound = BTreeMap<(EntityId, EntityId), ConstraintId>;
 
 /// The join classes of the points `coincident` names (ADR-0012 D1), each
 /// class its point ids ascending; a point no `coincident` names is alone.
@@ -432,9 +429,8 @@ fn recognize(sk: &Sketch, c: &Constraint, on_round: &OnRound, joins: &Joins) -> 
         Entity::Arc { c, s, e } => (c, Some((s, e))),
         Entity::Point { .. } | Entity::Line { .. } => return None,
     };
-    let contact = |point: Point, member: Point, membership: Membership| Contact {
+    let contact = |point: Point, membership: Membership| Contact {
         point,
-        member,
         centre,
         a,
         b,
@@ -451,27 +447,27 @@ fn recognize(sk: &Sketch, c: &Constraint, on_round: &OnRound, joins: &Joins) -> 
         };
         let explicit = on_round
             .get(&(point.id(), round.id()))
-            .map(|(id, _)| Membership::Explicit(*id));
+            .map(|id| Membership::Explicit(*id));
         if let Some(membership) = implicit.or(explicit) {
-            return Some(contact(point, point, membership));
+            return Some(contact(point, membership));
         }
     }
     for point in ends {
         let joined = |q: Point| joins.others(point.id()).any(|m| m == q.id());
         if let Some((s, e)) = arc_ends {
             if joined(s) {
-                return Some(contact(point, s, Membership::ArcStart(round.id())));
+                return Some(contact(point, Membership::ArcStart(round.id())));
             }
             if joined(e) {
-                return Some(contact(point, e, Membership::ArcEnd(round.id())));
+                return Some(contact(point, Membership::ArcEnd(round.id())));
             }
         }
         let explicit = joins
             .others(point.id())
             .filter_map(|m| on_round.get(&(m, round.id())))
-            .min_by_key(|(id, _)| *id);
-        if let Some(&(id, member)) = explicit {
-            return Some(contact(point, member, Membership::Explicit(id)));
+            .min();
+        if let Some(&id) = explicit {
+            return Some(contact(point, Membership::Explicit(id)));
         }
     }
     None
@@ -650,7 +646,7 @@ mod tests {
         // ADR-0015: the line's end `p` is not the round's point; a
         // `coincident` joins it to the arc's start, the arc's end, or a point
         // with an explicit membership. The contact is recognized through the
-        // join, its point the line's end and its member the joined point.
+        // join, its point the line's end.
         for (case, scale) in [0, 1, 2]
             .into_iter()
             .flat_map(|k| [1e-6, 1.0, 1e3].map(|s| (k, s)))
@@ -690,7 +686,7 @@ mod tests {
             let sys = System::new(&sk);
             let contact = sys.equations.last().unwrap().contact.clone().unwrap();
             assert_eq!(contact.membership, membership, "case {case}");
-            assert_eq!((contact.point, contact.member), (p, member), "case {case}");
+            assert_eq!(contact.point, p, "case {case}");
 
             let values = sk.coordinates();
             let floor = tolerance::LENGTH_FLOOR * scale;
@@ -737,6 +733,6 @@ mod tests {
         let sys = System::new(&sk);
         let contact = sys.equations.last().unwrap().contact.clone().unwrap();
         assert_eq!(contact.membership, Membership::ArcStart(arc.id()));
-        assert_eq!((contact.point, contact.member), (s, s));
+        assert_eq!(contact.point, s);
     }
 }
