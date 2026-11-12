@@ -128,6 +128,13 @@ on its own curve 0 or 1. It joins nothing: only a split declares a join
 there (ADR-0016, ADR-0012).
 _Avoid_: hit, collision, cut
 
+**Meeting**:
+One place where a pair of curves meet, in the result of an intersection
+measure: its kind (crossing, touch or overlap), its point and its parameter
+on each curve (ADR-0016 D7). A pair's *intersection* is the list of its
+meetings.
+_Avoid_: hit, contact point
+
 **Open join**:
 A join whose two edge ends lie more than the loop's length tolerance apart
 in the coordinates, as a violated `coincident` leaves one. The join still

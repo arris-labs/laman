@@ -44,3 +44,10 @@ path = "fuzz_targets/profiles_sketch.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "intersections_sketch"
+path = "fuzz_targets/intersections_sketch.rs"
+test = false
+doc = false
+bench = false

@@ -83,8 +83,8 @@ so the checker can name them in M14: `Intersections { pairs: Vec<Intersection> }
 `Intersection { first, second: EntityId, meetings: Vec<Meeting> }`,
 `Meeting { kind: MeetingKind, at: [f64; 2], on_first, on_second: f64 }`,
 `MeetingKind::{Crossing, Touch, Overlap { to: [f64; 2], to_first, to_second: f64 }}`,
-and `Intersections::along(EntityId) -> Vec<…>` for the order on one edge.
-Names and the `along` signature are settled in step 6. The operation is
+and `Intersections::along(EntityId) -> Vec<Along>`, `Along { other: EntityId,
+meeting: Meeting }`, for the order on one edge. Settled in step 6. The operation is
 `laman::intersect::intersections(&Sketch, &Coordinates) -> Result<Intersections,
 IntersectError>`, with `Missing` and `NonFinite` naming the entity as
 `ProfileError` does. No existing signature changes.
@@ -127,9 +127,12 @@ an algorithm whose robustness or bound is established here.
   stretches possible). *Settled* here: ADR-0016 D4 and D6 gain the sentences
   step 4's rule (a line's root within `L` of the segment) and the
   arc-and-circle overlap needed; they did not contradict it.
-- [ ] Step 6 **[2]** — D3 types and `intersections()`: pairs, the join
+- [x] Step 6 **[2]** — D3 types and `intersections()`: pairs, the join
   exclusion, `IntersectError`, `along`, rustdoc with runnable examples, a
-  fuzz target, CHANGELOG `Unreleased` bullet.
+  fuzz target, CHANGELOG `Unreleased` bullet. *Settled* here: `along`
+  returns `Vec<Along { other, meeting }>`, the meeting turned so the asked
+  curve is its first; an overlap is never excluded as a join (it runs along
+  both), a crossing or touch within `L` of a shared end is.
 - [ ] Step 7 **[2]** — D4 fixture form and the C4 intersection corpus, each
   solved, checked by `laman-check`, then intersected: two crossing lines; a
   line through a circle; two circles at two points; a tangent touch; a

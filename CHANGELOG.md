@@ -12,6 +12,17 @@ release by release. Written in the commit that makes the change, under
   lands within the coordinate tolerance instead of up to about 1e-5 off
   along the circle. Such sketches solve to slightly different coordinates
   than before.
+- `laman::intersect::intersections` reports where lines, arcs and circles
+  meet without sharing a point or a `coincident` join: each pair by its two
+  ids, each meeting a crossing, a touch (tangent within the length
+  tolerance, one point) or an overlap (a shared stretch, by its two ends),
+  placed by its parameter on both curves (a line's `t`, an arc's fraction of
+  its sweep, a circle's angle over 2π). An arc's meetings are bounded by its
+  sweep; an end lying on another curve is a meeting at parameter 0 or 1.
+  Nothing is joined for it. `Intersections::along` lists the meetings on one
+  curve in order. Values missing a coordinate, or holding one that is not
+  finite, are refused naming the point or circle
+  (`IntersectError::{Missing, NonFinite}`).
 
 ## 0.3.0 — 2026-11-08
 

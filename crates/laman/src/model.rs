@@ -24,6 +24,7 @@ use std::fmt;
 mod constraint;
 #[cfg(feature = "serde")]
 mod form;
+pub mod intersection;
 pub mod profile;
 pub mod tolerance;
 
