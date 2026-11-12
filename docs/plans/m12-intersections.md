@@ -141,7 +141,7 @@ an algorithm whose robustness or bound is established here.
   fixture, an arc crossing a line inside its sweep; the section's
   `tolerance` is optional and the corpus names none (the default
   `INTERSECTION_TOLERANCE`, 1e-9, holds), so no README cites an ADR for it.
-- [ ] Step 8 **[3]** — A property test: random lines, circles and arcs
+- [x] Step 8 **[3]** — A property test: random lines, circles and arcs
   built through chosen meeting points (and chosen tangencies and overlaps),
   rotated, scaled and translated; kinds, counts, points and order against
   the construction; one 1e±300 case. Shrinks into `regression/`.

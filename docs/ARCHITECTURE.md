@@ -796,6 +796,14 @@ held to `expected.json`'s closed forms and to `check_profiles`.
 by construction (joined by shared points or `coincident`, lines drawn
 either way, the whole rotated, scaled and translated) and asserts loop
 counts, nesting, orientation, joins and areas against it.
+`tests/c4_props.rs` builds a line, circle or arc with eight slots, each
+holding nothing or a cutter built through chosen meeting points (a
+crossing line, a T, a round crossing twice, a tangent line or round, a
+collinear or concentric overlap, an arc clear of the base), the windows
+disjoint and the arc's last two slots outside its sweep; rotated, scaled
+by 1e-6 to 1e6 and translated, it asserts the kinds, counts, points,
+parameters and order of `intersections()` against the construction, near
+1e300 included (near 1e-300 only finite output, ADR-0016 D2).
 
 ### Frame budget
 
