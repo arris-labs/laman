@@ -133,11 +133,14 @@ an algorithm whose robustness or bound is established here.
   returns `Vec<Along { other, meeting }>`, the meeting turned so the asked
   curve is its first; an overlap is never excluded as a join (it runs along
   both), a crossing or touch within `L` of a shared end is.
-- [ ] Step 7 **[2]** — D4 fixture form and the C4 intersection corpus, each
+- [x] Step 7 **[2]** — D4 fixture form and the C4 intersection corpus, each
   solved, checked by `laman-check`, then intersected: two crossing lines; a
   line through a circle; two circles at two points; a tangent touch; a
   collinear overlap; an arc whose circle crosses a line outside its sweep
-  (no intersection); a T whose end lies on a line.
+  (no intersection); a T whose end lies on a line. *Settled* here: one more
+  fixture, an arc crossing a line inside its sweep; the section's
+  `tolerance` is optional and the corpus names none (the default
+  `INTERSECTION_TOLERANCE`, 1e-9, holds), so no README cites an ADR for it.
 - [ ] Step 8 **[3]** — A property test: random lines, circles and arcs
   built through chosen meeting points (and chosen tangencies and overlaps),
   rotated, scaled and translated; kinds, counts, points and order against

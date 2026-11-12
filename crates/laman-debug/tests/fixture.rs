@@ -320,3 +320,83 @@ fn a_profiles_expectation_names_each_difference() {
     assert_eq!(off.len(), 1, "{off:?}");
     assert!(off[0].starts_with("dangling"), "{off:?}");
 }
+
+/// A two-point sketch with one line (id 2), as a fixture whose intersections
+/// section is `section`.
+fn with_intersections(section: &str) -> Result<Fixture, FixtureError> {
+    let sketch = r#"{"format":"laman.sketch","version":1,"entities":[{"id":0,"kind":"point","x":0.0,"y":0.0},{"id":1,"kind":"point","x":3.0,"y":4.0},{"id":2,"kind":"line","a":0,"b":1}]}"#;
+    let expected = format!(
+        r#"{{"status":"UnderConstrained","dof":4,"coordinates":[],"intersections":{section}}}"#
+    );
+    Fixture::parse(sketch, &expected, None)
+}
+
+#[test]
+fn the_intersections_section_names_only_what_the_sketch_has() {
+    let meeting = r#"{"kind":"crossing","at":[0.0,0.0],"on_first":0.0,"on_second":0.0}"#;
+    assert!(matches!(
+        with_intersections(&format!(
+            r#"{{"pairs":[{{"first":2,"second":9,"meetings":[{meeting}]}}]}}"#
+        )),
+        Err(FixtureError::UnknownIntersectionEntity { id }) if id == EntityId(9)
+    ));
+    // A crossing with an overlap's end, an overlap without, an unknown kind,
+    // a bad tolerance.
+    for bad in [
+        r#"{"kind":"crossing","at":[0.0,0.0],"on_first":0.0,"on_second":0.0,"to":[1.0,1.0],"to_first":1.0,"to_second":1.0}"#,
+        r#"{"kind":"overlap","at":[0.0,0.0],"on_first":0.0,"on_second":0.0}"#,
+        r#"{"kind":"graze","at":[0.0,0.0],"on_first":0.0,"on_second":0.0}"#,
+    ] {
+        assert!(matches!(
+            with_intersections(&format!(
+                r#"{{"pairs":[{{"first":2,"second":2,"meetings":[{bad}]}}]}}"#
+            )),
+            Err(FixtureError::Intersections { .. })
+        ));
+    }
+    assert!(matches!(
+        with_intersections(r#"{"tolerance":0.0}"#),
+        Err(FixtureError::Intersections { .. })
+    ));
+}
+
+#[test]
+fn an_intersections_expectation_names_each_difference() {
+    use laman::model::intersection::{Intersection, Intersections, Meeting, MeetingKind};
+    let fixture = with_intersections(
+        r#"{"pairs":[{"first":2,"second":2,"meetings":[{"kind":"touch","at":[1.0,1.0],"on_first":0.5,"on_second":0.5}]}]}"#,
+    )
+    .unwrap();
+    let want = fixture.expected.intersections.unwrap();
+    let meeting = |kind, on_first| Meeting {
+        kind,
+        at: [1.0, 1.0],
+        on_first,
+        on_second: 0.5,
+    };
+    let found = |m| Intersections {
+        pairs: vec![Intersection {
+            first: EntityId(2),
+            second: EntityId(2),
+            meetings: vec![m],
+        }],
+    };
+    assert!(
+        want.mismatches(&found(meeting(MeetingKind::Touch, 0.5)))
+            .is_empty()
+    );
+    // A different kind, a parameter off by more than the tolerance, a pair
+    // that is not expected.
+    assert_eq!(
+        want.mismatches(&found(meeting(MeetingKind::Crossing, 0.5)))
+            .len(),
+        1
+    );
+    assert_eq!(
+        want.mismatches(&found(meeting(MeetingKind::Touch, 0.5001)))
+            .len(),
+        1
+    );
+    let off = want.mismatches(&Intersections::default());
+    assert!(off[0].starts_with("pairs"), "{off:?}");
+}

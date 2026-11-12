@@ -144,6 +144,7 @@ fn expected(coordinates: Coordinates, dof: u32) -> Expected {
         flips: Vec::new(),
         digest: None,
         profiles: None,
+        intersections: None,
     }
 }
 

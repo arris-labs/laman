@@ -1,0 +1,32 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 4,
+      "coordinate": "r",
+      "value": 5.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "intersections": {
+    "pairs": [
+      {
+        "first": 3,
+        "second": 4,
+        "meetings": [
+          {
+            "kind": "touch",
+            "at": [
+              0.0,
+              5.0
+            ],
+            "on_first": 0.5,
+            "on_second": 0.25
+          }
+        ]
+      }
+    ]
+  }
+}

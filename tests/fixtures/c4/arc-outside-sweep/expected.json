@@ -1,0 +1,10 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [],
+  "redundant": [],
+  "conflicts": [],
+  "intersections": {
+    "pairs": []
+  }
+}

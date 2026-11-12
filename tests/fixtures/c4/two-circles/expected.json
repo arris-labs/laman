@@ -1,0 +1,46 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 2,
+      "coordinate": "r",
+      "value": 5.0
+    },
+    {
+      "id": 3,
+      "coordinate": "r",
+      "value": 5.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "intersections": {
+    "pairs": [
+      {
+        "first": 2,
+        "second": 3,
+        "meetings": [
+          {
+            "kind": "crossing",
+            "at": [
+              3.0,
+              4.0
+            ],
+            "on_first": 0.14758361765043326,
+            "on_second": 0.35241638234956674
+          },
+          {
+            "kind": "crossing",
+            "at": [
+              3.0,
+              -4.0
+            ],
+            "on_first": 0.8524163823495667,
+            "on_second": 0.6475836176504333
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [],
+  "redundant": [],
+  "conflicts": [],
+  "intersections": {
+    "pairs": [
+      {
+        "first": 5,
+        "second": 6,
+        "meetings": [
+          {
+            "kind": "crossing",
+            "at": [
+              4.0,
+              3.0
+            ],
+            "on_first": 0.20483276469913345,
+            "on_second": 0.5
+          }
+        ]
+      }
+    ]
+  }
+}

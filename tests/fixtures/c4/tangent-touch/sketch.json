@@ -1,0 +1,56 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": -6.0,
+      "y": 5.0,
+      "fixed": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "point",
+      "x": 6.0,
+      "y": 5.0,
+      "fixed": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0,
+      "fixed": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "line",
+      "a": 0,
+      "b": 1
+    },
+    {
+      "id": 4,
+      "kind": "circle",
+      "c": 2,
+      "r": 6.0
+    }
+  ],
+  "constraints": [
+    {
+      "id": 0,
+      "kind": "radius",
+      "circle": 4,
+      "value": 5.0
+    }
+  ]
+}

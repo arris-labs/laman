@@ -27,6 +27,13 @@
 //!     "open_chains": [[7, 8]], "dangling": [9], "degenerate": [],
 //!     "branched": [{"edges": [4, 5, 6], "joins": [1]}],
 //!     "unjoined": [[2, 9]]
+//!   },
+//!   "intersections": {
+//!     "pairs": [{"first": 4, "second": 5, "meetings": [
+//!       {"kind": "crossing", "at": [4.0, 2.0], "on_first": 0.4, "on_second": 0.5},
+//!       {"kind": "overlap", "at": [6.0, 0.0], "on_first": 0.6, "on_second": 0.0,
+//!        "to": [10.0, 0.0], "to_first": 1.0, "to_second": 0.4}
+//!     ]}]
 //!   }
 //! }
 //! ```
@@ -45,6 +52,17 @@
 //! sketch, or the file is refused with it. [`ExpectedProfiles::mismatches`]
 //! compares it with a result.
 //!
+//! `intersections` (optional) is what `laman::intersect::intersections` must
+//! return (ADR-0016): the pairs that meet, by the caller's ids, in the order
+//! the result documents, each meeting's kind (`crossing`, `touch` or
+//! `overlap`), point and parameters, and for an overlap its other end `to`,
+//! `to_first` and `to_second` (given for no other kind). A pair left out
+//! must not meet. Points are compared to `tolerance` (default
+//! [`INTERSECTION_TOLERANCE`]) relative to `max(1, |coordinate|)`, parameters
+//! to `tolerance` absolutely. Every entity id named must exist in the sketch,
+//! or the file is refused with it. [`ExpectedIntersections::mismatches`]
+//! compares it with a result.
+//!
 //! `drag.json` names the dragged point, its targets in order (`[x, y]`), and
 //! the expected coordinates after chosen steps (1-based, into `targets`),
 //! and for each the tags it names as flipped (`flips`, default none) and how
@@ -52,6 +70,7 @@
 //! target).
 
 use crate::json::{LoadError, sketch_from_str};
+use laman::model::intersection::{Intersections, MeetingKind};
 use laman::model::profile::{Branched, Profiles, Traversal, Unjoined};
 use laman::model::{
     ConstraintId, Coordinate, Coordinates, EntityId, EntityKind, Sketch, tolerance,
@@ -72,6 +91,13 @@ pub const DRAG_FILE: &str = "drag.json";
 /// 1e-9 is the extraction's own bound at the corpus's scales
 /// (`plans/m9-profiles`).
 pub const AREA_TOLERANCE: f64 = 1e-9;
+
+/// How close a point and a parameter must be when an `intersections`
+/// expectation names no tolerance: the points relative to `max(1, |value|)`
+/// and the parameters absolutely. The closed forms are exact to a few ulps
+/// and the default length tolerance is 1e-9 (ADR-0004), so a meeting that
+/// differs by more is a different meeting (`plans/m12-intersections`).
+pub const INTERSECTION_TOLERANCE: f64 = 1e-9;
 
 /// Why a fixture could not be loaded. Each variant names the file, and where
 /// it names an entity, its id.
@@ -151,6 +177,20 @@ pub enum FixtureError {
         /// The tolerance as written or defaulted.
         tolerance: f64,
     },
+    /// The `intersections` section names an entity the sketch does not have.
+    #[error("expected.json: intersections name entity {id}, which the sketch does not have")]
+    UnknownIntersectionEntity {
+        /// The id as written.
+        id: EntityId,
+    },
+    /// An `intersections` meeting is not usable: an unknown kind, an overlap
+    /// without its other end, another kind with one, a value that is not
+    /// finite, or a tolerance that is not positive and finite.
+    #[error("expected.json: intersections: {what}")]
+    Intersections {
+        /// What is wrong.
+        what: String,
+    },
     /// The dragged entity is not a point of the sketch.
     #[error("drag.json: entity {id} is not a point of the sketch")]
     NotAPoint {
@@ -212,6 +252,114 @@ pub struct Expected {
     pub digest: Option<String>,
     /// What profile extraction must return, when the fixture says.
     pub profiles: Option<ExpectedProfiles>,
+    /// What intersection measuring must return, when the fixture says.
+    pub intersections: Option<ExpectedIntersections>,
+}
+
+/// An expected meeting: its kind, point and parameters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpectedMeeting {
+    /// The kind, with an overlap's other end.
+    pub kind: MeetingKind,
+    /// The point.
+    pub at: [f64; 2],
+    /// The parameter on the first curve.
+    pub on_first: f64,
+    /// The parameter on the second curve.
+    pub on_second: f64,
+}
+
+/// An expected pair and its meetings, in order.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpectedPair {
+    /// The smaller id.
+    pub first: EntityId,
+    /// The larger id.
+    pub second: EntityId,
+    /// The meetings.
+    pub meetings: Vec<ExpectedMeeting>,
+}
+
+/// What `laman::intersect::intersections` must return for a fixture.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExpectedIntersections {
+    /// The pairs, in order; a pair that is not here must not meet.
+    pub pairs: Vec<ExpectedPair>,
+    /// How close a point (relative to `max(1, |coordinate|)`) and a
+    /// parameter (absolutely) must be.
+    pub tolerance: f64,
+}
+
+impl ExpectedIntersections {
+    /// What differs between these expectations and a result, one line per
+    /// difference naming the pair and the meeting; empty when they agree.
+    ///
+    /// ```
+    /// use laman::model::intersection::Intersections;
+    /// use laman_debug::fixture::{ExpectedIntersections, INTERSECTION_TOLERANCE};
+    /// let none = ExpectedIntersections { pairs: vec![], tolerance: INTERSECTION_TOLERANCE };
+    /// assert!(none.mismatches(&Intersections::default()).is_empty());
+    /// ```
+    pub fn mismatches(&self, found: &Intersections) -> Vec<String> {
+        let mut out = Vec::new();
+        let tol = self.tolerance;
+        let point = |a: [f64; 2], b: [f64; 2]| {
+            a.iter()
+                .zip(&b)
+                .all(|(x, y)| (x - y).abs() <= tol * y.abs().max(1.0))
+        };
+        let param = |a: f64, b: f64| (a - b).abs() <= tol;
+        let ids = |pairs: &mut dyn Iterator<Item = (EntityId, EntityId)>| {
+            pairs.map(|(a, b)| format!("{a}-{b}")).collect::<Vec<_>>()
+        };
+        let want = ids(&mut self.pairs.iter().map(|p| (p.first, p.second)));
+        let got = ids(&mut found.pairs.iter().map(|p| (p.first, p.second)));
+        if want != got {
+            out.push(format!("pairs: expected {want:?}, found {got:?}"));
+            return out;
+        }
+        for (w, g) in self.pairs.iter().zip(&found.pairs) {
+            let name = format!("pair {}-{}", w.first, w.second);
+            if w.meetings.len() != g.meetings.len() {
+                out.push(format!(
+                    "{name}: expected {} meetings, found {}",
+                    w.meetings.len(),
+                    g.meetings.len()
+                ));
+                continue;
+            }
+            for (k, (m, f)) in w.meetings.iter().zip(&g.meetings).enumerate() {
+                let same_kind = match (m.kind, f.kind) {
+                    (MeetingKind::Crossing, MeetingKind::Crossing)
+                    | (MeetingKind::Touch, MeetingKind::Touch) => true,
+                    (
+                        MeetingKind::Overlap {
+                            to,
+                            to_first,
+                            to_second,
+                        },
+                        MeetingKind::Overlap {
+                            to: gt,
+                            to_first: gf,
+                            to_second: gs,
+                        },
+                    ) => point(gt, to) && param(gf, to_first) && param(gs, to_second),
+                    (
+                        MeetingKind::Crossing | MeetingKind::Touch | MeetingKind::Overlap { .. },
+                        MeetingKind::Crossing | MeetingKind::Touch | MeetingKind::Overlap { .. },
+                    ) => false,
+                };
+                if !(same_kind
+                    && point(f.at, m.at)
+                    && param(f.on_first, m.on_first)
+                    && param(f.on_second, m.on_second))
+                {
+                    out.push(format!("{name} meeting {k}: expected {m:?}, found {f:?}"));
+                }
+            }
+        }
+        out
+    }
 }
 
 /// An area and how close a result must be to it.
@@ -503,6 +651,35 @@ struct ExpectedFile {
     tolerance: Option<f64>,
     digest: Option<String>,
     profiles: Option<ProfilesFile>,
+    intersections: Option<IntersectionsFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MeetingFile {
+    kind: String,
+    at: [f64; 2],
+    on_first: f64,
+    on_second: f64,
+    to: Option<[f64; 2]>,
+    to_first: Option<f64>,
+    to_second: Option<f64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PairFile {
+    first: u32,
+    second: u32,
+    meetings: Vec<MeetingFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IntersectionsFile {
+    #[serde(default)]
+    pairs: Vec<PairFile>,
+    tolerance: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -624,7 +801,74 @@ fn parse_expected(
             .profiles
             .map(|p| expected_profiles(sketch, p))
             .transpose()?,
+        intersections: file
+            .intersections
+            .map(|i| expected_intersections(sketch, i))
+            .transpose()?,
     })
+}
+
+fn expected_intersections(
+    sketch: &Sketch,
+    file: IntersectionsFile,
+) -> Result<ExpectedIntersections, FixtureError> {
+    let bad = |what: String| FixtureError::Intersections { what };
+    let tolerance = file.tolerance.unwrap_or(INTERSECTION_TOLERANCE);
+    if !(tolerance.is_finite() && tolerance > 0.0) {
+        return Err(bad(format!("tolerance {tolerance} is not usable")));
+    }
+    let entity = |id: u32| {
+        let id = EntityId(id);
+        sketch
+            .entity(id)
+            .map(|_| id)
+            .ok_or(FixtureError::UnknownIntersectionEntity { id })
+    };
+    let mut pairs = Vec::with_capacity(file.pairs.len());
+    for pair in file.pairs {
+        let mut meetings = Vec::with_capacity(pair.meetings.len());
+        for m in pair.meetings {
+            let numbers = [m.at[0], m.at[1], m.on_first, m.on_second];
+            let ends = (m.to, m.to_first, m.to_second);
+            let finite = numbers.iter().all(|x| x.is_finite())
+                && m.to.is_none_or(|p| p.iter().all(|x| x.is_finite()))
+                && m.to_first.is_none_or(f64::is_finite)
+                && m.to_second.is_none_or(f64::is_finite);
+            if !finite {
+                return Err(bad(format!(
+                    "a {} meeting holds a value that is not finite",
+                    m.kind
+                )));
+            }
+            let kind = match (m.kind.as_str(), ends) {
+                ("crossing", (None, None, None)) => MeetingKind::Crossing,
+                ("touch", (None, None, None)) => MeetingKind::Touch,
+                ("overlap", (Some(to), Some(to_first), Some(to_second))) => MeetingKind::Overlap {
+                    to,
+                    to_first,
+                    to_second,
+                },
+                (kind, _) => {
+                    return Err(bad(format!(
+                        "a {kind:?} meeting is not a crossing or touch without `to` fields, \
+                         or an overlap with all three"
+                    )));
+                }
+            };
+            meetings.push(ExpectedMeeting {
+                kind,
+                at: m.at,
+                on_first: m.on_first,
+                on_second: m.on_second,
+            });
+        }
+        pairs.push(ExpectedPair {
+            first: entity(pair.first)?,
+            second: entity(pair.second)?,
+            meetings,
+        });
+    }
+    Ok(ExpectedIntersections { pairs, tolerance })
 }
 
 fn expected_profiles(
