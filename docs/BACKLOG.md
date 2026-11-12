@@ -47,6 +47,9 @@ re-brainstormed. A *measured* defect is not a raw idea: it goes under
 - Close-cycle drift left in code: `bench_c2.rs:1,25` still say "C2 baseline" and 48 workers / 240 s (it is 52 / 260 s); about 33 comments in `crates/laman/src`, `crates/laman/Cargo.toml` and `crates/laman-debug/examples` cite deleted `plans/<slug>`; `values` and `residual` import each other through a type alias (`values.rs:11`, `residual.rs:30`), against ARCHITECTURE.md's module-table rule; ARCHITECTURE.md §Drag sessions' bisection cost on `bisect-stuck` (280 µs against 42 µs) is the C1 figure, not re-measured; the 498-entity rectangle DogLeg edit touched 4.155 ms in one sample (median 2.97)
 - Python tests: `test_profile.py` repeats `test_c3.py`'s `blessed`/expected-coordinates helpers and the 3x3 slot-grid digest test; share them. `test_profile_extremes.py` checks the 1e-300 area as a range, not bits against Rust; `test_c3.py` checks the net area against `1e-9 * width * height`, not `net`
 - Python `Profile.holes`, `Loop.edges` and `Branched.edges/joins` have no empty default in their constructors (only `Profiles` and `Loop.joins` do)
+- The C4 intersection corpus runs only at its own scale (about 1–10); run each fixture scaled to 1e-6 and 1e6 and shifted far from the origin, as the kernel and property tests do (m12 review)
+- Join classes live in `profile::topology` and are used by the solver's contact recognizer and by `intersect`: move them next to `frame.rs` so a topology change cannot move contact recognition (m12 review)
+- `System::new` builds the join classes on every call (each drag frame, each diagnose rebuild): re-run ADR-0011's frame-budget bench to measure it (m12 review)
 
 ## Findings
 

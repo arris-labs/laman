@@ -264,9 +264,11 @@ changes the sketch keeps a geometry bug from being mistaken for an edit bug.
   reproduces every number. Extraction and intersections at 500 entities
   stay inside ADR-0014's stop rule.
 
-*Proposed at the close of C3 and revised before planning: edits move to
-C5, which needs these intersections and branched profiles; mirror and
-offset wait for a consumer. Theme and in/out split are the human's call.*
+*Confirmed by the human with `/plan C4`: edits move to C5, which needs these
+intersections and branched profiles; mirror and offset wait for a consumer.
+Landed so far: M12 (the tangent double root through join classes, ADR-0015;
+`intersect::intersections`, ADR-0016). Next: M13, branched profiles; then
+M14, the checker's measure, the digest, the 500-entity cost and `laman-py`.*
 
 ## Later cycles, one line each, unordered
 

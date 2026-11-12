@@ -655,6 +655,38 @@ ProfileError>` reads any coordinates, a solution's included, and takes no
   `Traversal`, `Branched` and `Unjoined` live in `model::profile` so that
   the checker may name them under the layer rule.
 
+## Intersections
+
+`laman::intersect::intersections(&Sketch, &Coordinates) ->
+Result<Intersections, IntersectError>` reads any coordinates and measures
+where two curves meet without a shared point or a declared join. It changes
+nothing: an intersection joins nothing ([ADR-0012](adr/0012-profiles-join-by-declaration.md),
+[ADR-0016](adr/0016-intersections-are-measured-classified-never-joined.md)).
+
+- **Pairs.** Non-construction lines, arcs and circles, each unordered pair
+  once, the smaller id first. A crossing or touch within the length
+  tolerance of an end the two share by id or by join class is that join and
+  is not reported; an overlap never is. An end lying on another curve is a
+  crossing or a touch like any other, its parameter 0 or 1.
+- **Kernel.** `intersect::kernel` measures one pair in a frame translated
+  to the first curve's origin and scaled by an exact power of two (the frame
+  of profile extraction, `frame.rs`), so nothing overflows near 1e±300 and a
+  small pair far from the origin keeps its digits. It classifies a meeting
+  as a crossing (simple root), a touch (tangent within the tolerance, one
+  point) or an overlap (a shared stretch longer than the tolerance, by its
+  two ends). An arc is its circle's meetings whose angle lies in the sweep
+  widened by the tolerance over the radius. The tolerance is the smaller of
+  the two curves' `Tolerances::at`, so at 1e-300 `intersections()` classifies
+  at ADR-0003's floor and promises finite output only; the kernel takes the
+  tolerance as an input and holds its closed forms there.
+- **Order.** Each meeting carries its parameter on both curves; a pair's
+  meetings are ordered by the first's, and `Intersections::along` gives the
+  order on one curve.
+- **Types** sit in `model::intersection` so the checker can name them.
+- **Refused**, as `IntersectError::Missing` or `NonFinite` naming the
+  entity, only when the coordinates lack or hold a non-finite coordinate of
+  a point or circle a curve uses.
+
 ## The checker
 
 `laman_check::check(&Sketch, &Coordinates) -> Report`. For every

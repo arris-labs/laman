@@ -137,6 +137,26 @@ are declared, never measured (ADR-0012).
   only when the coordinates lack, or hold a non-finite, coordinate of a
   point or circle an edge uses.
 
+## Intersections
+
+The result of `intersect::intersections` over a sketch and coordinates;
+meetings are measured, never declared (ADR-0016).
+
+- `Intersections { pairs }`, each `Intersection { first, second, meetings }`
+  naming the caller's ids, smaller first, ordered by first then second;
+  `meetings` is never empty.
+- `Meeting { kind, at, on_first, on_second }`. `kind` is `Crossing`,
+  `Touch` or `Overlap { to, to_first, to_second }`, an overlap's `at` and
+  `to` being its two ends.
+- Parameters: a line's `t` in [0, 1] from `a`; an arc's fraction of its
+  sweep from its start, in [0, 1]; a circle's angle from +x over 2π, in
+  [0, 1). An overlap's second parameter runs downward when two lines point
+  opposite ways, and past 1 on a circle whose stretch crosses angle 0.
+- `Intersections::along(id)` lists `Along { other, meeting }` on one curve,
+  each meeting turned so that curve is its first, in order of parameter.
+- Construction entities never meet; a pair that meets only at a declared
+  join is absent.
+
 ## Diagnostics
 
 The diagnostics use `J`, the Jacobian of required equations after

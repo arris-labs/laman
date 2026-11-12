@@ -41,9 +41,11 @@ open ends with declared joins (ADR-0012); `laman_check::check_profiles`
 measures by sectors (ADR-0013); extraction at 500 entities inside 1.5 ms
 (ADR-0014); profiles and their check in Python, 31 digests equal natively
 and on wasm32.
-**Next:** C4 (shared edges and crossings: branched profiles, intersections,
-the tangent-contact drift), proposed in `docs/ROADMAP.md` for the human to
-confirm; edits follow as C5.
+**C4 under way** (shared edges and crossings): M12 landed — a tangent
+contact joined by `coincident` solves to the coordinate tolerance
+(ADR-0015), and `laman::intersect::intersections` reports crossings,
+touches and overlaps (ADR-0016). **Next:** M13, branched profiles; M14, the
+checker's measure, digest and Python; edits follow as C5.
 
 ## Rules that are not derivable from the code
 
