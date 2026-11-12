@@ -451,7 +451,8 @@ enum PointKind {
 #[derive(Clone, Copy, Debug)]
 enum Raw {
     Point(PointKind, [f64; 2]),
-    /// A shared stretch of two lines, by its two ends.
+    /// A shared stretch of two lines or of two arcs of one circle, by its
+    /// two ends in the frame.
     Stretch([f64; 2], [f64; 2]),
     /// Two coincident circles, from the first's point at angle 0.
     Round([f64; 2]),
@@ -596,35 +597,20 @@ fn round_round(first: &Local, second: &Local, k: &Circle, n: &Circle, lt: f64) -
 /// The sweeps of two concentric arcs of one radius, shared: `b`'s sweep
 /// starts `beta` counter-clockwise of `a`'s, and again a turn earlier, so
 /// each copy is clipped to `a`'s. A stretch longer than `lt` is an overlap
-/// between the ends that clip it, one of `lt` or less a touch at its middle.
+/// between the ends that clip it (placed as D4 asks), one of `lt` or less a touch at its middle.
 fn arc_arc(a: &Arc, b: &Arc, lt: f64) -> Vec<Raw> {
     let (us, ub) = (sub(a.s, a.k.c), sub(b.s, b.k.c));
     let t = libm::atan2(cross(us, ub), dot(us, ub));
     let beta = if t < 0.0 { t + TAU } else { t };
-    let frac = |x: f64, sweep: f64| {
-        if sweep > 0.0 {
-            (x / sweep).clamp(0.0, 1.0)
-        } else {
-            0.0
-        }
-    };
     let mut out = Vec::new();
     for k in [beta, beta - TAU] {
         let (lo, hi) = (k.max(0.0), (k + b.sweep).min(a.sweep));
         let shared = a.k.r * (hi - lo);
         if shared > lt {
-            let at = if k > 0.0 { b.ends[0] } else { a.ends[0] };
-            let to = if k + b.sweep < a.sweep {
-                b.ends[1]
-            } else {
-                a.ends[1]
-            };
-            out.push(Raw::Span {
-                at,
-                to,
-                first: [frac(lo, a.sweep), frac(hi, a.sweep)],
-                second: [frac(lo - k, b.sweep), frac(hi - k, b.sweep)],
-            });
+            // The ends go through `place`, so D4's snap holds: an end of
+            // either arc within `lt` of one of these takes it, the first's
+            // before the second's, with parameter exactly 0 or 1.
+            out.push(Raw::Stretch(a.at(lo), a.at(hi)));
         } else if shared >= -lt {
             out.push(Raw::Point(PointKind::Touch, a.at((lo + hi) / 2.0)));
         }

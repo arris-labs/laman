@@ -763,6 +763,74 @@ fn arc_ends(k: &Curve) -> [[f64; 2]; 2] {
 }
 
 #[test]
+fn arc_overlap_ends_within_the_tolerance_snap_like_lines() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        // Half a tolerance of arc, as an angle on the radius-5 construction.
+        let w = 0.5 * REL / 5.0;
+        let near = |angle: f64| [5.0 * libm::cos(angle), 5.0 * libm::sin(angle)];
+        // The second starts half a tolerance after the first's start and both
+        // end at N: the stretch starts at the first's start, parameters 0.
+        let a = c.arc(o, E, N);
+        let b = c.arc(o, near(w), W);
+        let (ea, eb) = (arc_ends(&a), arc_ends(&b));
+        let sb = ccw(o, near(w), W);
+        let got = meet(&a, &b, c.tol());
+        assert_eq!(got.len(), 1, "{c:?}");
+        assert_eq!(
+            (got[0].at, got[0].on_first, got[0].on_second),
+            (ea[0], 0.0, 0.0),
+            "{c:?}"
+        );
+        let Kind::Overlap {
+            to,
+            to_first,
+            to_second,
+        } = got[0].kind
+        else {
+            panic!("{c:?}: not an overlap");
+        };
+        assert_eq!((to, to_first), (ea[1], 1.0), "{c:?}");
+        assert!((to_second - ccw(o, near(w), N) / sb).abs() < ACC, "{c:?}");
+        // The other order: the first is now the one whose start is ahead.
+        let got = meet(&b, &a, c.tol());
+        assert_eq!(got.len(), 1, "{c:?}");
+        assert_eq!(
+            (got[0].at, got[0].on_first, got[0].on_second),
+            (eb[0], 0.0, 0.0),
+            "{c:?}"
+        );
+        // The second ends half a tolerance short of the first's end, the
+        // overlap's end is the first's end in both orders.
+        let a = c.arc(o, S, N);
+        let b = c.arc(o, E, near(std::f64::consts::FRAC_PI_2 - w));
+        let (ea, eb) = (arc_ends(&a), arc_ends(&b));
+        let got = meet(&a, &b, c.tol());
+        assert_eq!(got.len(), 1, "{c:?}");
+        let Kind::Overlap {
+            to,
+            to_first,
+            to_second,
+        } = got[0].kind
+        else {
+            panic!("{c:?}: not an overlap");
+        };
+        assert_eq!((to, to_first, to_second), (ea[1], 1.0, 1.0), "{c:?}");
+        let got = meet(&b, &a, c.tol());
+        assert_eq!(got.len(), 1, "{c:?}");
+        let Kind::Overlap {
+            to,
+            to_first,
+            to_second,
+        } = got[0].kind
+        else {
+            panic!("{c:?}: not an overlap");
+        };
+        assert_eq!((to, to_first, to_second), (eb[1], 1.0, 1.0), "{c:?}");
+    }
+}
+
+#[test]
 fn a_circle_and_an_arc_of_it_overlap_along_the_arc() {
     for c in cases() {
         let o = [0.0, 0.0];
