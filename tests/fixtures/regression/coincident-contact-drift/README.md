@@ -18,3 +18,7 @@ coordinate tolerance), by a stop or a last step that does not leave a double
 root at the square root of the residual. `c3/slotted-plate-coincident` holds
 the profiles and DoF of the same sketch and skips the solved coordinates
 until this is fixed.
+
+Fixed by ADR-0015: a line end joined by `coincident` to an arc end is
+recognized as a contact and regularized as a shared point is; both
+algorithms now end within the default coordinate tolerance, checker-clean.

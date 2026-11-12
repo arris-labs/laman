@@ -6,6 +6,13 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+- A line tangent to a circle or arc whose end is joined to the arc's end,
+  or to a point on the circle, by `coincident` (rather than sharing the
+  point) now solves as accurately as a shared point does: the contact point
+  lands within the coordinate tolerance instead of up to about 1e-5 off
+  along the circle. Such sketches solve to slightly different coordinates
+  than before.
+
 ## 0.3.0 — 2026-11-08
 
 - `laman::profile::profiles` turns a sketch and any coordinates, a

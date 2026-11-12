@@ -55,12 +55,26 @@ pub(crate) struct Topology {
 
 /// Union-find over ids that names each class by its smallest id.
 #[derive(Default)]
-struct Classes {
+pub(crate) struct Classes {
     parent: BTreeMap<EntityId, EntityId>,
 }
 
 impl Classes {
-    fn find(&mut self, x: EntityId) -> EntityId {
+    /// The join classes of `sketch`'s points: union-find over its
+    /// `coincident` constraints (ADR-0012 D1). A point no `coincident`
+    /// names is a class by itself.
+    pub(crate) fn of(sketch: &Sketch) -> Self {
+        let mut classes = Self::default();
+        for (_, c) in sketch.constraints() {
+            if let Constraint::Coincident { p, q } = c {
+                classes.union(p.id(), q.id());
+            }
+        }
+        classes
+    }
+
+    /// The class of `x`, named by its smallest id.
+    pub(crate) fn find(&mut self, x: EntityId) -> EntityId {
         let mut root = x;
         while let Some(&p) = self.parent.get(&root) {
             root = p;
@@ -92,12 +106,7 @@ struct Edge {
 
 /// The topology of `sketch`'s non-construction edges.
 pub(crate) fn topology(sketch: &Sketch) -> Topology {
-    let mut classes = Classes::default();
-    for (_, c) in sketch.constraints() {
-        if let Constraint::Coincident { p, q } = c {
-            classes.union(p.id(), q.id());
-        }
-    }
+    let mut classes = Classes::of(sketch);
 
     let mut out = Topology::default();
     let mut edges: Vec<Edge> = Vec::new();

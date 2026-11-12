@@ -402,16 +402,24 @@ fn framework_conflict_inconclusive_circuit() {
 }
 
 #[test]
-#[ignore = "coincident tangent contacts solve to 3e-5 where a shared point solves to 1e-11"]
 fn coincident_contact_drift() {
+    // ADR-0015: a contact joined by `coincident` is regularized as a shared
+    // point is, so neither algorithm leaves it at the double root's
+    // square-root distance.
     let f = load("coincident-contact-drift");
-    let solution = f.sketch.solve(&SolverOptions::default());
-    assert_eq!(solution.status, Status::FullyConstrained);
-    for (key, want) in &f.expected.coordinates {
-        let got = solution.coordinates[key];
-        assert!(
-            (got - want).abs() <= f.expected.tolerance,
-            "{key:?}: {got} vs {want}"
-        );
+    for algorithm in [Algorithm::LevenbergMarquardt, Algorithm::DogLeg] {
+        let mut options = SolverOptions::default();
+        options.algorithm = algorithm;
+        let solution = f.sketch.solve(&options);
+        assert_eq!(solution.status, Status::FullyConstrained, "{algorithm:?}");
+        for (key, want) in &f.expected.coordinates {
+            let got = solution.coordinates[key];
+            assert!(
+                (got - want).abs() <= f.expected.tolerance,
+                "{algorithm:?} {key:?}: {got} vs {want}"
+            );
+        }
+        let report = check(&f.sketch, &solution.coordinates);
+        assert!(report.violations.is_empty(), "{algorithm:?}: {report:?}");
     }
 }

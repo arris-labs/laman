@@ -5,7 +5,7 @@
 //! orientation and nesting, through the geometry kernel in `geometry`.
 
 mod geometry;
-mod topology;
+pub(crate) mod topology;
 
 use crate::model::profile::{Loop, Profile, Profiles, Traversal, Unjoined};
 use crate::model::tolerance::Tolerances;

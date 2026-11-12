@@ -215,7 +215,9 @@ allowed to first order only.
 **Contact regularization**:
 Replacing a structurally recognized tangent equation by perpendicular
 radius contact, retaining membership, sense and source provenance
-(ADR-0002). It recovers geometric freedom for C1 contacts.
+(ADR-0002). It recovers geometric freedom for C1 contacts. A contact is
+recognized by shared id, or through a join class: a line end joined by
+`coincident` to the round's member point (ADR-0015).
 
 **Component scale**:
 The translation-independent extent of one structural component, including

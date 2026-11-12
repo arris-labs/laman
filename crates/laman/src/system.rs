@@ -1,4 +1,5 @@
-//! Ordered structural compilation and contact provenance (ADR-0002/0003).
+//! Ordered structural compilation and contact provenance (ADR-0002/0003),
+//! contacts recognized through join classes (ADR-0015).
 // Internal until the solve API lands in M2 step 7.
 #![allow(dead_code)]
 
@@ -17,7 +18,11 @@ pub(crate) enum Membership {
 
 #[derive(Clone, Debug)]
 pub(crate) struct Contact {
+    /// The line's end at the contact.
     pub point: Point,
+    /// The point whose membership of the round holds: `point` itself
+    /// (ADR-0002), or a point in its join class (ADR-0015).
+    pub member: Point,
     pub centre: Point,
     pub a: Point,
     pub b: Point,
@@ -107,12 +112,13 @@ impl<'a> System<'a> {
             }
         }
         // Each point's first explicit membership of each round, read once.
-        let mut on_round: BTreeMap<(EntityId, EntityId), ConstraintId> = BTreeMap::new();
+        let mut on_round: OnRound = BTreeMap::new();
         for (id, c) in sketch.constraints() {
             if let Constraint::PointOnCircle { p, on } = c {
-                on_round.entry((p.id(), on.id())).or_insert(id);
+                on_round.entry((p.id(), on.id())).or_insert((id, *p));
             }
         }
+        let joins = Joins::of(sketch);
         for (id, c) in sketch.constraints() {
             let count = match c {
                 Constraint::Coincident { .. }
@@ -138,7 +144,7 @@ impl<'a> System<'a> {
                 equations.push(Equation {
                     source: Source::Constraint(id),
                     index,
-                    contact: recognize(sketch, c, &on_round),
+                    contact: recognize(sketch, c, &on_round, &joins),
                 });
             }
         }
@@ -363,47 +369,109 @@ impl<'a> System<'a> {
     }
 }
 
-/// A tangency's contact, its point found among the line's ends: an arc's
-/// own end, else a point with an explicit membership of the round, the
-/// first in constraint order (`on_round`).
-fn recognize(
-    sk: &Sketch,
-    c: &Constraint,
-    on_round: &BTreeMap<(EntityId, EntityId), ConstraintId>,
-) -> Option<Contact> {
+/// Each point's first explicit membership of each round, by (point, round):
+/// the constraint and the point.
+type OnRound = BTreeMap<(EntityId, EntityId), (ConstraintId, Point)>;
+
+/// The join classes of the points `coincident` names (ADR-0012 D1), each
+/// class its point ids ascending; a point no `coincident` names is alone.
+struct Joins {
+    class: BTreeMap<EntityId, EntityId>,
+    members: BTreeMap<EntityId, Vec<EntityId>>,
+}
+
+impl Joins {
+    fn of(sketch: &Sketch) -> Self {
+        let mut classes = crate::profile::topology::Classes::of(sketch);
+        let mut joins = Self {
+            class: BTreeMap::new(),
+            members: BTreeMap::new(),
+        };
+        for (_, c) in sketch.constraints() {
+            if let Constraint::Coincident { p, q } = c {
+                for id in [p.id(), q.id()] {
+                    let root = classes.find(id);
+                    joins.class.insert(id, root);
+                }
+            }
+        }
+        for (&id, &root) in &joins.class {
+            joins.members.entry(root).or_default().push(id);
+        }
+        joins
+    }
+
+    /// The other points joined to `id`, ascending.
+    fn others(&self, id: EntityId) -> impl Iterator<Item = EntityId> + '_ {
+        self.class
+            .get(&id)
+            .and_then(|root| self.members.get(root))
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(move |m| *m != id)
+    }
+}
+
+/// A tangency's contact, its point found among the line's ends. First by
+/// shared id (ADR-0002): an end that is the arc's own end, else an end with
+/// an explicit membership of the round, the first in constraint order
+/// (`on_round`), the lower end id first. Failing that, through join classes
+/// (ADR-0015): an end joined by `coincident` to the arc's start, else to its
+/// end, else to a point with an explicit membership, the lowest constraint
+/// id; the lower end id first.
+fn recognize(sk: &Sketch, c: &Constraint, on_round: &OnRound, joins: &Joins) -> Option<Contact> {
     let Constraint::TangentLineCircle { line, round, sense } = *c else {
         return None;
     };
     let Entity::Line { a, b } = *sk.entity(line.id())? else {
         return None;
     };
-    let centre = match *sk.entity(round.id())? {
-        Entity::Circle { c, .. } | Entity::Arc { c, .. } => c,
+    let (centre, arc_ends) = match *sk.entity(round.id())? {
+        Entity::Circle { c, .. } => (c, None),
+        Entity::Arc { c, s, e } => (c, Some((s, e))),
         Entity::Point { .. } | Entity::Line { .. } => return None,
+    };
+    let contact = |point: Point, member: Point, membership: Membership| Contact {
+        point,
+        member,
+        centre,
+        a,
+        b,
+        membership,
+        sense: sense.sign(),
     };
     let mut ends = [a, b];
     ends.sort_by_key(|p| p.id());
     for point in ends {
-        let implicit = match *sk.entity(round.id())? {
-            Entity::Arc { s, .. } if point == s => Some(Membership::ArcStart(round.id())),
-            Entity::Arc { e, .. } if point == e => Some(Membership::ArcEnd(round.id())),
-            Entity::Point { .. }
-            | Entity::Line { .. }
-            | Entity::Circle { .. }
-            | Entity::Arc { .. } => None,
+        let implicit = match arc_ends {
+            Some((s, _)) if point == s => Some(Membership::ArcStart(round.id())),
+            Some((_, e)) if point == e => Some(Membership::ArcEnd(round.id())),
+            Some(_) | None => None,
         };
         let explicit = on_round
             .get(&(point.id(), round.id()))
-            .map(|id| Membership::Explicit(*id));
+            .map(|(id, _)| Membership::Explicit(*id));
         if let Some(membership) = implicit.or(explicit) {
-            return Some(Contact {
-                point,
-                centre,
-                a,
-                b,
-                membership,
-                sense: sense.sign(),
-            });
+            return Some(contact(point, point, membership));
+        }
+    }
+    for point in ends {
+        let joined = |q: Point| joins.others(point.id()).any(|m| m == q.id());
+        if let Some((s, e)) = arc_ends {
+            if joined(s) {
+                return Some(contact(point, s, Membership::ArcStart(round.id())));
+            }
+            if joined(e) {
+                return Some(contact(point, e, Membership::ArcEnd(round.id())));
+            }
+        }
+        let explicit = joins
+            .others(point.id())
+            .filter_map(|m| on_round.get(&(m, round.id())))
+            .min_by_key(|(id, _)| *id);
+        if let Some(&(id, member)) = explicit {
+            return Some(contact(point, member, Membership::Explicit(id)));
         }
     }
     None
@@ -574,5 +642,101 @@ mod tests {
                 assert!((fd - gradient).abs() < AGREEMENT);
             }
         }
+    }
+
+    #[test]
+    fn contacts_through_join_classes_and_their_gradient() {
+        use crate::model::Round;
+        // ADR-0015: the line's end `p` is not the round's point; a
+        // `coincident` joins it to the arc's start, the arc's end, or a point
+        // with an explicit membership. The contact is recognized through the
+        // join, its point the line's end and its member the joined point.
+        for (case, scale) in [0, 1, 2]
+            .into_iter()
+            .flat_map(|k| [1e-6, 1.0, 1e3].map(|s| (k, s)))
+        {
+            let mut sk = Sketch::new();
+            let at = |x: f64, y: f64| (x * scale, y * scale);
+            let (x, y) = at(0.0, 1.0);
+            let c = sk.point(x, y).unwrap();
+            // The line's end, a little off the joined point, so the
+            // gradient is read away from the solution.
+            let (x, y) = at(0.03, -0.02);
+            let p = sk.point(x, y).unwrap();
+            let (x, y) = at(0.0, 0.0);
+            let member = sk.point(x, y).unwrap();
+            let (x, y) = at(0.0, 2.0);
+            let other = sk.point(x, y).unwrap();
+            let (x, y) = at(2.0, 0.1);
+            let q = sk.point(x, y).unwrap();
+            let (round, membership) = match case {
+                0 => {
+                    let arc = sk.arc(c, member, other).unwrap();
+                    (Round::from(arc), Membership::ArcStart(arc.id()))
+                }
+                1 => {
+                    let arc = sk.arc(c, other, member).unwrap();
+                    (Round::from(arc), Membership::ArcEnd(arc.id()))
+                }
+                _ => {
+                    let circle = sk.circle(c, scale).unwrap();
+                    let on = sk.point_on_circle(member, circle).unwrap();
+                    (Round::from(circle), Membership::Explicit(on))
+                }
+            };
+            let line = sk.line(q, p).unwrap();
+            let join = sk.coincident(p, member).unwrap();
+            sk.tangent_line_circle(line, round).unwrap();
+            let sys = System::new(&sk);
+            let contact = sys.equations.last().unwrap().contact.clone().unwrap();
+            assert_eq!(contact.membership, membership, "case {case}");
+            assert_eq!((contact.point, contact.member), (p, member), "case {case}");
+
+            let values = sk.coordinates();
+            let floor = tolerance::LENGTH_FLOOR * scale;
+            let (_, g, valid) = contact.evaluate(&values, floor);
+            assert!(valid, "case {case} at {scale}");
+            // Central finite differences, each coordinate perturbed alone,
+            // the step and the agreement relative to the scale (h has
+            // length units, its gradient none).
+            let step = 1e-5 * scale;
+            const AGREEMENT: f64 = 1e-8;
+            for (key, gradient) in g {
+                let mut plus = values.clone();
+                let mut minus = values.clone();
+                *plus.get_mut(&key).unwrap() += step;
+                *minus.get_mut(&key).unwrap() -= step;
+                let fd = (contact.evaluate(&plus, floor).0 - contact.evaluate(&minus, floor).0)
+                    / (2.0 * step);
+                assert!(
+                    (fd - gradient).abs() < AGREEMENT,
+                    "case {case} at {scale}, {key:?}: {fd} vs {gradient}"
+                );
+            }
+
+            // Without the join there is no contact.
+            sk.remove_constraint(join).unwrap();
+            assert!(System::new(&sk).equations.last().unwrap().contact.is_none());
+        }
+    }
+
+    #[test]
+    fn a_shared_id_is_preferred_to_a_join() {
+        // The line's higher end is the arc's own start; its lower end is
+        // joined to the arc's end. ADR-0002's shared id wins, as before
+        // ADR-0015, so no sketch that had a contact changes it.
+        let mut sk = Sketch::new();
+        let c = sk.point(0.0, 1.0).unwrap();
+        let low = sk.point(5.0, 0.0).unwrap();
+        let e = sk.point(1.0, 1.0).unwrap();
+        let s = sk.point(0.0, 0.0).unwrap();
+        let arc = sk.arc(c, s, e).unwrap();
+        let line = sk.line(low, s).unwrap();
+        sk.coincident(low, e).unwrap();
+        sk.tangent_line_circle(line, arc).unwrap();
+        let sys = System::new(&sk);
+        let contact = sys.equations.last().unwrap().contact.clone().unwrap();
+        assert_eq!(contact.membership, Membership::ArcStart(arc.id()));
+        assert_eq!((contact.point, contact.member), (s, s));
     }
 }

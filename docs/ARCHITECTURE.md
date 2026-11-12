@@ -290,6 +290,11 @@ remains available for compatibility; it no longer controls checker acceptance.
 
 A structurally shared tangent contact uses the perpendicular radius
 equation, retaining membership, original sense and source provenance.
+A contact is recognized by shared id first, then through join classes: a
+line end joined by `coincident` to the arc's end or to a point with an
+explicit membership is a contact too, its membership carried by the join
+([ADR-0015](adr/0015-contacts-are-recognized-through-join-classes.md)), so a
+coincident contact solves to the coordinate tolerance as a shared one does.
 Both solve and diagnostics use this regularized system; the independent
 checker measures the original geometry. This recovers geometric DoF at
 C1 contacts where original Jacobian nullity overcounts it. Unsupported
