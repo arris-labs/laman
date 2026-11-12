@@ -6,11 +6,11 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
-- A line tangent to a circle or arc whose end is joined to the arc's end,
-  or to a point on the circle, by `coincident` (rather than sharing the
-  point) now solves as accurately as a shared point does: the contact point
-  lands within the coordinate tolerance instead of up to about 1e-5 off
-  along the circle. Such sketches solve to slightly different coordinates
+- A line tangent to a circle or arc whose end is joined by `coincident` to
+  the arc's start or end, or to a point with an explicit `point_on_circle`
+  on the circle (rather than sharing the point) now solves as accurately
+  as a shared point does: the contact point lands within the coordinate
+  tolerance instead of up to about 1e-5 off along the circle. Such sketches solve to slightly different coordinates
   than before.
 - `laman::intersect::intersections` reports where lines, arcs and circles
   meet without sharing a point or a `coincident` join: each pair by its two
