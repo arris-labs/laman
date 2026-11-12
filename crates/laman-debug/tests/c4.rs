@@ -7,7 +7,7 @@
 
 use laman::intersect::intersections;
 use laman::model::intersection::MeetingKind;
-use laman::model::{Coordinates, Sketch};
+use laman::model::{Coordinate, Coordinates, Sketch};
 use laman::solution::{SolverOptions, Status};
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
@@ -131,4 +131,54 @@ fn the_acceptance_numbers() {
     assert!(found("arc-outside-sweep").pairs.is_empty());
     assert_eq!(kinds("t-end-on-line"), [[MeetingKind::Crossing]]);
     assert_eq!(kinds("arc-crosses-line"), [[MeetingKind::Crossing]]);
+}
+
+/// A solved `tangent` is a join, not a meeting (ADR-0016 D5): the slot's
+/// lines meet its arcs only at the shared or coincident-joined ends, so a
+/// plate whose tangents are all solved reports no pair at all. Both ways of
+/// joining are held, from the C3 plates.
+#[test]
+fn a_solved_slot_plate_reports_no_intersection() {
+    for name in ["slotted-plate", "slotted-plate-coincident"] {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/c3")
+            .join(name);
+        let fixture = Fixture::load(&path).unwrap();
+        let solved = solve_run(&fixture, &SolverOptions::default());
+        assert_eq!(solved.solution.status, Status::FullyConstrained, "{name}");
+        let found = intersections(&fixture.sketch, &solved.solution.coordinates).unwrap();
+        assert!(found.pairs.is_empty(), "{name}: {:#?}", found.pairs);
+    }
+}
+
+/// A solved `tangent` with no join is exactly one touch, never two
+/// crossings or none; the same line 1e-3 inside the circle is the control
+/// that the measurement can tell the two apart.
+#[test]
+fn a_solved_free_tangent_is_one_touch_and_a_nudge_makes_two_crossings() {
+    let mut sk = Sketch::new();
+    let a = sk.point_fixed(-3.0, 0.0).unwrap();
+    let b = sk.point_fixed(3.0, 0.0).unwrap();
+    let c = sk.point(0.4, 2.3).unwrap();
+    let line = sk.line(a, b).unwrap();
+    let circle = sk.circle(c, 2.0).unwrap();
+    sk.tangent_line_circle(line, circle).unwrap();
+    let solved = sk.solve(&SolverOptions::default());
+    assert_ne!(solved.status, Status::Unsatisfiable);
+    let found = intersections(&sk, &solved.coordinates).unwrap();
+    assert_eq!(found.pairs.len(), 1);
+    assert_eq!(found.pairs[0].meetings.len(), 1);
+    let m = found.pairs[0].meetings[0];
+    assert_eq!(m.kind, MeetingKind::Touch);
+    assert!(
+        (m.at[1]).abs() < 1e-6 && (m.at[0] - 0.4).abs() < 1e-6,
+        "{m:?}"
+    );
+    // The centre 1e-3 nearer the line: the line now cuts the circle twice.
+    let mut moved = solved.coordinates.clone();
+    let cy = (c.id(), Coordinate::Y);
+    moved.insert(cy, moved[&cy] - 1e-3);
+    let found = intersections(&sk, &moved).unwrap();
+    let kinds: Vec<_> = found.pairs[0].meetings.iter().map(|m| m.kind).collect();
+    assert_eq!(kinds, [MeetingKind::Crossing, MeetingKind::Crossing]);
 }
