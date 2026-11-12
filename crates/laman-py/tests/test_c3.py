@@ -33,9 +33,6 @@ NAMES = [
     "unjoined",
 ]
 ALGORITHMS = {"lm": Algorithm.LevenbergMarquardt, "dogleg": Algorithm.DogLeg}
-# Its solved coordinates are not compared: the closed-form ones are held at
-# the default tolerance by `regression/` (`coincident-contact-drift`).
-UNCOMPARED = ["slotted-plate-coincident"]
 # An area expectation that names no tolerance, relative to max(1, |value|)
 # (laman_debug::fixture::AREA_TOLERANCE; a copy, as test_c1's is).
 AREA_TOLERANCE = 1e-9
@@ -136,10 +133,9 @@ def test_solving_gives_the_expected_profiles(name: str, label: str) -> None:
     solution = fx.sketch.solve(SolverOptions(algorithm=ALGORITHMS[label]))
     assert solution.status is Status[fx.expected["status"]]
     assert solution.diagnostics.dof == fx.expected["dof"]
-    if name not in UNCOMPARED:
-        for key, want in fx.expected_coordinates().items():
-            got = solution.coordinates[key]
-            assert abs(got - want) <= float(fx.expected.get("tolerance", DEFAULT_TOLERANCE)), (name, key)
+    for key, want in fx.expected_coordinates().items():
+        got = solution.coordinates[key]
+        assert abs(got - want) <= float(fx.expected.get("tolerance", DEFAULT_TOLERANCE)), (name, key)
 
     run = check(fx.sketch, solution.coordinates)
     assert run.is_clean(), run

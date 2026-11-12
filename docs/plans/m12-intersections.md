@@ -97,7 +97,7 @@ an algorithm whose robustness or bound is established here.
   `inspect`, decide recognition through join classes or the last step,
   ADR-0015, implement it with a finite-difference test of the new contact
   gradient, lift the ignore.
-- [ ] Step 2 **[2]** — `c3/slotted-plate-coincident` checks its solved
+- [x] Step 2 **[2]** — `c3/slotted-plate-coincident` checks its solved
   coordinates at the shared-point plate's accuracy. Re-run every digest;
   any that moves is re-blessed in its own `fixtures:` commit saying why.
   *Settled* in step 1: the gate fails on a moved digest, so its two solved
