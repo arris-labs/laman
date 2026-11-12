@@ -22,6 +22,8 @@
 mod branch;
 mod diagnose;
 pub mod drag;
+mod frame;
+mod intersect;
 pub mod model;
 pub mod profile;
 #[cfg(feature = "reference")]

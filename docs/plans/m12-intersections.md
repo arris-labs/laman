@@ -113,12 +113,18 @@ an algorithm whose robustness or bound is established here.
   (wasm32 included) and adds the coordinate check.
 - [x] Step 3 **[3]** — ADR-0016 (D2), the end-on-edge case included.
   GLOSSARY: *Intersection* cites it; *Meeting* added if step 6 keeps it.
-- [ ] Step 4 **[3]** — The kernel: line–line, line–circle, circle–circle
+- [x] Step 4 **[3]** — The kernel: line–line, line–circle, circle–circle
   in the D2 frame, classified. Closed-form tests at scales 1e-6 to 1e6,
   translations to 1e4 times the scale, magnitudes near 1e±300, and pairs
-  near tangency on both sides of the tolerance.
-- [ ] Step 5 **[2]** — Arcs and overlaps: sweep bounds, parameters on both
-  edges, overlap stretches clipped to both lines or both sweeps.
+  near tangency on both sides of the tolerance. *Settled* here: the kernel
+  (`intersect/kernel.rs`) classifies a pair whole, so it already holds the
+  line–line overlap clipped to both lines, the coincident circles, the
+  parameters on lines and circles and D4's end snap; ADR-0012 D3's frame
+  moved to `crate::frame`, shared with the profile geometry. A line's root
+  counts when within `L` of the segment along it.
+- [ ] Step 5 **[2]** — Arcs: sweep bounds widened by `L/r`, an arc's
+  parameter and ends (D4), overlaps of arcs clipped to both sweeps (two
+  stretches possible).
 - [ ] Step 6 **[2]** — D3 types and `intersections()`: pairs, the join
   exclusion, `IntersectError`, `along`, rustdoc with runnable examples, a
   fuzz target, CHANGELOG `Unreleased` bullet.
