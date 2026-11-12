@@ -69,8 +69,10 @@ unjoined ends at one place are found by the same tests as an interior
 meeting, and C5's split treats them alike. On the curve whose end it is,
 the meeting's parameter is that end's (0 or 1), and its point is that
 end's point, the caller's own; when both curves have an end there, the
-first curve's. Two collinear lines meeting end to end without a join are
-thus a touch, two lines forming an unjoined corner a crossing (also
+first curve's. A line's root counts when it lies within `L` of the
+segment along its carrier, so a meeting just past an end is that end's (an
+arc's, D6, within `L / r` of its sweep). Two collinear lines meeting end to
+end without a join are thus a touch, two lines forming an unjoined corner a crossing (also
 reported as an unjoined pair under ADR-0012 D4).
 
 **D5. Joins exclude.** A meeting within `L` of an end the two curves share,

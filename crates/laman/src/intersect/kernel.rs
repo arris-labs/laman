@@ -1,5 +1,5 @@
-//! The meetings of one pair of curves (ADR-0016 D3, D4, D7, D8): lines and
-//! circles, each pair measured in its own frame and classified at a length
+//! The meetings of one pair of curves (ADR-0016 D3, D4, D6, D7, D8): lines,
+//! circles and arcs, each pair measured in its own frame and classified at a length
 //! tolerance the caller passes.
 //!
 //! A pair is measured in the frame of ADR-0012 D3 ([`Frame`]): translated
@@ -24,11 +24,22 @@
 //!   **overlap** all the way round when concentric (`d ≤ L`) with radii
 //!   within `L`.
 //!
-//! A line's root counts when it lies within `L` of the segment, along it.
-//! One within `L` of a line's end is at that end (ADR-0016 D4): its
-//! parameter 0 or 1, its point the caller's own end (the first curve's when
-//! both have an end there). A line no longer than `L`, or a circle whose
-//! radius is within it, meets nothing (D1).
+//! A line's root counts when it lies within `L` of the segment, along it;
+//! an arc is measured on its circle, and a root of the circle counts when
+//! its angle lies in the sweep widened at each end by `L / r` (a widened
+//! sweep of a full turn is the whole circle, D6). One within `L` of a line's
+//! or an arc's end is at that end (ADR-0016 D4): its parameter 0 or 1, its
+//! point the caller's own end (the first curve's when both have an end
+//! there). A line no longer than `L`, or a round whose radius is within it,
+//! meets nothing (D1).
+//!
+//! Two rounds with `d ≤ L` and radii within `L` share their sweeps' common
+//! part, by the same reading as two lines: a stretch longer than `L` is an
+//! **overlap**, one of `L` or less a **touch** at its middle, a gap beyond
+//! `L` nothing. Two arcs can share two stretches (each of their sweeps
+//! reaching round to the other's start). A circle and an arc share the whole
+//! arc: one stretch, its parameters on the circle running past 1 when it
+//! crosses angle 0.
 //!
 //! Square roots of differences are taken as products, `√((r − d)(r + d))`;
 //! angles through `libm::atan2`. Inputs are finite and `L ≥ 0`; the caller
@@ -44,6 +55,14 @@ pub(crate) enum Curve {
     Line { a: [f64; 2], b: [f64; 2] },
     /// A full circle.
     Circle { centre: [f64; 2], radius: f64 },
+    /// The counter-clockwise arc from `start` to `end` about `centre`, of
+    /// radius `|start − centre|` (ADR-0001); `end` only gives the direction
+    /// the sweep stops at.
+    Arc {
+        centre: [f64; 2],
+        start: [f64; 2],
+        end: [f64; 2],
+    },
 }
 
 /// How two curves meet (ADR-0016 D3).
@@ -69,8 +88,8 @@ pub(crate) struct Meeting {
     /// In the caller's coordinates; a curve's own end when the meeting is at
     /// one.
     pub at: [f64; 2],
-    /// A line's `t` in [0, 1] from `a`; a circle's angle from +x over 2π,
-    /// in [0, 1).
+    /// A line's `t` in [0, 1] from `a`; an arc's fraction of its sweep from
+    /// its start, in [0, 1]; a circle's angle from +x over 2π, in [0, 1).
     pub on_first: f64,
     pub on_second: f64,
 }
@@ -86,11 +105,22 @@ pub(crate) fn meet(first: &Curve, second: &Curve, length: f64) -> Vec<Meeting> {
     }
     let raws = match (&p, &q) {
         (Local::Line(l), Local::Line(m)) => line_line(l, m, lt),
-        (Local::Line(l), Local::Circle(k)) | (Local::Circle(k), Local::Line(l)) => {
-            line_circle(l, k, lt)
-        }
-        (Local::Circle(k), Local::Circle(n)) => circle_circle(k, n, lt),
+        (Local::Line(l), round) | (round, Local::Line(l)) => match round.circle() {
+            Some(k) => line_circle(l, k, lt),
+            None => Vec::new(),
+        },
+        (a, b) => match (a.circle(), b.circle()) {
+            (Some(k), Some(n)) => round_round(&p, &q, k, n, lt),
+            _ => Vec::new(),
+        },
     };
+    let raws: Vec<Raw> = raws
+        .into_iter()
+        .filter(|raw| match raw {
+            Raw::Point(_, at) => [&p, &q].iter().all(|c| c.holds(*at, lt)),
+            Raw::Stretch(..) | Raw::Round(_) | Raw::Span { .. } => true,
+        })
+        .collect();
     let mut meetings: Vec<Meeting> = raws
         .into_iter()
         .map(|raw| match raw {
@@ -127,6 +157,21 @@ pub(crate) fn meet(first: &Curve, second: &Curve, length: f64) -> Vec<Meeting> {
                     on_second,
                 }
             }
+            Raw::Span {
+                at,
+                to,
+                first,
+                second,
+            } => Meeting {
+                kind: Kind::Overlap {
+                    to,
+                    to_first: first[1],
+                    to_second: second[1],
+                },
+                at,
+                on_first: first[0],
+                on_second: second[0],
+            },
             Raw::Round(at) => {
                 let at = frame.caller(at);
                 Meeting {
@@ -162,11 +207,12 @@ fn frame(first: &Curve, second: &Curve) -> Frame {
                 points.push(centre);
                 radius = radius.max(r.abs());
             }
+            Curve::Arc { centre, start, end } => points.extend([centre, start, end]),
         }
     }
     let origin = match *first {
         Curve::Line { a, .. } => a,
-        Curve::Circle { centre, .. } => centre,
+        Curve::Circle { centre, .. } | Curve::Arc { centre, .. } => centre,
     };
     Frame::new(&points, origin, radius)
 }
@@ -230,10 +276,85 @@ impl Circle {
     }
 }
 
+/// An arc in the frame: its circle, its sweep from the start direction
+/// counter-clockwise, and the caller's ends kept for D4.
+#[derive(Clone, Copy, Debug)]
+struct Arc {
+    k: Circle,
+    /// The start and end in the frame.
+    s: [f64; 2],
+    e: [f64; 2],
+    /// In [0, 2π).
+    sweep: f64,
+    ends: [[f64; 2]; 2],
+}
+
+impl Arc {
+    /// The counter-clockwise angle from the start to `p`'s direction,
+    /// folded to the nearer side of the gap: in (−(2π − sweep)/2, …) behind
+    /// the start, past the end up to the middle of the gap.
+    fn delta(&self, p: [f64; 2]) -> f64 {
+        let (us, v) = (sub(self.s, self.k.c), sub(p, self.k.c));
+        let t = libm::atan2(cross(us, v), dot(us, v));
+        let t = if t < 0.0 { t + TAU } else { t };
+        let t = if t >= TAU { 0.0 } else { t };
+        if t > (self.sweep + TAU) / 2.0 {
+            t - TAU
+        } else {
+            t
+        }
+    }
+
+    /// Whether `p`'s direction is in the sweep widened by `lt / r` at each
+    /// end (ADR-0016 D6).
+    fn holds(&self, p: [f64; 2], lt: f64) -> bool {
+        let w = lt / self.k.r;
+        if self.sweep + 2.0 * w >= TAU {
+            return true;
+        }
+        let d = self.delta(p);
+        d >= -w && d <= self.sweep + w
+    }
+
+    /// The end (0 for the start, 1 for the end) within `lt` of `p` along the
+    /// arc.
+    fn end(&self, p: [f64; 2], lt: f64) -> Option<usize> {
+        let d = self.delta(p);
+        if d <= self.sweep / 2.0 {
+            (self.k.r * d <= lt).then_some(0)
+        } else {
+            (self.k.r * (self.sweep - d) <= lt).then_some(1)
+        }
+    }
+
+    /// `p`'s fraction of the sweep, in [0, 1].
+    fn fraction(&self, p: [f64; 2]) -> f64 {
+        if self.sweep > 0.0 {
+            (self.delta(p) / self.sweep).clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    }
+
+    /// The point at angle `psi` counter-clockwise from the start, at the
+    /// radius.
+    fn at(&self, psi: f64) -> [f64; 2] {
+        let us = sub(self.s, self.k.c);
+        let len = libm::hypot(us[0], us[1]);
+        let (c, s) = (libm::cos(psi), libm::sin(psi));
+        let u = [us[0] / len, us[1] / len];
+        [
+            self.k.c[0] + self.k.r * (c * u[0] - s * u[1]),
+            self.k.c[1] + self.k.r * (s * u[0] + c * u[1]),
+        ]
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum Local {
     Line(Line),
     Circle(Circle),
+    Arc(Arc),
 }
 
 impl Local {
@@ -254,6 +375,58 @@ impl Local {
                 c: frame.point(centre),
                 r: frame.length(radius),
             }),
+            Curve::Arc { centre, start, end } => {
+                let (c, s, e) = (frame.point(centre), frame.point(start), frame.point(end));
+                let (us, ue) = (sub(s, c), sub(e, c));
+                let t = libm::atan2(cross(us, ue), dot(us, ue));
+                let sweep = if t < 0.0 { t + TAU } else { t };
+                Local::Arc(Arc {
+                    k: Circle {
+                        c,
+                        r: libm::hypot(us[0], us[1]),
+                    },
+                    s,
+                    e,
+                    sweep: if sweep >= TAU { 0.0 } else { sweep },
+                    ends: [start, end],
+                })
+            }
+        }
+    }
+
+    /// The circle a round is measured on.
+    fn circle(&self) -> Option<&Circle> {
+        match self {
+            Local::Line(_) => None,
+            Local::Circle(k) => Some(k),
+            Local::Arc(a) => Some(&a.k),
+        }
+    }
+
+    /// Whether the frame point `p`, on the curve's carrier, is on the curve
+    /// (ADR-0016 D6; a line's was tested with its root).
+    fn holds(&self, p: [f64; 2], lt: f64) -> bool {
+        match self {
+            Local::Line(_) | Local::Circle(_) => true,
+            Local::Arc(a) => a.holds(p, lt),
+        }
+    }
+
+    /// The end (0 or 1) of a line or an arc within `lt` of `p`.
+    fn end(&self, p: [f64; 2], lt: f64) -> Option<usize> {
+        match self {
+            Local::Line(l) => l.end(p, lt),
+            Local::Arc(a) => a.end(p, lt),
+            Local::Circle(_) => None,
+        }
+    }
+
+    /// End `i`: in the frame, and the caller's own.
+    fn own(&self, i: usize) -> Option<([f64; 2], [f64; 2])> {
+        match self {
+            Local::Line(l) => Some((if i == 0 { l.a } else { l.b }, l.ends[i])),
+            Local::Arc(a) => Some((if i == 0 { a.s } else { a.e }, a.ends[i])),
+            Local::Circle(_) => None,
         }
     }
 
@@ -263,6 +436,7 @@ impl Local {
         match self {
             Local::Line(l) => l.len <= lt,
             Local::Circle(k) => k.r <= lt,
+            Local::Arc(a) => a.k.r <= lt,
         }
     }
 }
@@ -281,6 +455,14 @@ enum Raw {
     Stretch([f64; 2], [f64; 2]),
     /// Two coincident circles, from the first's point at angle 0.
     Round([f64; 2]),
+    /// A stretch shared by two rounds, in the caller's coordinates, with
+    /// its parameters `[from, to]` on each curve.
+    Span {
+        at: [f64; 2],
+        to: [f64; 2],
+        first: [f64; 2],
+        second: [f64; 2],
+    },
 }
 
 /// The meeting at frame point `p`: its point in the caller's coordinates
@@ -294,20 +476,17 @@ fn place(
     lt: f64,
     frame: &Frame,
 ) -> ([f64; 2], f64, f64) {
-    let end = |curve: &Local| match curve {
-        Local::Line(l) => l.end(p, lt),
-        Local::Circle(_) => None,
+    let (e1, e2) = (first.end(p, lt), second.end(p, lt));
+    let own = match (e1, e2) {
+        (Some(i), _) => first.own(i),
+        (None, Some(i)) => second.own(i),
+        (None, None) => None,
     };
-    let (e1, e2) = (end(first), end(second));
-    let (fp, at) = match (first, e1, second, e2) {
-        (Local::Line(l), Some(i), _, _) | (_, None, Local::Line(l), Some(i)) => {
-            (if i == 0 { l.a } else { l.b }, l.ends[i])
-        }
-        _ => (p, frame.caller(p)),
-    };
+    let (fp, at) = own.unwrap_or((p, frame.caller(p)));
     let param = |curve: &Local, e: Option<usize>| match (curve, e) {
-        (Local::Line(_), Some(i)) => i as f64,
+        (Local::Line(_) | Local::Arc(_), Some(i)) => i as f64,
         (Local::Line(l), None) => (l.along(fp) / l.len).clamp(0.0, 1.0),
+        (Local::Arc(a), None) => a.fraction(fp),
         (Local::Circle(k), _) => k.param(fp),
     };
     (at, param(first, e1), param(second, e2))
@@ -382,6 +561,75 @@ fn line_circle(l: &Line, k: &Circle, lt: f64) -> Vec<Raw> {
         .filter(|s| l.holds(*s, lt))
         .map(|s| Raw::Point(PointKind::Crossing, l.at(s)))
         .collect()
+}
+
+/// Two rounds, at least one an arc, on one circle (`d ≤ L`, radii within
+/// `L`): their sweeps' shared part. Otherwise as two circles.
+fn round_round(first: &Local, second: &Local, k: &Circle, n: &Circle, lt: f64) -> Vec<Raw> {
+    let v = sub(n.c, k.c);
+    let concentric = libm::hypot(v[0], v[1]) <= lt && (k.r - n.r).abs() <= lt;
+    match (first, second) {
+        (Local::Arc(a), Local::Arc(b)) if concentric => arc_arc(a, b, lt),
+        (Local::Circle(_), Local::Arc(b)) if concentric => {
+            // The whole arc, on the circle from its start's angle.
+            let on = Circle::param(k, b.s);
+            vec![Raw::Span {
+                at: b.ends[0],
+                to: b.ends[1],
+                first: [on, on + b.sweep / TAU],
+                second: [0.0, 1.0],
+            }]
+        }
+        (Local::Arc(a), Local::Circle(_)) if concentric => {
+            let on = Circle::param(n, a.s);
+            vec![Raw::Span {
+                at: a.ends[0],
+                to: a.ends[1],
+                first: [0.0, 1.0],
+                second: [on, on + a.sweep / TAU],
+            }]
+        }
+        _ => circle_circle(k, n, lt),
+    }
+}
+
+/// The sweeps of two concentric arcs of one radius, shared: `b`'s sweep
+/// starts `beta` counter-clockwise of `a`'s, and again a turn earlier, so
+/// each copy is clipped to `a`'s. A stretch longer than `lt` is an overlap
+/// between the ends that clip it, one of `lt` or less a touch at its middle.
+fn arc_arc(a: &Arc, b: &Arc, lt: f64) -> Vec<Raw> {
+    let (us, ub) = (sub(a.s, a.k.c), sub(b.s, b.k.c));
+    let t = libm::atan2(cross(us, ub), dot(us, ub));
+    let beta = if t < 0.0 { t + TAU } else { t };
+    let frac = |x: f64, sweep: f64| {
+        if sweep > 0.0 {
+            (x / sweep).clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    };
+    let mut out = Vec::new();
+    for k in [beta, beta - TAU] {
+        let (lo, hi) = (k.max(0.0), (k + b.sweep).min(a.sweep));
+        let shared = a.k.r * (hi - lo);
+        if shared > lt {
+            let at = if k > 0.0 { b.ends[0] } else { a.ends[0] };
+            let to = if k + b.sweep < a.sweep {
+                b.ends[1]
+            } else {
+                a.ends[1]
+            };
+            out.push(Raw::Span {
+                at,
+                to,
+                first: [frac(lo, a.sweep), frac(hi, a.sweep)],
+                second: [frac(lo - k, b.sweep), frac(hi - k, b.sweep)],
+            });
+        } else if shared >= -lt {
+            out.push(Raw::Point(PointKind::Touch, a.at((lo + hi) / 2.0)));
+        }
+    }
+    out
 }
 
 fn circle_circle(k: &Circle, n: &Circle, lt: f64) -> Vec<Raw> {

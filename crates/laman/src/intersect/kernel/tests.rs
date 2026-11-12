@@ -5,6 +5,7 @@
 //! scale (ADR-0016 D2), and pairs either side of tangency by half and twice
 //! the tolerance.
 use super::*;
+use crate::frame::{cross, dot, sub};
 
 /// Scales the closed forms are checked at: the plan's 1e-6 to 1e6, and
 /// 1e±300, where only the frame keeps products of coordinates finite.
@@ -211,7 +212,7 @@ fn both(c: &Case, first: &Curve, second: &Curve, want: &[Meeting], acc: f64) {
 fn ends(curve: &Curve) -> [[f64; 2]; 2] {
     match *curve {
         Curve::Line { a, b } => [a, b],
-        Curve::Circle { .. } => panic!("not a line"),
+        Curve::Circle { .. } | Curve::Arc { .. } => panic!("not a line"),
     }
 }
 
@@ -557,6 +558,289 @@ fn degenerate_curves_meet_nothing() {
             for other in [&line, &circle] {
                 assert!(meet(&dot, other, c.tol()).is_empty(), "{c:?} {dot:?}");
                 assert!(meet(other, &dot, c.tol()).is_empty(), "{c:?} {dot:?}");
+            }
+        }
+    }
+}
+
+// Arcs (ADR-0016 D6). Unit constructions on the circle of radius 5 about the
+// origin: E, N, W, S the axis points; A, B, C, D the 3-4-5 points at
+// (4, 3), (−4, 3), (−3, −4), (4, −3).
+const E: [f64; 2] = [5.0, 0.0];
+const N: [f64; 2] = [0.0, 5.0];
+const W: [f64; 2] = [-5.0, 0.0];
+const S: [f64; 2] = [0.0, -5.0];
+const A: [f64; 2] = [4.0, 3.0];
+const B: [f64; 2] = [-4.0, 3.0];
+const C: [f64; 2] = [-3.0, -4.0];
+
+impl Case {
+    fn arc(&self, centre: [f64; 2], start: [f64; 2], end: [f64; 2]) -> Curve {
+        Curve::Arc {
+            centre: self.p(centre),
+            start: self.p(start),
+            end: self.p(end),
+        }
+    }
+}
+
+/// The counter-clockwise angle from `from`'s direction to `to`'s about
+/// `centre`, in [0, 2π), on unit-construction points.
+fn ccw(centre: [f64; 2], from: [f64; 2], to: [f64; 2]) -> f64 {
+    let (u, v) = (sub(from, centre), sub(to, centre));
+    let t = libm::atan2(cross(u, v), dot(u, v));
+    if t < 0.0 { t + TAU } else { t }
+}
+
+/// A point's fraction of the arc `start` to `end` about `centre`.
+fn frac(centre: [f64; 2], start: [f64; 2], end: [f64; 2], p: [f64; 2]) -> f64 {
+    ccw(centre, start, p) / ccw(centre, start, end)
+}
+
+fn span(to: [f64; 2], to_first: f64, to_second: f64) -> Kind {
+    Kind::Overlap {
+        to,
+        to_first,
+        to_second,
+    }
+}
+
+#[test]
+fn an_arc_keeps_the_roots_in_its_sweep() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        // Through A and B, at the height 3: along the line from x = −5.
+        let line = c.line([-5.0, 3.0], [7.0, 3.0]);
+        let t = |x: f64| (x + 5.0) / 12.0;
+        let root = |p: [f64; 2], arc: &[[f64; 2]; 2]| {
+            m(Kind::Crossing, c.p(p), t(p[0]), frac(o, arc[0], arc[1], p))
+        };
+        // The upper half holds both, a quarter only A, the left half only B.
+        let half = [E, W];
+        let quarter = [E, N];
+        let left = [N, S];
+        for (arc, roots) in [(half, vec![B, A]), (quarter, vec![A]), (left, vec![B])] {
+            let k = c.arc(o, arc[0], arc[1]);
+            // Ordered along the line: B (x = −4) before A.
+            let want: Vec<Meeting> = roots.iter().map(|p| root(*p, &arc)).collect();
+            let got = meet(&line, &k, c.tol());
+            check(&c, &got, &want, ACC, [false; 2]);
+            let mut back: Vec<Meeting> = want
+                .iter()
+                .map(|w| m(w.kind, w.at, w.on_second, w.on_first))
+                .collect();
+            back.sort_by(|x, y| x.on_first.total_cmp(&y.on_first));
+            check(&c, &meet(&k, &line, c.tol()), &back, ACC, [false; 2]);
+        }
+    }
+}
+
+#[test]
+fn an_arc_whose_circle_crosses_outside_its_sweep_does_not_meet() {
+    for c in cases() {
+        // The lower-left quarter, W to S, and a line across the top.
+        let k = c.arc([0.0, 0.0], W, S);
+        let line = c.line([-5.0, 3.0], [7.0, 3.0]);
+        assert!(meet(&line, &k, c.tol()).is_empty(), "{c:?}");
+        assert!(meet(&k, &line, c.tol()).is_empty(), "{c:?}");
+        // The same circle whole does cross it.
+        let whole = c.circle([0.0, 0.0], 5.0);
+        assert_eq!(meet(&line, &whole, c.tol()).len(), 2, "{c:?}");
+    }
+}
+
+#[test]
+fn a_root_within_the_tolerance_beyond_an_arc_end_is_at_that_end() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        let line = c.line([-5.0, 3.0], [7.0, 3.0]);
+        // The arc from E stopping `gap` of arc length short of A, along the
+        // circle (the tangent at A is (−0.8, 0.6) counter-clockwise).
+        for gap in [0.0, 0.5 * REL] {
+            let end = [4.0 + 0.8 * gap, 3.0 - 0.6 * gap];
+            let k = c.arc(o, E, end);
+            let Curve::Arc { end: own, .. } = k else {
+                unreachable!()
+            };
+            let got = meet(&line, &k, c.tol());
+            assert_eq!(got.len(), 1, "{c:?}");
+            assert_eq!(got[0].kind, Kind::Crossing, "{c:?}");
+            assert_eq!((got[0].at, got[0].on_second), (own, 1.0), "{c:?}");
+            assert!((got[0].on_first - 9.0 / 12.0).abs() <= ACC, "{c:?}");
+            let got = meet(&k, &line, c.tol());
+            assert_eq!((got[0].at, got[0].on_first), (own, 1.0), "{c:?}");
+        }
+        // Twice the tolerance short: none.
+        let k = c.arc(o, E, [4.0 + 1.6 * REL, 3.0 - 1.2 * REL]);
+        assert!(meet(&line, &k, c.tol()).is_empty(), "{c:?}");
+    }
+}
+
+#[test]
+fn an_arc_end_on_a_line_is_a_crossing_at_that_end() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        // E to A, and the vertical through A: its other root (4, −3) is
+        // outside the sweep.
+        let k = c.arc(o, E, A);
+        let line = c.line([4.0, -5.0], [4.0, 9.0]);
+        let Curve::Arc { end, .. } = k else {
+            unreachable!()
+        };
+        let got = meet(&line, &k, c.tol());
+        assert_eq!(got.len(), 1, "{c:?}");
+        assert_eq!(
+            (got[0].kind, got[0].at, got[0].on_second),
+            (Kind::Crossing, end, 1.0),
+            "{c:?}"
+        );
+        assert!((got[0].on_first - 8.0 / 14.0).abs() <= ACC, "{c:?}");
+    }
+}
+
+#[test]
+fn two_arcs_cross_where_both_sweeps_hold() {
+    for c in cases() {
+        // About the origin, the upper half; about (6, 0), N' to W' (its
+        // upper left quarter). The circles cross at (3, ±4); only (3, 4) is
+        // on both.
+        let first = c.arc([0.0, 0.0], E, W);
+        let (n2, w2) = ([6.0, 5.0], [1.0, 0.0]);
+        let second = c.arc([6.0, 0.0], n2, w2);
+        let p = [3.0, 4.0];
+        let want = [m(
+            Kind::Crossing,
+            c.p(p),
+            frac([0.0, 0.0], E, W, p),
+            frac([6.0, 0.0], n2, w2, p),
+        )];
+        both(&c, &first, &second, &want, ACC);
+    }
+}
+
+#[test]
+fn arcs_of_one_circle_overlap_on_their_shared_sweeps() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        // E→W and N→S share N→W.
+        let (a, b) = (c.arc(o, E, W), c.arc(o, N, S));
+        let (ea, eb) = (arc_ends(&a), arc_ends(&b));
+        let want = [m(span(ea[1], 1.0, 0.5), eb[0], 0.5, 0.0)];
+        check(&c, &meet(&a, &b, c.tol()), &want, ACC, [false; 2]);
+        // From b's side: b's start is where the shared stretch starts on b.
+        let want = [m(span(ea[1], 0.5, 1.0), eb[0], 0.0, 0.5)];
+        check(&c, &meet(&b, &a, c.tol()), &want, ACC, [false; 2]);
+        // Two stretches: E→C (to 4.07) and B→A (round the far side, through
+        // S and E) share E→A and B→C.
+        let (a, b) = (c.arc(o, E, C), c.arc(o, B, A));
+        let (ea, eb) = (arc_ends(&a), arc_ends(&b));
+        let sa = ccw(o, E, C);
+        let sb = ccw(o, B, A);
+        let want = [
+            m(
+                span(eb[1], ccw(o, E, A) / sa, 1.0),
+                ea[0],
+                0.0,
+                ccw(o, B, E) / sb,
+            ),
+            m(
+                span(ea[1], 1.0, ccw(o, B, C) / sb),
+                eb[0],
+                ccw(o, E, B) / sa,
+                0.0,
+            ),
+        ];
+        let got = meet(&a, &b, c.tol());
+        check(&c, &got, &want, ACC, [false; 2]);
+    }
+}
+
+fn arc_ends(k: &Curve) -> [[f64; 2]; 2] {
+    match *k {
+        Curve::Arc { start, end, .. } => [start, end],
+        Curve::Line { .. } | Curve::Circle { .. } => panic!("not an arc"),
+    }
+}
+
+#[test]
+fn a_circle_and_an_arc_of_it_overlap_along_the_arc() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        let k = c.circle(o, 5.0);
+        // N to S through W: half a turn, from N's angle.
+        let a = c.arc(o, N, S);
+        let ea = arc_ends(&a);
+        let want = [m(
+            span(ea[1], c.angle(N) + 0.5, 1.0),
+            ea[0],
+            c.angle(N),
+            0.0,
+        )];
+        check(&c, &meet(&k, &a, c.tol()), &want, ACC, [false; 2]);
+        let want = [m(
+            span(ea[1], 1.0, c.angle(N) + 0.5),
+            ea[0],
+            0.0,
+            c.angle(N),
+        )];
+        check(&c, &meet(&a, &k, c.tol()), &want, ACC, [false; 2]);
+        // W round through S, E to N: three quarters of a turn from W's angle, past 1 when it wraps.
+        let wrap = c.arc(o, W, N);
+        let ew = arc_ends(&wrap);
+        let want = [m(
+            span(ew[1], c.angle(W) + 0.75, 1.0),
+            ew[0],
+            c.angle(W),
+            0.0,
+        )];
+        check(&c, &meet(&k, &wrap, c.tol()), &want, ACC, [false; 2]);
+        // A circle of another radius meets none of it.
+        let other = c.circle(o, 4.0);
+        assert!(meet(&other, &a, c.tol()).is_empty(), "{c:?}");
+    }
+}
+
+#[test]
+fn arcs_end_to_end_touch_or_miss() {
+    for c in cases() {
+        let o = [0.0, 0.0];
+        let a = c.arc(o, E, N);
+        let ea = arc_ends(&a);
+        // The second starts at N, a little past it (a gap) or before it (an
+        // overlap shorter than the tolerance): a touch at the first's end.
+        for dx in [-0.5 * REL, 0.0, 0.5 * REL] {
+            let b = c.arc(o, [dx, 5.0], W);
+            let got = meet(&a, &b, c.tol());
+            assert_eq!(got.len(), 1, "{c:?} {dx}");
+            assert_eq!(got[0].kind, Kind::Touch, "{c:?} {dx}");
+            assert_eq!(
+                (got[0].at, got[0].on_first, got[0].on_second),
+                (ea[1], 1.0, 0.0),
+                "{c:?} {dx}"
+            );
+        }
+        // Twice the tolerance apart: none; twice overlapping: an overlap.
+        let b = c.arc(o, [-2.0 * REL, 5.0], W);
+        assert!(meet(&a, &b, c.tol()).is_empty(), "{c:?}");
+        let b = c.arc(o, [2.0 * REL, 5.0], W);
+        let got = meet(&a, &b, c.tol());
+        assert_eq!(got.len(), 1, "{c:?}");
+        assert!(matches!(got[0].kind, Kind::Overlap { .. }), "{c:?}");
+    }
+}
+
+#[test]
+fn a_degenerate_arc_meets_nothing() {
+    for c in cases() {
+        let line = c.line([-5.0, 3.0], [7.0, 3.0]);
+        let k = c.circle([0.0, 0.0], 5.0);
+        for dot in [
+            c.arc([0.0, 0.0], [0.0, 0.0], [5.0, 0.0]),
+            c.arc([3.0, 3.0], [3.0 + 0.5 * REL, 3.0], [3.0, 4.0]),
+        ] {
+            for other in [&line, &k] {
+                assert!(meet(&dot, other, c.tol()).is_empty(), "{c:?}");
+                assert!(meet(other, &dot, c.tol()).is_empty(), "{c:?}");
             }
         }
     }

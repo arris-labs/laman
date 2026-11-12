@@ -122,9 +122,11 @@ an algorithm whose robustness or bound is established here.
   parameters on lines and circles and D4's end snap; ADR-0012 D3's frame
   moved to `crate::frame`, shared with the profile geometry. A line's root
   counts when within `L` of the segment along it.
-- [ ] Step 5 **[2]** — Arcs: sweep bounds widened by `L/r`, an arc's
+- [x] Step 5 **[2]** — Arcs: sweep bounds widened by `L/r`, an arc's
   parameter and ends (D4), overlaps of arcs clipped to both sweeps (two
-  stretches possible).
+  stretches possible). *Settled* here: ADR-0016 D4 and D6 gain the sentences
+  step 4's rule (a line's root within `L` of the segment) and the
+  arc-and-circle overlap needed; they did not contradict it.
 - [ ] Step 6 **[2]** — D3 types and `intersections()`: pairs, the join
   exclusion, `IntersectError`, `along`, rustdoc with runnable examples, a
   fuzz target, CHANGELOG `Unreleased` bullet.
