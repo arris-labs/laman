@@ -36,7 +36,7 @@ fn rectangle_is_one_loop_in_edge_order() {
         e.iter().map(|x| (x.0, false)).collect::<Vec<_>>()
     );
     assert!(t.loops[0].joins.is_empty());
-    assert!(t.open_chains.is_empty() && t.dangling.is_empty() && t.branched.is_empty());
+    assert!(t.open_chains.is_empty() && t.dangling.is_empty() && t.cores.is_empty());
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn dangling_edge_hangs_from_a_loop() {
     assert_eq!(t.loops.len(), 1);
     assert_eq!(t.loops[0].edges.len(), 4);
     assert_eq!(t.dangling, vec![tail]);
-    assert!(t.open_chains.is_empty() && t.branched.is_empty());
+    assert!(t.open_chains.is_empty() && t.cores.is_empty());
 }
 
 #[test]
@@ -144,9 +144,10 @@ fn rectangles_sharing_an_edge_are_branched() {
     ];
     let t = topology(&sk);
     assert!(t.loops.is_empty());
-    assert_eq!(t.branched.len(), 1);
-    assert_eq!(t.branched[0].edges, e.to_vec());
-    assert_eq!(ids(&t.branched[0].joins), vec![p[1].id().0, p[4].id().0]);
+    assert_eq!(t.cores.len(), 1);
+    let core: Vec<_> = t.cores[0].edges.iter().map(|x| x.id).collect();
+    assert_eq!(core, e.to_vec());
+    assert_eq!(ids(&t.cores[0].hubs), vec![p[1].id().0, p[4].id().0]);
 }
 
 #[test]
@@ -158,8 +159,9 @@ fn figure_eight_is_branched() {
     e.extend(polygon(&mut sk, &[p[0], p[3], p[4]]));
     let t = topology(&sk);
     assert!(t.loops.is_empty());
-    assert_eq!(t.branched[0].edges, e);
-    assert_eq!(ids(&t.branched[0].joins), vec![p[0].id().0]);
+    let core: Vec<_> = t.cores[0].edges.iter().map(|x| x.id).collect();
+    assert_eq!(core, e);
+    assert_eq!(ids(&t.cores[0].hubs), vec![p[0].id().0]);
 }
 
 #[test]
@@ -187,7 +189,7 @@ fn construction_edges_and_circles() {
     assert_eq!(t.loops.len(), 1);
     assert_eq!(t.loops[0].edges.len(), e.len());
     assert_eq!(t.circles, vec![c]);
-    assert!(t.branched.is_empty() && t.dangling.is_empty());
+    assert!(t.cores.is_empty() && t.dangling.is_empty());
 }
 
 #[test]

@@ -97,7 +97,7 @@ an algorithm whose robustness or bound is established here.
   directed edges with step 2's order, and the outline per piece. Unit tests
   on the shared wall, the window, the figure eight and two rectangles
   joined by a bridge (loop counts, edge order, the bridge's id).
-- [ ] Step 4 **[2]** — D1's nesting in `profiles()`, D2's type change
+- [x] Step 4 **[2]** — D1's nesting in `profiles()`, D2's type change
   through `laman`, `laman-check`, `laman-debug`'s fixture reader and
   digest, `laman-py`, the stub and its tests. Rustdoc and its examples,
   with a branched one. CHANGELOG `### Breaking`. `c3/shared-edge` and its

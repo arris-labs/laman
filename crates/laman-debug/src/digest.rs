@@ -320,16 +320,9 @@ fn feed_profiles(b: &mut Builder, found: &Profiles, report: &ProfileReport) {
     for e in &found.dangling {
         b.u32(e.0);
     }
-    b.u64(len_of(found.branched.len()));
-    for core in &found.branched {
-        b.u64(len_of(core.edges.len()));
-        for e in &core.edges {
-            b.u32(e.0);
-        }
-        b.u64(len_of(core.joins.len()));
-        for j in &core.joins {
-            b.u32(j.0);
-        }
+    b.u64(len_of(found.bridges.len()));
+    for e in &found.bridges {
+        b.u32(e.0);
     }
     b.u64(len_of(found.degenerate.len()));
     for e in &found.degenerate {

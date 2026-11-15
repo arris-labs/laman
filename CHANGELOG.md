@@ -23,6 +23,24 @@ release by release. Written in the commit that makes the change, under
   curve in order. Values missing a coordinate, or holding one that is not
   finite, are refused naming the point or circle
   (`IntersectError::{Missing, NonFinite}`).
+- `laman::profile::profiles` now splits a branched core, where three or
+  more edges join: a wall across a plate, a window's panes, two loops
+  touching at a join, a rectangle tied to one inside it. At each join the
+  edges are ordered by the direction they leave in, and by curvature where
+  two leave tangent. Every bounded area is a profile, and an edge between
+  two of them is in both loops, once in each direction. An edge with the
+  same area on both sides (a bridge) is listed in `Profiles::bridges` and in
+  no loop. A branched core inside a plate gives the plate one hole per
+  bounded area. In Python, `laman.profile.profiles` does the same and
+  `laman.check.check_profiles` accepts an edge in two loops.
+
+### Breaking
+
+- `laman::model::profile::Branched` and `Profiles::branched` are removed,
+  and `Profiles::bridges: Vec<EntityId>` is added; a sketch that gave
+  a branched core and no profile now gives its profiles. Fix: read
+  `profiles` and `bridges`. In Python, `laman.profile.Branched` and
+  `Profiles.branched` become `Profiles.bridges`, a list of edge ids.
 
 ## 0.3.0 — 2026-11-08
 

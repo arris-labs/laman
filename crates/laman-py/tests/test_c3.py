@@ -91,9 +91,7 @@ def assert_profiles(name: str, want: dict[str, Any], got: Profiles) -> None:
         assert area_holds(w["net_area"], g.net_area), (name, k, g.net_area)
     assert got.open_chains == want["open_chains"], name
     assert got.dangling == want["dangling"], name
-    assert [(b.edges, b.joins) for b in got.branched] == [
-        (b["edges"], b["joins"]) for b in want["branched"]
-    ], name
+    assert got.bridges == want["bridges"], name
     assert got.degenerate == want["degenerate"], name
     assert [[u.first, u.second] for u in got.unjoined] == want["unjoined"], name
 
@@ -181,7 +179,7 @@ def test_a_slot_grid_is_one_plate_with_a_hole_per_slot(rows: int, cols: int) -> 
     report = check_profiles(sketch, values, found)
     assert report.is_clean(), report.violations
     assert len(found.profiles) == 1
-    assert not found.open_chains and not found.dangling and not found.branched
+    assert not found.open_chains and not found.dangling and not found.bridges
     assert not found.degenerate and not found.unjoined
 
     (plate,) = found.profiles

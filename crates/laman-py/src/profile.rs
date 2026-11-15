@@ -6,7 +6,7 @@
 
 use crate::errors::profile_error;
 use crate::model::{Coordinates, Sketch};
-use laman::model::profile::{Branched, Loop, Profile, Profiles, Traversal, Unjoined};
+use laman::model::profile::{Loop, Profile, Profiles, Traversal, Unjoined};
 use laman::model::{ConstraintId, EntityId};
 use pyo3::prelude::*;
 
@@ -184,33 +184,6 @@ impl PyProfile {
     }
 }
 
-/// A core of edges where some join has three or more of them.
-#[pyclass(frozen, eq, get_all, name = "Branched", module = "laman.profile")]
-#[derive(Clone, PartialEq)]
-pub struct PyBranched {
-    /// The core's edges, in id order.
-    pub edges: Vec<u32>,
-    /// The joins where three or more edges meet, by smallest point id.
-    pub joins: Vec<u32>,
-}
-
-#[pymethods]
-impl PyBranched {
-    #[new]
-    #[pyo3(signature = (edges, joins))]
-    fn new(edges: Vec<u32>, joins: Vec<u32>) -> Self {
-        Self { edges, joins }
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "Branched(edges={}, joins={})",
-            list(&self.edges),
-            list(&self.joins)
-        )
-    }
-}
-
 /// Two free ends that coincide in the coordinates but are not joined.
 #[pyclass(frozen, eq, get_all, name = "Unjoined", module = "laman.profile")]
 #[derive(Clone, PartialEq)]
@@ -248,7 +221,7 @@ impl PyProfiles {
         profiles=Vec::new(),
         open_chains=Vec::new(),
         dangling=Vec::new(),
-        branched=Vec::new(),
+        bridges=Vec::new(),
         degenerate=Vec::new(),
         unjoined=Vec::new(),
     ))]
@@ -256,7 +229,7 @@ impl PyProfiles {
         profiles: Vec<PyProfile>,
         open_chains: Vec<Vec<u32>>,
         dangling: Vec<u32>,
-        branched: Vec<PyBranched>,
+        bridges: Vec<u32>,
         degenerate: Vec<u32>,
         unjoined: Vec<PyUnjoined>,
     ) -> Self {
@@ -265,13 +238,7 @@ impl PyProfiles {
                 profiles: profiles.into_iter().map(|p| p.inner).collect(),
                 open_chains: open_chains.into_iter().map(entity_ids).collect(),
                 dangling: entity_ids(dangling),
-                branched: branched
-                    .into_iter()
-                    .map(|b| Branched {
-                        edges: entity_ids(b.edges),
-                        joins: entity_ids(b.joins),
-                    })
-                    .collect(),
+                bridges: entity_ids(bridges),
                 degenerate: entity_ids(degenerate),
                 unjoined: unjoined
                     .into_iter()
@@ -306,17 +273,11 @@ impl PyProfiles {
         ids(&self.inner.dangling)
     }
 
-    /// Cores no profile takes.
+    /// Edges of a branched core with the same area on both sides: in no
+    /// loop.
     #[getter]
-    fn branched(&self) -> Vec<PyBranched> {
-        self.inner
-            .branched
-            .iter()
-            .map(|b| PyBranched {
-                edges: ids(&b.edges),
-                joins: ids(&b.joins),
-            })
-            .collect()
+    fn bridges(&self) -> Vec<u32> {
+        ids(&self.inner.bridges)
     }
 
     /// Self-joined edges, left out.
@@ -346,14 +307,13 @@ impl PyProfiles {
             .iter()
             .map(|c| list(&ids(c)))
             .collect();
-        let branched: Vec<String> = self.branched().iter().map(PyBranched::__repr__).collect();
         let unjoined: Vec<String> = self.unjoined().iter().map(PyUnjoined::__repr__).collect();
         format!(
-            "Profiles(profiles=[{}], open_chains=[{}], dangling={}, branched=[{}], degenerate={}, unjoined=[{}])",
+            "Profiles(profiles=[{}], open_chains=[{}], dangling={}, bridges={}, degenerate={}, unjoined=[{}])",
             profiles.join(", "),
             chains.join(", "),
             list(&ids(&self.inner.dangling)),
-            branched.join(", "),
+            list(&ids(&self.inner.bridges)),
             list(&ids(&self.inner.degenerate)),
             unjoined.join(", ")
         )

@@ -12,7 +12,7 @@ use super::contain::{Seg, Standing, standing};
 use laman::model::profile::{Loop, Profiles, Traversal};
 use laman::model::tolerance::Tolerances;
 use laman::model::{Constraint, Coordinate, Coordinates, Entity, EntityId, Point, Sketch};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// What a [`ProfileViolation`] says is wrong, with the loop it is about
 /// named by its first edge's id (`None` for a loop with no edge).
@@ -68,15 +68,17 @@ pub enum ProfileViolation {
         /// The loop's first edge.
         first: Option<EntityId>,
     },
-    /// An entity listed as an edge (in a loop, an open chain, a dangling or
-    /// branched or degenerate list) is not a non-construction line, arc or
+    /// An entity listed as an edge (in a loop, an open chain, a dangling,
+    /// bridge or degenerate list) is not a non-construction line, arc or
     /// circle of the sketch.
     NotAnEdge {
         /// The entity.
         entity: EntityId,
     },
-    /// An edge is listed more than once across the loops and the other
-    /// lists.
+    /// An edge is listed more than once in one direction of the loops, more
+    /// than once in the other lists, or in a loop and another list (a bridge
+    /// in a loop included). An edge between two bounded areas is listed
+    /// once in each direction, which is not a repeat.
     Repeated {
         /// The edge.
         entity: EntityId,
@@ -126,8 +128,9 @@ impl ProfileReport {
 /// where a join is open or an arc is off its radius, which are named
 /// instead. A profile's net area is compared likewise, against its outer
 /// loop less its holes, unless one of those loops was left uncompared.
-/// Every non-construction edge of the sketch must be listed
-/// exactly once across the loops and the other lists. Any `Profiles` value
+/// Every non-construction edge of the sketch must be listed at most once
+/// in each direction of the loops, a bridge in none, and every other edge in
+/// some list. Any `Profiles` value
 /// is an input: an empty loop, a stale id or a wrong kind is a violation. A
 /// parameter missing from `values`, or not finite, is listed as
 /// [`Missing`] and its loop is left unmeasured. Never panics, never errors.
@@ -621,28 +624,34 @@ fn containment(plates: &[Plate], report: &mut ProfileReport) {
     }
 }
 
-/// Every edge of the sketch is listed exactly once, and only edges are.
+/// Every edge of the sketch is listed at most once in each direction, a
+/// bridge in no loop, every other edge in some list, and only edges are
+/// (ADR-0017).
 fn coverage(sketch: &Sketch, found: &Profiles, report: &mut ProfileReport) {
-    let mut count: BTreeMap<EntityId, usize> = BTreeMap::new();
-    let mut listed = |id: EntityId| *count.entry(id).or_insert(0) += 1;
+    // Times listed in a loop, by direction; and in the other lists.
+    let mut looped: BTreeMap<EntityId, [usize; 2]> = BTreeMap::new();
+    let mut other: BTreeMap<EntityId, usize> = BTreeMap::new();
     for p in &found.profiles {
         for l in std::iter::once(&p.outer).chain(&p.holes) {
-            l.edges.iter().for_each(|t| listed(t.entity));
+            for t in &l.edges {
+                looped.entry(t.entity).or_default()[usize::from(t.reversed)] += 1;
+            }
         }
     }
+    let mut listed = |id: EntityId| *other.entry(id).or_insert(0) += 1;
     found
         .open_chains
         .iter()
         .flatten()
         .for_each(|id| listed(*id));
     found.dangling.iter().for_each(|id| listed(*id));
-    found
-        .branched
-        .iter()
-        .flat_map(|b| &b.edges)
-        .for_each(|id| listed(*id));
+    found.bridges.iter().for_each(|id| listed(*id));
     found.degenerate.iter().for_each(|id| listed(*id));
-    for (id, times) in &count {
+    let ids: BTreeSet<EntityId> = looped.keys().chain(other.keys()).copied().collect();
+    for id in &ids {
+        let directions = looped.get(id).copied().unwrap_or([0, 0]);
+        let elsewhere = other.get(id).copied().unwrap_or(0);
+        let in_loops = directions.iter().any(|&n| n > 0);
         if edge_of(sketch, *id).is_none() {
             // A loop's stale edge was already named with its loop.
             let named = report
@@ -653,14 +662,15 @@ fn coverage(sketch: &Sketch, found: &Profiles, report: &mut ProfileReport) {
                     .violations
                     .push(ProfileViolation::NotAnEdge { entity: *id });
             }
-        } else if *times > 1 {
+        } else if directions.iter().any(|&n| n > 1) || elsewhere > 1 || (elsewhere > 0 && in_loops)
+        {
             report
                 .violations
                 .push(ProfileViolation::Repeated { entity: *id });
         }
     }
     for (id, _) in sketch.entities() {
-        if edge_of(sketch, id).is_some() && !count.contains_key(&id) {
+        if edge_of(sketch, id).is_some() && !ids.contains(&id) {
             report
                 .violations
                 .push(ProfileViolation::Uncovered { entity: id });

@@ -13,7 +13,6 @@ from laman import Coordinates, Sketch
 from laman.check import check, check_profiles
 from laman.debug import digest_profiles, digest_solved_profiles, slot_grid
 from laman.profile import (
-    Branched,
     Loop,
     Profile,
     ProfileError,
@@ -35,7 +34,7 @@ def bits(x: float) -> bytes:
 def test_empty_profiles_is_the_default() -> None:
     empty = Profiles()
     assert empty.profiles == [] and empty.open_chains == [] and empty.dangling == []
-    assert empty.branched == [] and empty.degenerate == [] and empty.unjoined == []
+    assert empty.bridges == [] and empty.degenerate == [] and empty.unjoined == []
     assert empty == Profiles(profiles=[], unjoined=[])
 
 
@@ -47,7 +46,7 @@ def test_floats_cross_unchanged(x: float) -> None:
         profiles=[Profile(outer, [hole], x)],
         open_chains=[[1, 2], [5]],
         dangling=[6],
-        branched=[Branched([10, 11, 12], [2])],
+        bridges=[10],
         degenerate=[8],
         unjoined=[Unjoined(2, 9)],
     )
@@ -58,13 +57,13 @@ def test_floats_cross_unchanged(x: float) -> None:
     assert p.outer.edges == [Traversal(3, True), Traversal(4, False)]
     assert p.outer.joins == [9] and p.holes[0].joins == []
     assert built.open_chains == [[1, 2], [5]] and built.dangling == [6]
-    assert built.branched == [Branched([10, 11, 12], [2])]
+    assert built.bridges == [10]
     assert built.degenerate == [8] and built.unjoined == [Unjoined(2, 9)]
     again = Profiles(
         profiles=built.profiles,
         open_chains=built.open_chains,
         dangling=built.dangling,
-        branched=built.branched,
+        bridges=built.bridges,
         degenerate=built.degenerate,
         unjoined=built.unjoined,
     )

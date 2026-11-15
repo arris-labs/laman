@@ -28,7 +28,6 @@ __all__ = [
     "CheckViolation",
     "Coordinates",
     "Diagnostics",
-    "Branched",
     "Loop",
     "Profile",
     "Profiles",
@@ -691,16 +690,6 @@ class Profile:
     def net_area(self) -> float: ...
 
 @final
-class Branched:
-    """A core of edges where some join has three or more of them."""
-
-    def __new__(cls, edges: Sequence[int], joins: Sequence[int]) -> Self: ...
-    @property
-    def edges(self) -> list[int]: ...
-    @property
-    def joins(self) -> list[int]: ...
-
-@final
 class Unjoined:
     """Two free ends that coincide but are not joined."""
 
@@ -719,7 +708,7 @@ class Profiles:
         profiles: Sequence[Profile] = ...,
         open_chains: Sequence[Sequence[int]] = ...,
         dangling: Sequence[int] = ...,
-        branched: Sequence[Branched] = ...,
+        bridges: Sequence[int] = ...,
         degenerate: Sequence[int] = ...,
         unjoined: Sequence[Unjoined] = ...,
     ) -> Self: ...
@@ -730,7 +719,7 @@ class Profiles:
     @property
     def dangling(self) -> list[int]: ...
     @property
-    def branched(self) -> list[Branched]: ...
+    def bridges(self) -> list[int]: ...
     @property
     def degenerate(self) -> list[int]: ...
     @property

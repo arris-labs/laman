@@ -56,26 +56,71 @@
   "redundant": [],
   "conflicts": [],
   "profiles": {
-    "profiles": [],
-    "open_chains": [],
-    "dangling": [],
-    "branched": [
+    "profiles": [
       {
-        "edges": [
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12
-        ],
-        "joins": [
-          1,
-          2
-        ]
+        "outer": {
+          "edges": [
+            {
+              "entity": 6,
+              "reversed": false
+            },
+            {
+              "entity": 7,
+              "reversed": false
+            },
+            {
+              "entity": 8,
+              "reversed": false
+            },
+            {
+              "entity": 9,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 1200.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 1200.0
+        }
+      },
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 7,
+              "reversed": true
+            },
+            {
+              "entity": 10,
+              "reversed": false
+            },
+            {
+              "entity": 11,
+              "reversed": false
+            },
+            {
+              "entity": 12,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 1200.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 1200.0
+        }
       }
     ],
+    "open_chains": [],
+    "dangling": [],
+    "bridges": [],
     "degenerate": [],
     "unjoined": []
   }

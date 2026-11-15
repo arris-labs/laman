@@ -6,13 +6,6 @@
 
 mod geometry;
 mod join;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "read by profiles(), plans/m13-branched-profiles step 4"
-    )
-)]
 mod split;
 pub(crate) mod topology;
 
@@ -74,7 +67,34 @@ struct Candidate {
     exact: (f64, i32),
 }
 
+/// A bounded area: a loop with the piece it belongs to and its edges'
+/// coordinates.
+struct Area {
+    piece: usize,
+    cand: Candidate,
+    shape: Vec<Edge>,
+}
+
+/// A connected part of the core with its bounded areas.
+struct Piece {
+    /// The probe of its outline, for containment.
+    probe: Option<[f64; 2]>,
+    areas: Vec<usize>,
+}
+
 impl Candidate {
+    /// The same loop without its joins, to probe.
+    fn clone_edges(&self) -> Candidate {
+        Candidate {
+            edges: self.edges.clone(),
+            joins: Vec::new(),
+            circle: self.circle,
+            area: self.area,
+            orientation: self.orientation,
+            exact: self.exact,
+        }
+    }
+
     fn boundary<'a>(&self, directed: &'a [Edge]) -> Boundary<'a> {
         match self.circle {
             Some((centre, radius)) => Boundary::Circle {
@@ -158,17 +178,21 @@ fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
 }
 
 /// Extracts the profiles of `sketch` at `values`: loops from its
-/// non-construction lines, arcs and circles, nested by containment (ADR-0012).
+/// non-construction lines, arcs and circles, nested by containment
+/// (ADR-0012, ADR-0017).
 ///
 /// Joins are declared, never measured: edges meet at a shared point id or
 /// through a chain of `coincident` constraints. The coordinates give only
-/// area, orientation and nesting, so a solution's `coordinates` are as good
-/// an input as any others. Every outer loop is counter-clockwise and every
-/// hole clockwise, whatever order the edges were drawn in; a loop inside
-/// a hole is a profile of its own. Open chains, dangling edges, branched
-/// cores and self-joined edges are reported by id in the result, never as
-/// errors; so are free ends that lie within tolerance of one another
-/// without a join, which are never joined for it.
+/// area, orientation, nesting and, at a join of three or more edges, the
+/// order of the edges around it. Every outer loop is counter-clockwise and
+/// every hole clockwise, whatever order the edges were drawn in; a loop
+/// inside a hole is a profile of its own. A branched core splits at its
+/// joins: every bounded area of it is a loop, an edge between two of them
+/// is in both, once in each direction, and an edge with the same area on
+/// both sides (a bridge) is listed in `bridges` and in no loop. Open
+/// chains, dangling edges, bridges and self-joined edges are reported by
+/// id in the result, never as errors; so are free ends that lie within
+/// tolerance of one another without a join, which are never joined for it.
 ///
 /// Refuses only values that lack, or hold a non-finite, coordinate of a
 /// point or circle an edge uses ([`ProfileError`]). Curves that cross or
@@ -192,6 +216,21 @@ fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
 /// assert_eq!(found.profiles.len(), 1);
 /// assert_eq!(found.profiles[0].net_area, 12.0);
 ///
+/// // A wall across a rectangle splits it into two profiles that share it.
+/// let mut sk = Sketch::new();
+/// let p = [(0.0, 0.0), (2.0, 0.0), (4.0, 0.0), (4.0, 3.0), (2.0, 3.0), (0.0, 3.0)]
+///     .map(|(x, y)| sk.point(x, y))
+///     .into_iter()
+///     .collect::<Result<Vec<_>, _>>()?;
+/// for i in 0..6 {
+///     sk.line(p[i], p[(i + 1) % 6])?;
+/// }
+/// sk.line(p[1], p[4])?;
+/// let found = profiles(&sk, &sk.coordinates())?;
+/// assert_eq!(found.profiles.len(), 2);
+/// assert!(found.profiles.iter().all(|p| p.net_area == 6.0));
+/// assert!(found.bridges.is_empty());
+///
 /// // A point the values lack is named.
 /// let mut values = sk.coordinates();
 /// values.remove(&(p[2].id(), Coordinate::X));
@@ -201,32 +240,89 @@ fn flipped(edges: &[Traversal]) -> Vec<Traversal> {
 pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, ProfileError> {
     let topo = topology::topology(sketch);
 
-    let mut loops: Vec<Candidate> = Vec::new();
+    // A piece is a connected part of the core: its bounded areas, and the
+    // probe of its outline for containment (ADR-0017 D5, D6). A plain loop
+    // or circle is a piece whose one bounded area is itself.
+    let mut areas: Vec<Area> = Vec::new();
+    let mut pieces: Vec<Piece> = Vec::new();
+    let mut add = |sketch: &Sketch,
+                   probe_of: Option<Candidate>,
+                   bounded: Vec<Candidate>|
+     -> Result<(), ProfileError> {
+        let piece = pieces.len();
+        let probe = match &probe_of {
+            Some(c) => {
+                let shape = directed(sketch, values, &c.edges)?;
+                geometry::probe(&c.boundary(&shape))
+            }
+            None => None,
+        };
+        let mut own = Vec::with_capacity(bounded.len());
+        for cand in bounded {
+            let shape = directed(sketch, values, &cand.edges)?;
+            own.push(areas.len());
+            areas.push(Area { piece, cand, shape });
+        }
+        pieces.push(Piece { probe, areas: own });
+        Ok(())
+    };
     for l in topo.loops {
-        loops.push(measure(sketch, values, l.edges, l.joins)?);
+        let cand = measure(sketch, values, l.edges, l.joins)?;
+        let probe = cand.clone_edges();
+        add(sketch, Some(probe), vec![cand])?;
     }
     for id in topo.circles {
         let edge = Traversal {
             entity: id,
             reversed: false,
         };
-        loops.push(measure(sketch, values, vec![edge], Vec::new())?);
+        let cand = measure(sketch, values, vec![edge], Vec::new())?;
+        let probe = cand.clone_edges();
+        add(sketch, Some(probe), vec![cand])?;
     }
-    loops.sort_by_key(|l| l.edges.first().map(|t| t.entity));
+    let tolerances = Tolerances::at(sketch, values);
+    let cut = split::split(sketch, values, &tolerances, &topo.cores)?;
+    for piece in cut.pieces {
+        let mut bounded = Vec::with_capacity(piece.loops.len());
+        let mut probe = None;
+        for (k, l) in piece.loops.into_iter().enumerate() {
+            if k == piece.outline {
+                probe = Some(l.clone_edges());
+            } else {
+                bounded.push(l);
+            }
+        }
+        add(sketch, probe, bounded)?;
+    }
+    // Pieces by their first bounded area's smallest edge id.
+    let key = |p: &Piece| p.areas.first().map(|&a| split::first_key(&areas[a].cand));
+    let mut order: Vec<usize> = (0..pieces.len()).collect();
+    order.sort_by_key(|&p| (key(&pieces[p]), p));
+    let rename: Vec<usize> = {
+        let mut r = vec![0; pieces.len()];
+        for (new, &old) in order.iter().enumerate() {
+            r[old] = new;
+        }
+        r
+    };
+    let mut ordered: Vec<Option<Piece>> = pieces.into_iter().map(Some).collect();
+    let pieces: Vec<Piece> = order
+        .iter()
+        .filter_map(|&old| ordered[old].take())
+        .collect();
+    for a in &mut areas {
+        a.piece = rename[a.piece];
+    }
 
-    // Containment: loop `j` lies in loop `i` when `i` winds about the
-    // midpoint of `j`'s first edge.
-    let n = loops.len();
-    let mut shapes: Vec<Vec<Edge>> = Vec::with_capacity(n);
-    for l in &loops {
-        shapes.push(directed(sketch, values, &l.edges)?);
-    }
+    // Containment: a piece lies in a bounded area of another piece when
+    // that area winds about its outline's probe.
+    let n = pieces.len();
     let mut containers: Vec<Vec<usize>> = Vec::with_capacity(n);
-    for (j, inner) in loops.iter().enumerate() {
+    for (j, piece) in pieces.iter().enumerate() {
         let mut inside = Vec::new();
-        if let Some(q) = geometry::probe(&inner.boundary(&shapes[j])) {
-            for (i, outer) in loops.iter().enumerate() {
-                if i != j && geometry::winding(&outer.boundary(&shapes[i]), q) != 0 {
+        if let Some(q) = piece.probe {
+            for (i, a) in areas.iter().enumerate() {
+                if a.piece != j && geometry::winding(&a.cand.boundary(&a.shape), q) != 0 {
                     inside.push(i);
                 }
             }
@@ -234,29 +330,36 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         containers.push(inside);
     }
 
-    // A loop is a hole when its innermost container is an outer boundary,
-    // and an outer boundary otherwise: for nested loops that is the parity of
-    // the depth. Innermost is the container with the most containers itself
-    // (the later of equals), and only loops of a lower rank (containers,
-    // then index) count, so curves that cross without a shared point still
-    // give every loop a role and none is dropped. Flip a loop that turns the
-    // other way.
-    let rank = |i: usize| (containers[i].len(), i);
-    let mut order: Vec<usize> = (0..n).collect();
-    order.sort_by_key(|&i| rank(i));
+    // A piece takes one role for all its areas: hole when the innermost area
+    // it lies in (least absolute area, ties by smallest edge id) belongs to
+    // an outer piece, outer boundary otherwise. Only pieces of a lower rank
+    // (areas containing them, then index) count, so curves that cross
+    // without a shared point still give every piece a role and none is
+    // dropped.
+    let rank = |p: usize| (containers[p].len(), p);
+    let mut by_rank: Vec<usize> = (0..n).collect();
+    by_rank.sort_by_key(|&p| rank(p));
     let mut parent: Vec<Option<usize>> = vec![None; n];
     let mut is_hole = vec![false; n];
-    for &j in &order {
+    for &j in &by_rank {
         parent[j] = containers[j]
             .iter()
             .copied()
-            .filter(|&i| rank(i) < rank(j))
-            .max_by_key(|&i| rank(i));
-        is_hole[j] = parent[j].is_some_and(|p| !is_hole[p]);
+            .filter(|&a| rank(areas[a].piece) < rank(j))
+            .min_by(|&a, &b| {
+                split::compare_magnitude(&areas[a].cand, &areas[b].cand).then_with(|| {
+                    split::first_key(&areas[a].cand).cmp(&split::first_key(&areas[b].cand))
+                })
+            });
+        is_hole[j] = parent[j].is_some_and(|a| !is_hole[areas[a].piece]);
     }
-    let mut finished: Vec<Option<(Loop, (f64, i32))>> = Vec::with_capacity(n);
-    for (j, l) in loops.iter().enumerate() {
-        let hole = is_hole[j];
+
+    // Each area as its role wants it: counter-clockwise as an outer
+    // boundary, clockwise as a hole.
+    let mut finished: Vec<Option<(Loop, (f64, i32))>> = Vec::with_capacity(areas.len());
+    for a in &areas {
+        let l = &a.cand;
+        let hole = is_hole[a.piece];
         let wrong = match l.orientation {
             Orientation::CounterClockwise => hole,
             Orientation::Clockwise => !hole,
@@ -273,8 +376,8 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
                 orientation: Orientation::Flat,
                 exact: (0.0, 0),
             };
-            let a = geometry::area(&flip.boundary(&shape));
-            (flip.edges, a.signed, (a.twice, a.exponent))
+            let m = geometry::area(&flip.boundary(&shape));
+            (flip.edges, m.signed, (m.twice, m.exponent))
         } else {
             (l.edges.clone(), l.area, l.exact)
         };
@@ -288,15 +391,20 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         )));
     }
 
-    let mut out = Profiles::default();
-    let mut holes: Vec<Vec<usize>> = vec![Vec::new(); n];
-    for (j, p) in parent.iter().enumerate() {
-        if let (true, Some(p)) = (is_hole[j], p) {
-            holes[*p].push(j);
+    // The holes of each outer area: every bounded area of a hole piece whose
+    // innermost container it is.
+    let mut by_key: Vec<usize> = (0..areas.len()).collect();
+    by_key.sort_by_key(|&a| split::first_key(&areas[a].cand));
+    let mut holes: Vec<Vec<usize>> = vec![Vec::new(); areas.len()];
+    for &a in &by_key {
+        let piece = areas[a].piece;
+        if let (true, Some(p)) = (is_hole[piece], parent[piece]) {
+            holes[p].push(a);
         }
     }
-    for (j, own) in holes.iter().enumerate() {
-        if is_hole[j] {
+    let mut out = Profiles::default();
+    for &j in &by_key {
+        if is_hole[areas[j].piece] {
             continue;
         }
         let Some((outer, exact)) = finished[j].take() else {
@@ -304,7 +412,7 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         };
         let mut hs = Vec::new();
         let mut terms = vec![exact];
-        for &h in own {
+        for &h in &holes[j] {
             if let Some((hole, exact)) = finished[h].take() {
                 terms.push(exact);
                 hs.push(hole);
@@ -318,7 +426,7 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
     }
     out.open_chains = topo.open_chains;
     out.dangling = topo.dangling;
-    out.branched = topo.branched;
+    out.bridges = cut.bridges;
     out.degenerate = topo.degenerate;
     out.unjoined = unjoined(sketch, values, &topo.free_ends)?;
     Ok(out)

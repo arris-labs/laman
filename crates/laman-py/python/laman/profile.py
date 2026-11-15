@@ -20,6 +20,16 @@ clockwise:
 >>> found.net_area, found.holes
 (12.0, [])
 
+A wall across a rectangle splits it into two profiles that share the wall:
+
+>>> sk = laman.Sketch()
+>>> pts = [sk.point(x, y) for x, y in [(0, 0), (2, 0), (4, 0), (4, 3), (2, 3), (0, 3)]]
+>>> _ = [sk.line(pts[i], pts[(i + 1) % 6]) for i in range(6)]
+>>> _ = sk.line(pts[1], pts[4])
+>>> split = profiles(sk, sk.coordinates())
+>>> [p.net_area for p in split.profiles], split.bridges
+([6.0, 6.0], [])
+
 A value can be built by hand, for `laman.check.check_profiles` to re-measure:
 
 >>> from laman.profile import Loop, Profile, Profiles, Traversal
@@ -32,10 +42,9 @@ True
 """
 
 from ._errors import ProfileError
-from ._laman import Branched, Loop, Profile, Profiles, Traversal, Unjoined, profiles
+from ._laman import Loop, Profile, Profiles, Traversal, Unjoined, profiles
 
 __all__ = [
-    "Branched",
     "Loop",
     "Profile",
     "ProfileError",

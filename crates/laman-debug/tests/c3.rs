@@ -157,8 +157,12 @@ fn the_acceptance_numbers() {
     near(area("circle-alone").profiles[0].net_area, 25.0 * pi);
     assert_eq!(area("open-chain").open_chains.len(), 1);
     assert_eq!(area("dangling-edge").dangling.len(), 1);
-    assert_eq!(area("shared-edge").branched.len(), 1);
-    assert!(area("shared-edge").profiles.is_empty());
+    // Two 40 by 30 cells share a wall: two profiles, the wall in both.
+    let r = area("shared-edge");
+    assert_eq!(r.profiles.len(), 2);
+    near(r.profiles[0].net_area, 1200.0);
+    near(r.profiles[1].net_area, 1200.0);
+    assert!(r.bridges.is_empty());
     // A rectangle with a corner of two ground points at one place is an open
     // chain whose free ends are reported, never joined.
     let r = area("unjoined");
@@ -193,7 +197,7 @@ fn slot_grids_are_one_plate_with_a_hole_per_slot() {
             assert_eq!(found.profiles.len(), 1, "{name}");
             assert!(found.open_chains.is_empty(), "{name}");
             assert!(found.dangling.is_empty(), "{name}");
-            assert!(found.branched.is_empty(), "{name}");
+            assert!(found.bridges.is_empty(), "{name}");
             assert!(found.degenerate.is_empty(), "{name}");
             assert!(found.unjoined.is_empty(), "{name}");
             let plate = &found.profiles[0];

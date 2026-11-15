@@ -25,7 +25,7 @@
 //!       "holes": [], "net_area": {"value": 7200.0, "tolerance": 1e-9}
 //!     }],
 //!     "open_chains": [[7, 8]], "dangling": [9], "degenerate": [],
-//!     "branched": [{"edges": [4, 5, 6], "joins": [1]}],
+//!     "bridges": [6],
 //!     "unjoined": [[2, 9]]
 //!   },
 //!   "intersections": {
@@ -71,7 +71,7 @@
 
 use crate::json::{LoadError, sketch_from_str};
 use laman::model::intersection::{Intersections, MeetingKind};
-use laman::model::profile::{Branched, Profiles, Traversal, Unjoined};
+use laman::model::profile::{Profiles, Traversal, Unjoined};
 use laman::model::{
     ConstraintId, Coordinate, Coordinates, EntityId, EntityKind, Sketch, tolerance,
 };
@@ -408,8 +408,8 @@ pub struct ExpectedProfiles {
     pub open_chains: Vec<Vec<EntityId>>,
     /// The dangling edges.
     pub dangling: Vec<EntityId>,
-    /// The branched cores.
-    pub branched: Vec<Branched>,
+    /// The bridges.
+    pub bridges: Vec<EntityId>,
     /// The self-joined edges.
     pub degenerate: Vec<EntityId>,
     /// The unjoined coincidences.
@@ -427,7 +427,7 @@ impl ExpectedProfiles {
     ///     profiles: vec![],
     ///     open_chains: vec![],
     ///     dangling: vec![],
-    ///     branched: vec![],
+    ///     bridges: vec![],
     ///     degenerate: vec![],
     ///     unjoined: vec![],
     /// };
@@ -480,10 +480,10 @@ impl ExpectedProfiles {
             format!("{:?}", found.dangling),
         );
         list(
-            "branched",
-            self.branched == found.branched,
-            format!("{:?}", self.branched),
-            format!("{:?}", found.branched),
+            "bridges",
+            self.bridges == found.bridges,
+            format!("{:?}", self.bridges),
+            format!("{:?}", found.bridges),
         );
         list(
             "degenerate",
@@ -716,13 +716,6 @@ struct ProfileFile {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct BranchedFile {
-    edges: Vec<u32>,
-    joins: Vec<u32>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct ProfilesFile {
     #[serde(default)]
     profiles: Vec<ProfileFile>,
@@ -731,7 +724,7 @@ struct ProfilesFile {
     #[serde(default)]
     dangling: Vec<u32>,
     #[serde(default)]
-    branched: Vec<BranchedFile>,
+    bridges: Vec<u32>,
     #[serde(default)]
     degenerate: Vec<u32>,
     #[serde(default)]
@@ -939,13 +932,6 @@ fn expected_profiles(
             net_area: area(p.net_area)?,
         });
     }
-    let mut branched = Vec::with_capacity(file.branched.len());
-    for b in &file.branched {
-        branched.push(Branched {
-            edges: entities(&b.edges)?,
-            joins: entities(&b.joins)?,
-        });
-    }
     let mut unjoined = Vec::with_capacity(file.unjoined.len());
     for [first, second] in &file.unjoined {
         unjoined.push(Unjoined {
@@ -961,7 +947,7 @@ fn expected_profiles(
             .map(|c| entities(c))
             .collect::<Result<_, _>>()?,
         dangling: entities(&file.dangling)?,
-        branched,
+        bridges: entities(&file.bridges)?,
         degenerate: entities(&file.degenerate)?,
         unjoined,
     })

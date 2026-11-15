@@ -258,7 +258,7 @@ fn check(chains: &[Chain], t: &Transform) -> Result<(), TestCaseError> {
     let found = profiles(&sk, &sk.coordinates()).unwrap();
     prop_assert!(found.open_chains.is_empty());
     prop_assert!(found.dangling.is_empty());
-    prop_assert!(found.branched.is_empty());
+    prop_assert!(found.bridges.is_empty());
     prop_assert!(found.degenerate.is_empty());
     prop_assert!(found.unjoined.is_empty());
     // The checker's own measure, nesting included, agrees with the report.

@@ -23,7 +23,8 @@ pub struct Traversal {
     pub reversed: bool,
 }
 
-/// A closed boundary: edges end to end, or one circle.
+/// A closed boundary: edges end to end, or one circle. A line or arc shared
+/// by two bounded areas is in both loops, once in each direction.
 ///
 /// ```
 /// use laman::model::profile::Loop;
@@ -66,24 +67,6 @@ pub struct Profile {
     pub net_area: f64,
 }
 
-/// A core of edges where some join has three or more of them: a
-/// self-touching loop, or an edge shared by two loops. Reported, never part
-/// of a profile.
-///
-/// ```
-/// use laman::model::{profile::Branched, EntityId};
-/// let b = Branched { edges: vec![EntityId(5)], joins: vec![EntityId(1)] };
-/// assert_eq!(b.joins.len(), 1);
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Branched {
-    /// The core's edges, in id order.
-    pub edges: Vec<EntityId>,
-    /// The joins where three or more edges meet, each named by its
-    /// smallest point id, in id order.
-    pub joins: Vec<EntityId>,
-}
-
 /// Two free ends that coincide in the coordinates but are not joined: the
 /// join the caller probably meant is missing.
 ///
@@ -116,8 +99,9 @@ pub struct Profiles {
     pub open_chains: Vec<Vec<EntityId>>,
     /// Edges hanging from a component that still holds a loop.
     pub dangling: Vec<EntityId>,
-    /// Cores no profile takes (see [`Branched`]).
-    pub branched: Vec<Branched>,
+    /// Bridges: edges of a branched core whose removal disconnects it, so
+    /// the same area lies on both their sides. In no loop, ascending.
+    pub bridges: Vec<EntityId>,
     /// Self-joined edges: those whose two ends are one join, left out. (Not
     /// the geometry that collapsed at a solution, which the diagnostics call
     /// degenerate.)

@@ -175,7 +175,7 @@
     ],
     "open_chains": [],
     "dangling": [],
-    "branched": [],
+    "bridges": [],
     "degenerate": [],
     "unjoined": []
   }

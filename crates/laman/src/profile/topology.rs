@@ -5,9 +5,9 @@
 //! `coincident` constraints (union-find, each class named by its smallest
 //! point id). Edges are pruned at degree-1 classes until none is left; what
 //! remains of a component is its core, a loop when every class in it has
-//! degree 2 and branched otherwise.
+//! degree 2 and branched otherwise (a [`Core`], split by `split`).
 
-use crate::model::profile::{Branched, Traversal};
+use crate::model::profile::Traversal;
 use crate::model::{Constraint, ConstraintId, Entity, EntityId, Sketch};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -44,10 +44,8 @@ pub(crate) struct Topology {
     pub open_chains: Vec<Vec<EntityId>>,
     /// Pruned edges of components that keep a core, in id order.
     pub dangling: Vec<EntityId>,
-    /// Cores with a join of degree above 2, ordered by smallest edge id.
-    pub branched: Vec<Branched>,
-    /// The same cores with their edges' joins, for the walk that splits
-    /// them (`split`, ADR-0017); in the same order as `branched`.
+    /// Cores with a join of degree above 2, ordered by smallest edge id;
+    /// `split` splits them (ADR-0017).
     pub cores: Vec<Core>,
     /// Edges with both ends in one join, in id order.
     pub degenerate: Vec<EntityId>,
@@ -112,6 +110,8 @@ pub(crate) struct Edge {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Core {
     pub edges: Vec<Edge>,
+    /// The joins where three or more edges meet, by smallest point id.
+    pub hubs: Vec<EntityId>,
 }
 
 /// The topology of `sketch`'s non-construction edges.
@@ -229,15 +229,12 @@ pub(crate) fn topology(sketch: &Sketch) -> Topology {
         } else {
             out.cores.push(Core {
                 edges: core.iter().map(|&i| edges[i]).collect(),
-            });
-            out.branched.push(Branched {
-                edges: core.iter().map(|&i| edges[i].id).collect(),
-                joins: hubs.into_iter().collect(),
+                hubs: hubs.into_iter().collect(),
             });
         }
     }
     out.loops.sort_by_key(|l| l.edges.first().map(|t| t.entity));
-    out.branched.sort_by_key(|b| b.edges.first().copied());
+    out.cores.sort_by_key(|c| c.edges.first().map(|e| e.id));
     out.circles.sort();
     out.degenerate.sort();
     out

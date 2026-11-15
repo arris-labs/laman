@@ -95,7 +95,7 @@ pub(crate) fn split(
     Ok(out)
 }
 
-fn first_key(l: &Candidate) -> Option<(EntityId, bool)> {
+pub(super) fn first_key(l: &Candidate) -> Option<(EntityId, bool)> {
     l.edges.first().map(|t| (t.entity, t.reversed))
 }
 
@@ -260,11 +260,23 @@ fn outline_of(loops: &[Candidate]) -> usize {
 }
 
 fn compare(a: &Candidate, b: &Candidate) -> Ordering {
-    let ((ta, ea), (tb, eb)) = (a.exact, b.exact);
+    cmp_exact(a.exact, b.exact)
+}
+
+/// The magnitudes of two areas, unsaturated.
+pub(super) fn compare_magnitude(a: &Candidate, b: &Candidate) -> Ordering {
+    cmp_exact((a.exact.0.abs(), a.exact.1), (b.exact.0.abs(), b.exact.1))
+}
+
+/// Two areas given as `(twice, exponent)`, compared in the frame of the
+/// larger exponent, so they order where each alone saturates.
+fn cmp_exact((ta, ea): (f64, i32), (tb, eb): (f64, i32)) -> Ordering {
     let top = if ta == 0.0 {
         eb
+    } else if tb == 0.0 {
+        ea
     } else {
-        ea.max(if tb == 0.0 { ea } else { eb })
+        ea.max(eb)
     };
     libm::scalbn(ta, ea - top).total_cmp(&libm::scalbn(tb, eb - top))
 }

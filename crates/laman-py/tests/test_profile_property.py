@@ -108,7 +108,7 @@ def test_the_profiles_are_the_construction(cells: list[tuple[str, object]]) -> N
     built = build(cells)
     values: Coordinates = built.sketch.coordinates()
     found = profiles(built.sketch, values)
-    assert not found.open_chains and not found.dangling and not found.branched
+    assert not found.open_chains and not found.dangling and not found.bridges
     assert not found.degenerate and not found.unjoined
     assert len(found.profiles) == len(built.plates)
     assert sorted(len(p.holes) for p in found.profiles) == sorted(built.plate_holes)
