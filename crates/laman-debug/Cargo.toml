@@ -70,3 +70,7 @@ required-features = ["proptest"]
 [[test]]
 name = "c4_props"
 required-features = ["proptest"]
+
+[[test]]
+name = "c4_profile_props"
+required-features = ["proptest"]

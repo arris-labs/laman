@@ -1,0 +1,61 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": 1,
+      "kind": "point",
+      "x": 1e-299,
+      "y": 0.0
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 1e-299,
+      "y": 1e-299
+    },
+    {
+      "id": 3,
+      "kind": "point",
+      "x": 0.0,
+      "y": 1e-299
+    },
+    {
+      "id": 4,
+      "kind": "line",
+      "a": 0,
+      "b": 1
+    },
+    {
+      "id": 5,
+      "kind": "line",
+      "a": 1,
+      "b": 2
+    },
+    {
+      "id": 6,
+      "kind": "line",
+      "a": 2,
+      "b": 3
+    },
+    {
+      "id": 7,
+      "kind": "line",
+      "a": 3,
+      "b": 0
+    },
+    {
+      "id": 8,
+      "kind": "line",
+      "a": 0,
+      "b": 2
+    }
+  ],
+  "constraints": []
+}

@@ -1,0 +1,226 @@
+{
+  "format": "laman.sketch",
+  "version": 1,
+  "entities": [
+    {
+      "id": 0,
+      "kind": "point",
+      "x": 0.0,
+      "y": 0.0,
+      "fixed": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "point",
+      "x": 62.0,
+      "y": 1.0
+    },
+    {
+      "id": 2,
+      "kind": "point",
+      "x": 118.0,
+      "y": 2.0
+    },
+    {
+      "id": 3,
+      "kind": "point",
+      "x": 122.0,
+      "y": 58.0
+    },
+    {
+      "id": 4,
+      "kind": "point",
+      "x": 119.0,
+      "y": 123.0
+    },
+    {
+      "id": 5,
+      "kind": "point",
+      "x": 58.0,
+      "y": 121.0
+    },
+    {
+      "id": 6,
+      "kind": "point",
+      "x": 2.0,
+      "y": 118.0
+    },
+    {
+      "id": 7,
+      "kind": "point",
+      "x": 1.0,
+      "y": 62.0
+    },
+    {
+      "id": 8,
+      "kind": "point",
+      "x": 58.0,
+      "y": 61.0
+    },
+    {
+      "id": 9,
+      "kind": "line",
+      "a": 0,
+      "b": 1
+    },
+    {
+      "id": 10,
+      "kind": "line",
+      "a": 1,
+      "b": 2
+    },
+    {
+      "id": 11,
+      "kind": "line",
+      "a": 2,
+      "b": 3
+    },
+    {
+      "id": 12,
+      "kind": "line",
+      "a": 3,
+      "b": 4
+    },
+    {
+      "id": 13,
+      "kind": "line",
+      "a": 4,
+      "b": 5
+    },
+    {
+      "id": 14,
+      "kind": "line",
+      "a": 5,
+      "b": 6
+    },
+    {
+      "id": 15,
+      "kind": "line",
+      "a": 6,
+      "b": 7
+    },
+    {
+      "id": 16,
+      "kind": "line",
+      "a": 7,
+      "b": 0
+    },
+    {
+      "id": 17,
+      "kind": "line",
+      "a": 1,
+      "b": 8
+    },
+    {
+      "id": 18,
+      "kind": "line",
+      "a": 3,
+      "b": 8
+    },
+    {
+      "id": 19,
+      "kind": "line",
+      "a": 5,
+      "b": 8
+    },
+    {
+      "id": 20,
+      "kind": "line",
+      "a": 7,
+      "b": 8
+    }
+  ],
+  "constraints": [
+    {
+      "id": 0,
+      "kind": "horizontal",
+      "line": 9
+    },
+    {
+      "id": 1,
+      "kind": "horizontal",
+      "line": 10
+    },
+    {
+      "id": 2,
+      "kind": "horizontal",
+      "line": 13
+    },
+    {
+      "id": 3,
+      "kind": "horizontal",
+      "line": 14
+    },
+    {
+      "id": 4,
+      "kind": "vertical",
+      "line": 11
+    },
+    {
+      "id": 5,
+      "kind": "vertical",
+      "line": 12
+    },
+    {
+      "id": 6,
+      "kind": "vertical",
+      "line": 15
+    },
+    {
+      "id": 7,
+      "kind": "vertical",
+      "line": 16
+    },
+    {
+      "id": 8,
+      "kind": "vertical",
+      "line": 17
+    },
+    {
+      "id": 9,
+      "kind": "horizontal",
+      "line": 18
+    },
+    {
+      "id": 10,
+      "kind": "vertical",
+      "line": 19
+    },
+    {
+      "id": 11,
+      "kind": "horizontal",
+      "line": 20
+    },
+    {
+      "id": 12,
+      "kind": "distance",
+      "a": 0,
+      "b": 1,
+      "value": 60.0
+    },
+    {
+      "id": 13,
+      "kind": "distance",
+      "a": 1,
+      "b": 2,
+      "value": 60.0
+    },
+    {
+      "id": 14,
+      "kind": "distance",
+      "a": 0,
+      "b": 7,
+      "value": 60.0
+    },
+    {
+      "id": 15,
+      "kind": "distance",
+      "a": 7,
+      "b": 6,
+      "value": 60.0
+    }
+  ]
+}

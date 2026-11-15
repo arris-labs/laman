@@ -106,6 +106,14 @@ A defect a run measured, one block each:
 - Measured: point on a radius-10 circle, target (-1e300, 3e299): ends (10, 0), both algorithms; 1e30 and 1e150 end nearest the target
 - State: regression/far-goal-stationary
 
+### below-floor-uncovered-edges
+- What: below `LENGTH_FLOOR` the ends at a join tie and go by edge id (ADR-0017 addendum), and the walk can make one loop that takes edges both ways; as the outline it hides them, so `profiles()` reports no loop for them and `check_profiles` names them `Uncovered`
+- Where: `laman::profile` (the walk and the outline, ADR-0017 D4/D5), against `laman-check`'s listed-once rule
+- Seen: plans/m13-branched-profiles step 7, `c4_profile_props.rs` at 1e-300, 2026-11-16
+- Reproduce: `cargo test -p laman-debug --test c4_profile_props -- --ignored`
+- Measured: a 10 x 10 square and a diagonal at 1e-299, drawn sides first: no profile, all five edges uncovered (drawn diagonal first: two profiles, clean); the step's fixed subdivisions at 1e-300 leave 1 to 12 edges uncovered. Not seen at 1e-6 to 1e6 in 5000 cases, crossing diagonals included
+- State: regression/below-floor-uncovered-edges
+
 ## Rejected
 
 - The working name `clevis`: taken on crates.io and PyPI (SEED.md §2)

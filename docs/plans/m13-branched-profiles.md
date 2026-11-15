@@ -112,7 +112,7 @@ an algorithm whose robustness or bound is established here.
   branched core in a plate, the plate holed once per bounded area.
 - [x] Step 6 **[2]** — D4's `cell_grid`, with a runnable example. Its 2 × 2
   and the C2 `rect_chain` give their known profile counts and areas.
-- [ ] Step 7 **[3]** — A property test: planar subdivisions built by
+- [x] Step 7 **[3]** — A property test: planar subdivisions built by
   construction (a polygon split by chords and arcs, some joins degree 4,
   some tangent), then rotated, scaled and translated. Checked: the profile
   count; the areas summing to the outline's; each shared edge in two loops,
