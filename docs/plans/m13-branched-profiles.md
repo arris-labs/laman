@@ -93,7 +93,7 @@ an algorithm whose robustness or bound is established here.
   against arc tangent on either side, two arcs tangent with different
   radii and with equal radii (the id tie), at scales 1e-6 to 1e6, with
   translations, and near 1e±300.
-- [ ] Step 3 **[2]** — Topology: bridges, then the walk over each piece's
+- [x] Step 3 **[2]** — Topology: bridges, then the walk over each piece's
   directed edges with step 2's order, and the outline per piece. Unit tests
   on the shared wall, the window, the figure eight and two rectangles
   joined by a bridge (loop counts, edge order, the bridge's id).

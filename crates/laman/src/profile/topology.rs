@@ -46,6 +46,9 @@ pub(crate) struct Topology {
     pub dangling: Vec<EntityId>,
     /// Cores with a join of degree above 2, ordered by smallest edge id.
     pub branched: Vec<Branched>,
+    /// The same cores with their edges' joins, for the walk that splits
+    /// them (`split`, ADR-0017); in the same order as `branched`.
+    pub cores: Vec<Core>,
     /// Edges with both ends in one join, in id order.
     pub degenerate: Vec<EntityId>,
     /// Every end alone in its join, whether or not pruning removed its
@@ -87,7 +90,7 @@ impl Classes {
         root
     }
 
-    fn union(&mut self, a: EntityId, b: EntityId) {
+    pub(crate) fn union(&mut self, a: EntityId, b: EntityId) {
         let (ra, rb) = (self.find(a), self.find(b));
         if ra != rb {
             self.parent.insert(ra.max(rb), ra.min(rb));
@@ -96,12 +99,19 @@ impl Classes {
 }
 
 /// A line or arc as the topology sees it.
-struct Edge {
-    id: EntityId,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Edge {
+    pub id: EntityId,
     /// The end points as drawn: a line's `a` and `b`, an arc's `s` and `e`.
-    points: [EntityId; 2],
+    pub points: [EntityId; 2],
     /// The join classes of those ends.
-    classes: [EntityId; 2],
+    pub classes: [EntityId; 2],
+}
+
+/// A core with a join of degree above 2: its edges in id order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Core {
+    pub edges: Vec<Edge>,
 }
 
 /// The topology of `sketch`'s non-construction edges.
@@ -217,6 +227,9 @@ pub(crate) fn topology(sketch: &Sketch) -> Topology {
             out.loops
                 .push(walk(&edges, core, &incident, &alive, sketch, &mut classes));
         } else {
+            out.cores.push(Core {
+                edges: core.iter().map(|&i| edges[i]).collect(),
+            });
             out.branched.push(Branched {
                 edges: core.iter().map(|&i| edges[i].id).collect(),
                 joins: hubs.into_iter().collect(),
@@ -258,6 +271,21 @@ fn walk(
         }
     }
 
+    let joins = joins_of(edges, core, sketch, classes);
+    EdgeLoop {
+        edges: order,
+        joins,
+    }
+}
+
+/// The `coincident` constraints that join the ends of the `core` edges
+/// (indices into `edges`).
+pub(crate) fn joins_of(
+    edges: &[Edge],
+    core: &[usize],
+    sketch: &Sketch,
+    classes: &mut Classes,
+) -> Vec<ConstraintId> {
     // The coincident constraints on a path between two distinct end points
     // of this loop. A class holds the loop's end points; links to a point no
     // edge of the loop uses are pruned from the leaves in, so a constraint
@@ -296,11 +324,7 @@ fn walk(
             break;
         }
     }
-    let joins = links.into_iter().map(|(id, _, _)| id).collect();
-    EdgeLoop {
-        edges: order,
-        joins,
-    }
+    links.into_iter().map(|(id, _, _)| id).collect()
 }
 
 #[cfg(test)]

@@ -5,14 +5,15 @@
 //! orientation and nesting, through the geometry kernel in `geometry`.
 
 mod geometry;
+mod join;
 #[cfg_attr(
     not(test),
     expect(
         dead_code,
-        reason = "read by the walk, plans/m13-branched-profiles step 3"
+        reason = "read by profiles(), plans/m13-branched-profiles step 4"
     )
 )]
-mod join;
+mod split;
 pub(crate) mod topology;
 
 use crate::model::profile::{Loop, Profile, Profiles, Traversal, Unjoined};
@@ -61,6 +62,7 @@ fn point(values: &Coordinates, id: EntityId) -> Result<[f64; 2], ProfileError> {
 }
 
 /// A loop being assembled: its traversal and its measured boundary.
+#[derive(Debug)]
 struct Candidate {
     edges: Vec<Traversal>,
     joins: Vec<crate::model::ConstraintId>,
