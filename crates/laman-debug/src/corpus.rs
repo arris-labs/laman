@@ -579,6 +579,167 @@ pub fn slot_grid_with(
     })
 }
 
+// Cell geometry of `cell_grid`: C1's slot (centres 40 apart, radius 5) fits
+// with room to spare, and the cell is not square so a swapped axis shows.
+const CELL_WIDTH: f64 = 100.0;
+const CELL_HEIGHT: f64 = 40.0;
+const SLOT_LENGTH: f64 = 40.0;
+const SLOT_RADIUS: f64 = 5.0;
+
+struct CellBuild {
+    sketch: Sketch,
+    coordinates: Coordinates,
+}
+
+// The last column is `last_width` wide; the others `CELL_WIDTH`. Slots are
+// placed from the first column's left wall and the first row's bottom wall,
+// so a wider last column moves only the right boundary.
+fn cells(
+    rows: usize,
+    cols: usize,
+    last_width: f64,
+    displaced: bool,
+) -> Result<CellBuild, CorpusError> {
+    let smallest = SLOT_RADIUS;
+    let x_of = |j: usize| {
+        if j == cols {
+            (cols - 1) as f64 * CELL_WIDTH + last_width
+        } else {
+            j as f64 * CELL_WIDTH
+        }
+    };
+    let mut sketch = Sketch::new();
+    let mut coordinates = Coordinates::new();
+    let mut grid = Vec::with_capacity((rows + 1) * (cols + 1));
+    for i in 0..=rows {
+        for j in 0..=cols {
+            let fixed = i == 0 && j == 0;
+            grid.push(point(
+                &mut sketch,
+                &mut coordinates,
+                [x_of(j), i as f64 * CELL_HEIGHT],
+                smallest,
+                displaced,
+                fixed,
+            )?);
+        }
+    }
+    let at = |i: usize, j: usize| grid[i * (cols + 1) + j];
+    // Every wall is one line, shared by the cells on its two sides.
+    let mut bottom = None;
+    let mut left = None;
+    for i in 0..=rows {
+        for j in 0..cols {
+            let wall = sketch.line(at(i, j), at(i, j + 1))?;
+            sketch.horizontal(wall)?;
+            if i == 0 {
+                bottom = Some(wall);
+                let width = if j + 1 == cols {
+                    last_width
+                } else {
+                    CELL_WIDTH
+                };
+                let id = sketch.distance(at(0, j), at(0, j + 1), width)?;
+                sketch.tag_constraint(id, &format!("width-{j}"))?;
+            }
+        }
+    }
+    for i in 0..rows {
+        for j in 0..=cols {
+            let wall = sketch.line(at(i, j), at(i + 1, j))?;
+            sketch.vertical(wall)?;
+            if j == 0 {
+                left = Some(wall);
+                sketch.distance(at(i, 0), at(i + 1, 0), CELL_HEIGHT)?;
+            }
+        }
+    }
+    let (Some(bottom), Some(left)) = (bottom, left) else {
+        return Err(CorpusError::Count("cells"));
+    };
+    for i in 0..rows * cols {
+        let x = (i % cols) as f64 * CELL_WIDTH + 25.0;
+        let y = (i / cols) as f64 * CELL_HEIGHT + CELL_HEIGHT / 2.0;
+        let r = SLOT_RADIUS;
+        let mut add = |xy: [f64; 2]| {
+            point(
+                &mut sketch,
+                &mut coordinates,
+                xy,
+                smallest,
+                displaced,
+                false,
+            )
+        };
+        let c1 = add([x, y])?;
+        let s1 = add([x, y + r])?;
+        let e1 = add([x, y - r])?;
+        let c2 = add([x + SLOT_LENGTH, y])?;
+        let s2 = add([x + SLOT_LENGTH, y - r])?;
+        let e2 = add([x + SLOT_LENGTH, y + r])?;
+        let a1 = sketch.arc(c1, s1, e1)?;
+        let a2 = sketch.arc(c2, s2, e2)?;
+        let upper = sketch.line(e2, s1)?;
+        let lower = sketch.line(e1, s2)?;
+        sketch.tangent_line_circle(upper, a1)?;
+        sketch.tangent_line_circle(upper, a2)?;
+        sketch.tangent_line_circle(lower, a1)?;
+        sketch.tangent_line_circle(lower, a2)?;
+        sketch.equal_radius(a1, a2)?;
+        sketch.radius(a1, r)?;
+        sketch.horizontal((c1, c2))?;
+        sketch.distance(c1, c2, SLOT_LENGTH)?;
+        sketch.point_line_distance(c1, left, x)?;
+        sketch.point_line_distance(c1, bottom, y)?;
+    }
+    Ok(CellBuild {
+        sketch,
+        coordinates,
+    })
+}
+
+/// Builds `rows * cols` rectangular cells, 100 by 40, whose shared walls
+/// are single lines, with a C1 slot (centres 40 apart, radius 5) in each
+/// cell as a hole. Every cell is one profile of net area
+/// `4000 - (40 * 10 + 25 * pi)`; the edit widens the last column by a
+/// tenth, so each of its cells gains 400. The edit is the last column's
+/// `width-{cols - 1}` dimension; there is no drag, and `unmoved` is empty.
+/// Refuses zero rows/columns or counts exceeding the model's id ranges
+/// before building any sketch.
+///
+/// ```
+/// let case = laman_debug::corpus::cell_grid(2, 2)?;
+/// assert_eq!(case.edit.tag, "width-1");
+/// # Ok::<(), laman_debug::corpus::CorpusError>(())
+/// ```
+pub fn cell_grid(rows: usize, cols: usize) -> Result<Case, CorpusError> {
+    if rows == 0 {
+        return Err(CorpusError::Count("rows"));
+    }
+    if cols == 0 {
+        return Err(CorpusError::Count("columns"));
+    }
+    let count = rows
+        .checked_mul(cols)
+        .ok_or(CorpusError::Count("cell count"))?;
+    construction_count("cell count", count, 18, 0, 18, 0)?;
+    let built = cells(rows, cols, CELL_WIDTH, true)?;
+    let new_value = CELL_WIDTH * (1.0 + EDIT_FRACTION);
+    let edited = cells(rows, cols, new_value, false)?;
+    let exact = cells(rows, cols, CELL_WIDTH, false)?;
+    Ok(Case {
+        sketch: built.sketch,
+        expected: expected(exact.coordinates, 0),
+        edit: Edit {
+            tag: format!("width-{}", cols - 1),
+            value: new_value,
+            expected: expected(edited.coordinates, 0),
+            unmoved: Vec::new(),
+        },
+        drag: None,
+    })
+}
+
 // Unit equilateral strip: points alternate between the two sides of each
 // preceding edge. Editing skip edge j rotates the rigid tail about j-1;
 // circle intersection fixes the new j while the j-1--j distance stays 1.

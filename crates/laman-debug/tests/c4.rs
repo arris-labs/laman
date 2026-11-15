@@ -282,3 +282,42 @@ fn a_solved_free_tangent_is_one_touch_and_a_nudge_makes_two_crossings() {
     let kinds: Vec<_> = found.pairs[0].meetings.iter().map(|m| m.kind).collect();
     assert_eq!(kinds, [MeetingKind::Crossing, MeetingKind::Crossing]);
 }
+
+/// The generators' profiles at their closed-form coordinates, solved and
+/// checked first: `cell_grid` gives one profile per cell, each net
+/// `cell - (40 * 10 + 25 * pi)`, with the slot its one hole; `rect_chain`
+/// gives one 200-area profile per rectangle.
+#[test]
+fn the_generators_give_their_known_profiles() {
+    use laman_debug::corpus::{Case, cell_grid, rect_chain};
+    let near = |a: f64, b: f64| assert!((a - b).abs() <= 1e-9 * b.abs().max(1.0), "{a} vs {b}");
+    let pi = std::f64::consts::PI;
+    let measure = |name: &str, case: &Case, count: usize, area: f64, holes: usize| {
+        let solved = case.sketch.solve(&SolverOptions::default());
+        assert_eq!(solved.status, Status::FullyConstrained, "{name}");
+        assert!(
+            check_profiles(
+                &case.sketch,
+                &solved.coordinates,
+                &profiles(&case.sketch, &solved.coordinates).unwrap()
+            )
+            .is_clean(),
+            "{name}"
+        );
+        let mut values = case.sketch.coordinates();
+        values.extend(case.expected.coordinates.iter().map(|(k, v)| (*k, *v)));
+        let found = profiles(&case.sketch, &values).unwrap();
+        assert_eq!(found.profiles.len(), count, "{name}");
+        assert!(found.bridges.is_empty(), "{name}");
+        for p in &found.profiles {
+            assert_eq!(p.holes.len(), holes, "{name}");
+            near(p.net_area, area);
+        }
+        let report = check_profiles(&case.sketch, &values, &found);
+        assert!(report.is_clean(), "{name}: {report:#?}");
+    };
+    let slot = 400.0 + 25.0 * pi;
+    measure("cell 1x1", &cell_grid(1, 1).unwrap(), 1, 4000.0 - slot, 1);
+    measure("cell 2x2", &cell_grid(2, 2).unwrap(), 4, 4000.0 - slot, 1);
+    measure("rect_chain 98", &rect_chain(98).unwrap(), 98, 200.0, 0);
+}

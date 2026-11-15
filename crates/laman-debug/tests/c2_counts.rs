@@ -117,3 +117,23 @@ fn counts_that_fit_ids_but_not_allocation_are_refused() {
         Err(CorpusError::Count("slot count"))
     ));
 }
+
+#[test]
+fn cell_counts_refuse_zero_and_overflow() {
+    use laman_debug::corpus::cell_grid;
+    assert!(matches!(cell_grid(0, 3), Err(CorpusError::Count("rows"))));
+    assert!(matches!(
+        cell_grid(3, 0),
+        Err(CorpusError::Count("columns"))
+    ));
+    for (rows, cols) in [
+        (usize::MAX, 2),
+        (1 << 20, 1 << 20),
+        (MAX_CONSTRUCTION_ITEMS, 1),
+    ] {
+        assert!(matches!(
+            cell_grid(rows, cols),
+            Err(CorpusError::Count("cell count"))
+        ));
+    }
+}
