@@ -428,6 +428,18 @@ join separations, and the rounding of the area sum's magnitude). An area
 within it of 0 has an undecided sign (ADR-0013 D2 and its addendum).
 _Avoid_: slack, margin (a margin is ADR-0006's, for branches)
 
+**Undecided band**:
+Where the checker's verdict on an intersection is neither agreement nor a
+violation: from `L/4` to `4L` (`BAND = 4`) about the length tolerance `L`
+at which the kernel decides, wide enough for the move of a meeting to an
+end (up to `2L`) and for two measures' rounding (ADR-0018 D1).
+
+**Missed pair**:
+A pair of curves the checker finds decidedly meeting at a place (a root
+read as a crossing, a touch, an end crossing the other curve, a shared
+stretch) that no reported meeting of the pair covers: the pair is missing
+from the result, or one of its meetings is (ADR-0018 D4).
+
 **Fixture**:
 A sketch with its expected values (coordinates, DoF, conflict sets),
 known analytically or by construction, committed under `tests/fixtures/`.

@@ -34,3 +34,4 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0015](0015-contacts-are-recognized-through-join-classes.md) | Contacts are recognized through join classes | accepted; amends 0002 |
 | [0016](0016-intersections-are-measured-classified-never-joined.md) | Intersections are measured, classified, never joined | accepted |
 | [0017](0017-a-branched-core-splits-at-its-joins.md) | A branched core splits at its joins | accepted; amends 0012 |
+| [0018](0018-the-checker-re-measures-intersections-and-re-derives-the-split.md) | The checker re-measures intersections and re-derives the split | accepted |
