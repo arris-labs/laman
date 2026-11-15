@@ -632,8 +632,18 @@ ProfileError>` reads any coordinates, a solution's included, and takes no
   pruned repeatedly in id order: a component pruned away is an open chain,
   a pruned edge of a component that keeps a core is dangling. A core whose
   classes all have degree 2 is a loop, ordered from its smallest edge id;
-  a core with a class of degree > 2 is branched and reported, none of its
-  edges entering a profile. An edge with both ends in one class is
+  a core with a class of degree > 2 is branched and is split
+  ([ADR-0017](adr/0017-a-branched-core-splits-at-its-joins.md)): its
+  bridges (edges whose removal disconnects it) are found by one
+  depth-first search with low links and reported in `Profiles::bridges`;
+  what remains falls into pieces. At each join the edge ends are ordered
+  counter-clockwise by tangent direction, then by signed curvature where
+  two leave tangent (directions tie when `s · |sin Δθ| ≤ L`, `s` the shorter
+  edge's length, `L` the length tolerance; no new constant), then by edge
+  id. Each directed edge lies in one loop, the walk taking the next end
+  clockwise from the arriving one; in each piece the loop of most negative
+  area is its outline, used for containment and never a profile, and every
+  other loop is a bounded area. An edge with both ends in one class is
   self-joined. Free ends of open chains and dangling edges that lie within
   the length tolerance of each other (`Tolerances::at`) are reported as
   unjoined coincidences, never joined.
@@ -644,15 +654,18 @@ ProfileError>` reads any coordinates, a solution's included, and takes no
   (measured) and directly above. The area saturates at ±`f64::MAX`.
   Containment is the winding number at the inner loop's probe: its first
   edge's midpoint (an arc's at half its sweep), or a circle's point at
-  angle 0; a loop is a hole exactly when its innermost container is an outer
-  boundary, and that container is its parent. Extraction is quadratic in the number of loops.
+  angle 0; a piece's bounded areas are holes exactly when the innermost
+  bounded area of another piece containing its outline is an outer boundary,
+  and that area's profile is their parent, so a branched core in a plate
+  gives the plate one hole per bounded area. A shared edge is in two loops,
+  once in each direction. Extraction is quadratic in the number of loops.
 - **Open joins.** A loop whose joins are violated by its coordinates (a
   `coincident` the coordinates do not meet) still closes, but its area
   depends on the origin it is summed from; extraction measures from the
   loop's first join, so such a loop's area is not comparable and the
   checker leaves it uncompared ([ADR-0013](adr/0013-the-profile-check-measures-by-sectors.md)).
 - **Why the types sit under `model`.** `Profiles`, `Profile`, `Loop`,
-  `Traversal`, `Branched` and `Unjoined` live in `model::profile` so that
+  `Traversal` and `Unjoined` live in `model::profile` so that
   the checker may name them under the layer rule.
 
 ## Intersections
@@ -713,8 +726,9 @@ profile's plate). A loop with an open join or an off-radius arc is named
 and its area not compared. An absent or non-finite coordinate leaves its
 loop unmeasured and listed in `missing`. Any `Profiles` value is an input:
 a stale id or an empty loop is a violation, never a panic. The
-classification of open, dangling and branched edges is not re-derived: the
-check holds that each edge is listed once.
+classification of open, dangling and bridge edges is not re-derived: the
+check holds that each edge is listed at most once in each direction, a
+bridge in no loop, and every other edge once in some list.
 
 Every test that solves runs the checker on the result; a fixture that
 expects violations lists them. The Python package exposes both operations
@@ -983,7 +997,7 @@ nothing.
   str`, then optional `first`, `entity`, `measured`, `reported`).
 - `laman.profile.profiles(sketch, coordinates) -> Profiles`, with the
   frozen value classes `Profiles`, `Profile`, `Loop`, `Traversal`,
-  `Branched` and `Unjoined` under Rust's field names. `Profiles` holds the
+  `Unjoined` under Rust's field names. `Profiles` holds the
   Rust value, so a check and a digest read the bits extraction wrote; one
   built by hand in Python converts to Rust (a negative or oversized id
   raises `OverflowError`) and is re-measured like any other. Floats cross

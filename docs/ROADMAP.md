@@ -267,8 +267,8 @@ changes the sketch keeps a geometry bug from being mistaken for an edit bug.
 *Confirmed by the human with `/plan C4`: edits move to C5, which needs these
 intersections and branched profiles; mirror and offset wait for a consumer.
 Landed so far: M12 (the tangent double root through join classes, ADR-0015;
-`intersect::intersections`, ADR-0016). Next: M13, branched profiles; then
-M14, the checker's measure, the digest, the 500-entity cost and `laman-py`.*
+`intersect::intersections`, ADR-0016); M13 (branched profiles split at
+their joins, ADR-0017). Next: M14, the checker's measure, the digest, the 500-entity cost and `laman-py`.*
 
 ## Later cycles, one line each, unordered
 

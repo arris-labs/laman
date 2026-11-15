@@ -1,6 +1,6 @@
 # ADR-0012: Profiles join by declaration
 
-- Status: accepted
+- Status: accepted; amended by 0017 (D2's branched core)
 - Date: 2026-11-07
 - Scope: C3 profile extraction (`plans/m9-profiles`)
 

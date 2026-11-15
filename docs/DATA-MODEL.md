@@ -122,7 +122,8 @@ are declared, never measured (ADR-0012).
   ids.
 - `Profile { outer, holes, net_area }`: the outer `Loop` is
   counter-clockwise, each hole clockwise, `net_area` the outer's area plus
-  the holes' (negative) areas. A loop inside a hole is its own profile.
+  the holes' (negative) areas. A loop inside a hole is its own profile. A line or arc shared by two
+  bounded areas is in two loops, once in each direction.
 - `Loop { edges, signed_area, joins }`: `edges` are `Traversal { entity,
   reversed }` in loop order; `joins` are the `coincident` constraints that
   join two or more distinct end points of the loop.
@@ -130,8 +131,8 @@ are declared, never measured (ADR-0012).
   segment `r²(θ − sin θ)/2`, θ the sweep above, negated when reversed;
   a circle `πr²`. Construction entities are never edges.
 - `open_chains` lists each chain's edges, `dangling` and `degenerate`
-  (self-joined edges) list edges, `branched` is `Branched { edges, joins }`
-  (each join by its smallest point id), and `unjoined` is `Unjoined {
+  (self-joined edges) list edges, `bridges` lists the core edges with the same area on both
+  sides (in no loop), and `unjoined` is `Unjoined {
   first, second }`, the two end points' ids, smaller first.
 - Refused, as `ProfileError::Missing` or `NonFinite` naming the entity,
   only when the coordinates lack, or hold a non-finite, coordinate of a

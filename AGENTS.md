@@ -44,7 +44,8 @@ and on wasm32.
 **C4 under way** (shared edges and crossings): M12 landed — a tangent
 contact joined by `coincident` solves to the coordinate tolerance
 (ADR-0015), and `laman::intersect::intersections` reports crossings,
-touches and overlaps (ADR-0016). **Next:** M13, branched profiles; M14, the
+touches and overlaps (ADR-0016); M13 landed — `profiles` splits a branched
+core at its joins, bridges reported (ADR-0017). **Next:** M14, the
 checker's measure, digest and Python; edits follow as C5.
 
 ## Rules that are not derivable from the code
