@@ -29,7 +29,10 @@
 
 mod area;
 mod contain;
+mod intersections;
 mod profiles;
+
+pub use intersections::{IntersectionReport, IntersectionViolation, check_intersections};
 
 pub use profiles::{ProfileReport, ProfileViolation, check_profiles};
 

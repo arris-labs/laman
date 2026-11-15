@@ -256,7 +256,11 @@ fn edge_of(sketch: &Sketch, id: EntityId) -> Option<Edge> {
 }
 
 /// A parameter's value, finite or missing.
-fn value(values: &Coordinates, id: EntityId, coordinate: Coordinate) -> Result<f64, Missing> {
+pub(crate) fn value(
+    values: &Coordinates,
+    id: EntityId,
+    coordinate: Coordinate,
+) -> Result<f64, Missing> {
     match values.get(&(id, coordinate)) {
         Some(v) if v.is_finite() => Ok(*v),
         Some(_) | None => Err(Missing {
@@ -266,7 +270,7 @@ fn value(values: &Coordinates, id: EntityId, coordinate: Coordinate) -> Result<f
     }
 }
 
-fn at(values: &Coordinates, p: Point) -> Result<(f64, f64), Missing> {
+pub(crate) fn at(values: &Coordinates, p: Point) -> Result<(f64, f64), Missing> {
     Ok((
         value(values, p.id(), Coordinate::X)?,
         value(values, p.id(), Coordinate::Y)?,

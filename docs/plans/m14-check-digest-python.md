@@ -49,6 +49,9 @@ and pytest reproduces every C4 number. C4's *Accept* is then met, and
   above read as ADR-0018 D2–D4 settle them.
   `IntersectionViolation`: `OffCurve`, `Parameter`, `Kind`, `OutsideSweep`,
   `Order`, `NotACurve`, `Repeated`, `Missed { first, second }`, `AtJoin`.
+  Step 2 lands the first seven (a meeting's variants carry `first`,
+  `second` and its `meeting` index, no measured numbers); `Missed` and
+  `AtJoin` come with step 3.
 - **D2. `check_profiles` re-derives the split** (ADR-0018): its own
   pruning gives open and dangling edges, its own connectivity test (an
   edge whose removal disconnects its core, by union-find without it: a
@@ -86,7 +89,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   (D1: per-meeting tests, how a kind is read, completeness by closest
   distance, the undecided band) and the re-derived split (D2). Reads
   ADR-0013, 0016, 0017; no code.
-- [ ] Step 2 **[2]** — `check_intersections`, per-meeting and per-pair
+- [x] Step 2 **[2]** — `check_intersections`, per-meeting and per-pair
   tests (D1 less completeness): types, rustdoc example, closed-form tests
   on the C4 intersection corpus and hand-broken values.
 - [ ] Step 3 **[3]** — completeness: closest distance of line/arc/circle

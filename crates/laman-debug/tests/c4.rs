@@ -12,7 +12,7 @@ use laman::model::intersection::MeetingKind;
 use laman::model::{Coordinate, Coordinates, Sketch};
 use laman::profile::profiles;
 use laman::solution::{SolverOptions, Status};
-use laman_check::check_profiles;
+use laman_check::{check_intersections, check_profiles};
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
 use laman_debug::runner::solve_run;
@@ -63,6 +63,9 @@ fn measure(name: &str, sketch: &Sketch, values: &Coordinates, fixture: &Fixture)
     let want = fixture.expected.intersections.as_ref().unwrap();
     let off = want.mismatches(&found);
     assert!(off.is_empty(), "{name}: {off:#?}");
+    // The checker's own measure agrees with the closed forms.
+    let report = check_intersections(sketch, values, &found);
+    assert!(report.is_clean(), "{name}: {report:#?}");
 }
 
 #[test]
@@ -268,6 +271,7 @@ fn a_solved_free_tangent_is_one_touch_and_a_nudge_makes_two_crossings() {
     let found = intersections(&sk, &solved.coordinates).unwrap();
     assert_eq!(found.pairs.len(), 1);
     assert_eq!(found.pairs[0].meetings.len(), 1);
+    assert!(check_intersections(&sk, &solved.coordinates, &found).is_clean());
     let m = found.pairs[0].meetings[0];
     assert_eq!(m.kind, MeetingKind::Touch);
     assert!(
@@ -281,6 +285,9 @@ fn a_solved_free_tangent_is_one_touch_and_a_nudge_makes_two_crossings() {
     let found = intersections(&sk, &moved).unwrap();
     let kinds: Vec<_> = found.pairs[0].meetings.iter().map(|m| m.kind).collect();
     assert_eq!(kinds, [MeetingKind::Crossing, MeetingKind::Crossing]);
+    // The checker reads both as the kernel does: a depth of 1e-3 is far
+    // past the band's upper end, while the solved touch is far inside.
+    assert!(check_intersections(&sk, &moved, &found).is_clean());
 }
 
 /// The generators' profiles at their closed-form coordinates, solved and

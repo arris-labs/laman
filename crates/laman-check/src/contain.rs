@@ -170,7 +170,7 @@ fn arc_crossings(c: Xy, s: Xy, e: Xy, q: Xy) -> i32 {
 }
 
 /// The distance from `q` to the segment `a`–`b`.
-fn to_segment(a: Xy, b: Xy, q: Xy) -> f64 {
+pub(crate) fn to_segment(a: Xy, b: Xy, q: Xy) -> f64 {
     let (u, w) = (sub(b, a), sub(q, a));
     let len2 = u.0 * u.0 + u.1 * u.1;
     let t = if len2 > 0.0 {
