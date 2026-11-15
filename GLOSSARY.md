@@ -55,14 +55,32 @@ its own class), named by its smallest point id: every edge end in a class
 is joined to every other (ADR-0012).
 
 **Profile extraction**:
-`laman::profile::profiles`: a sketch's profiles, open chains, dangling,
-branched and self-joined edges and unjoined pairs, read from its
-declarations and any coordinates, without a solve (ADR-0012).
+`laman::profile::profiles`: a sketch's profiles, open chains, dangling
+edges, bridges, self-joined edges and unjoined pairs, read from its
+declarations and any coordinates, without a solve (ADR-0012, ADR-0017).
 
 **Core**:
 What remains of a connected set of edges once edges with a free end are
-pruned away again and again: a loop when every join class in it has two edge ends,
-*branched* otherwise (ADR-0012).
+pruned away again and again: one loop when every join class in it has two
+edge ends, *branched* otherwise. Its bridges removed, it falls into pieces,
+each walked into its outline and its bounded areas (ADR-0012, ADR-0017).
+
+**Bridge**:
+A core edge whose removal disconnects its core: the same area lies on both
+its sides, so it bounds nothing. Reported in `Profiles::bridges` and in no
+loop (ADR-0017 D1).
+
+**Piece**:
+A connected part of a core once its bridges are removed; a circle is a
+piece by itself. Each piece has one outline, and all its bounded areas take
+one role, outer boundary or hole (ADR-0017 D1, D6). Not a *Component*,
+which is the solver's.
+
+**Outline**:
+The loop of a piece that keeps the area outside the piece on its left: the
+one of most negative area, ties by smallest edge id. Used for containment,
+never a profile (ADR-0017 D5).
+_Avoid_: outer face, hull
 
 **Profile**:
 An outer loop (counter-clockwise) with the loops it holds as holes
@@ -92,9 +110,10 @@ loop at one end and is free at the other. Reported by id (ADR-0012).
 _Avoid_: spur, stub
 
 **Branched**:
-A core where three or more edges meet at one join, so a loop touches itself
-or two loops share edges. Its edges are reported and enter no profile
-(ADR-0012).
+A core where three or more edge ends meet at one join, so a loop touches
+itself or two loops share edges. It is split at its joins by the order of
+the edges around each, so a shared edge enters two loops, once in each
+direction (ADR-0017).
 _Avoid_: self-intersecting
 
 **Self-joined edge**:

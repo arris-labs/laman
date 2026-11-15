@@ -28,8 +28,9 @@ preservation by ADR-0006: every kickoff question is closed.
 | [0009](0009-stages-and-part-rank.md) | Stages, part rank and the whole-component fallback | accepted |
 | [0010](0010-a-radius-is-bounded-below-by-zero.md) | A radius is bounded below by zero, inside both engines | accepted; amends 0005, 0006 |
 | [0011](0011-the-frame-budget-is-per-try-and-c2-stops-at-the-rectangle-drag.md) | The frame budget is per try, and C2 stops at the rectangle drag | accepted; amends 0006 |
-| [0012](0012-profiles-join-by-declaration.md) | Profiles join by declaration | accepted |
+| [0012](0012-profiles-join-by-declaration.md) | Profiles join by declaration | accepted; topology amended by 0017 |
 | [0013](0013-the-profile-check-measures-by-sectors.md) | The profile check measures by sectors, and an open join is not compared | accepted |
 | [0014](0014-profile-extraction-budget.md) | Profile extraction has a 1.5 ms budget at 500 entities | accepted |
 | [0015](0015-contacts-are-recognized-through-join-classes.md) | Contacts are recognized through join classes | accepted; amends 0002 |
 | [0016](0016-intersections-are-measured-classified-never-joined.md) | Intersections are measured, classified, never joined | accepted |
+| [0017](0017-a-branched-core-splits-at-its-joins.md) | A branched core splits at its joins | accepted; amends 0012 |
