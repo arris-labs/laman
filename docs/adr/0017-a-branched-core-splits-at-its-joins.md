@@ -150,3 +150,18 @@ probe, roles by depth, now per piece) and D4 (unjoined ends) stand.
 - **A fixed fraction of the shorter edge** for `s`: no case was found where
   the whole length orders wrongly, and a fraction is a constant to choose.
   Left to step 2's measurement.
+
+## Addendum: step 2 measured D3 (2026-11-16)
+
+D3's closed-form cases (lines; a line and arcs tangent on either side; two
+arcs of different and of equal radii; a tangent run straddling −x), each
+rotated, at scales 1e-6 to 1e6, translated up to 1e4 sizes, and at 1e±300
+with a tolerance relative to the sketch, all order as the closed form says,
+with each declared tangent also nudged by `L/8` toward the wrong side. No
+case orders wrongly; `s` stays the whole length and D3 needs no change.
+Below `LENGTH_FLOOR` (ADR-0003) the length tolerance exceeds the
+sketch, so ends within a quarter turn of one another all tie and go by edge
+id: nothing smaller than the floor is resolved, as everywhere else. Exact
+directions are compared with the cross product's sign taken exactly (the
+two products, then their rounding errors by `mul_add` where they round
+alike), so the sort is a total order on the measured directions.

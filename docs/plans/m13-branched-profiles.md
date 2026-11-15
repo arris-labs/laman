@@ -87,7 +87,7 @@ an algorithm whose robustness or bound is established here.
   It settles the open questions below and records ADR-0012 as amended.
   GLOSSARY: *Bridge* and *Outline* are added, *Branched* and *Core*
   rewritten.
-- [ ] Step 2 **[3]** — The join order: direction and signed curvature of
+- [x] Step 2 **[3]** — The join order: direction and signed curvature of
   an edge end in the `crate::frame` frame, and the comparator at a join
   with D1's tangent test. Closed-form tests: line against line, line
   against arc tangent on either side, two arcs tangent with different

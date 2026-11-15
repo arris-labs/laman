@@ -36,7 +36,7 @@ pub(crate) enum Edge {
 
 impl Edge {
     /// Where the traversal enters the edge.
-    fn first(&self) -> [f64; 2] {
+    pub(super) fn first(&self) -> [f64; 2] {
         match *self {
             Edge::Line { from, .. } => from,
             Edge::Arc {
@@ -146,7 +146,7 @@ fn segment(theta: f64) -> f64 {
 
 /// An arc's sweep from `s` to `e` about `c`, in `[0, 2π)` (DATA-MODEL.md
 /// §Entities), on frame coordinates.
-fn sweep(c: [f64; 2], s: [f64; 2], e: [f64; 2]) -> f64 {
+pub(super) fn sweep(c: [f64; 2], s: [f64; 2], e: [f64; 2]) -> f64 {
     let (us, ue) = (sub(s, c), sub(e, c));
     let theta = libm::atan2(cross(us, ue), dot(us, ue));
     if theta < 0.0 { theta + TAU } else { theta }

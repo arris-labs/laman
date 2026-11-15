@@ -5,6 +5,14 @@
 //! orientation and nesting, through the geometry kernel in `geometry`.
 
 mod geometry;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "read by the walk, plans/m13-branched-profiles step 3"
+    )
+)]
+mod join;
 pub(crate) mod topology;
 
 use crate::model::profile::{Loop, Profile, Profiles, Traversal, Unjoined};
