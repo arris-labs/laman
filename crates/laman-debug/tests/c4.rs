@@ -2,13 +2,17 @@
 //! from its guesses, held to the expected coordinates and the independent
 //! checker, and its intersections are measured at the solution and at the
 //! expected coordinates and held to the closed forms of `expected.json`
-//! (ADR-0016).
+//! (ADR-0016). The profile fixtures of branched cores (ADR-0017) sit beside
+//! them: solved, checked by both checkers, then extracted at the solution
+//! and at the closed-form coordinates.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
 use laman::intersect::intersections;
 use laman::model::intersection::MeetingKind;
 use laman::model::{Coordinate, Coordinates, Sketch};
+use laman::profile::profiles;
 use laman::solution::{SolverOptions, Status};
+use laman_check::check_profiles;
 use laman_debug::fixture::{Fixture, SKETCH_FILE};
 use laman_debug::json::{sketch_from_str, sketch_to_string};
 use laman_debug::runner::solve_run;
@@ -23,6 +27,17 @@ const FIXTURES: [&str; 8] = [
     "arc-outside-sweep",
     "t-end-on-line",
     "arc-crosses-line",
+];
+
+/// The profile fixtures: shared wall, window, tangent branch, figure eight,
+/// bridged plate, branched core in a plate.
+const PROFILE_FIXTURES: [&str; 6] = [
+    "shared-wall",
+    "window",
+    "tangent-branch",
+    "figure-eight",
+    "bridged-plate",
+    "branched-in-plate",
 ];
 
 fn dir(name: &str) -> PathBuf {
@@ -57,14 +72,14 @@ fn every_directory_is_listed() {
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
     on_disk.sort();
-    let mut listed: Vec<&str> = FIXTURES.to_vec();
+    let mut listed: Vec<&str> = FIXTURES.iter().chain(&PROFILE_FIXTURES).copied().collect();
     listed.sort_unstable();
     assert_eq!(on_disk, listed);
 }
 
 #[test]
 fn every_sketch_file_round_trips_byte_for_byte() {
-    for name in FIXTURES {
+    for name in FIXTURES.iter().chain(&PROFILE_FIXTURES) {
         let text = std::fs::read_to_string(dir(name).join(SKETCH_FILE)).unwrap();
         let back = sketch_to_string(&sketch_from_str(&text).unwrap());
         assert_eq!(back, text, "{name}");
@@ -99,6 +114,91 @@ fn each_fixture_solves_checks_and_measures_its_intersections() {
         // The closed-form coordinates give the same meetings.
         measure(name, &fixture.sketch, &expected_values(&fixture), &fixture);
     }
+}
+
+fn extract(name: &str, sketch: &Sketch, values: &Coordinates, fixture: &Fixture) {
+    let found = profiles(sketch, values).unwrap();
+    let want = fixture.expected.profiles.as_ref().unwrap();
+    let off = want.mismatches(&found);
+    assert!(off.is_empty(), "{name}: {off:#?}");
+    // The checker's own measure agrees with what extraction reported.
+    let report = check_profiles(sketch, values, &found);
+    assert!(report.is_clean(), "{name}: {report:#?}");
+}
+
+/// Solved, checked, then extracted, as the roadmap's C4 acceptance orders.
+#[test]
+fn each_profile_fixture_solves_checks_and_extracts_its_profiles() {
+    for name in PROFILE_FIXTURES {
+        let fixture = load(name);
+        let solved = solve_run(&fixture, &SolverOptions::default());
+        assert_eq!(solved.solution.status, Status::FullyConstrained, "{name}");
+        assert_eq!(
+            solved.solution.diagnostics.dof, fixture.expected.dof as usize,
+            "{name}"
+        );
+        assert!(solved.report.is_clean(), "{name}: {:?}", solved.report);
+        for (key, want) in &fixture.expected.coordinates {
+            let got = solved.solution.coordinates[key];
+            assert!(
+                (got - want).abs() <= fixture.expected.tolerance,
+                "{name}: {key:?} {got} vs {want}"
+            );
+        }
+        extract(
+            name,
+            &fixture.sketch,
+            &solved.solution.coordinates,
+            &fixture,
+        );
+        extract(name, &fixture.sketch, &expected_values(&fixture), &fixture);
+    }
+}
+
+/// The numbers the plan's acceptance names, from the closed forms: the
+/// fixtures' own files hold the same, edge by edge.
+#[test]
+fn the_profile_acceptance_numbers() {
+    let area = |name: &str| {
+        let f = load(name);
+        profiles(&f.sketch, &expected_values(&f)).unwrap()
+    };
+    let near = |a: f64, b: f64| assert!((a - b).abs() <= 1e-9 * b.abs().max(1.0), "{a} vs {b}");
+    let pi = std::f64::consts::PI;
+    let r = area("shared-wall");
+    assert_eq!(r.profiles.len(), 2);
+    r.profiles.iter().for_each(|p| near(p.net_area, 3600.0));
+    let r = area("window");
+    assert_eq!(r.profiles.len(), 4);
+    r.profiles.iter().for_each(|p| near(p.net_area, 3600.0));
+    let r = area("tangent-branch");
+    let mut a: Vec<f64> = r.profiles.iter().map(|p| p.net_area).collect();
+    a.sort_by(f64::total_cmp);
+    assert_eq!(a.len(), 2);
+    near(a[0], 150.0 - 25.0 * pi);
+    near(a[1], 25.0 * pi);
+    let r = area("figure-eight");
+    assert_eq!(r.profiles.len(), 2);
+    r.profiles.iter().for_each(|p| near(p.net_area, 200.0));
+    let f = load("bridged-plate");
+    let r = profiles(&f.sketch, &expected_values(&f)).unwrap();
+    assert_eq!(r.profiles.len(), 1);
+    assert_eq!(r.profiles[0].holes.len(), 1);
+    near(r.profiles[0].net_area, 7600.0);
+    assert_eq!(r.bridges.len(), 1);
+    let line_ids: Vec<_> = r.profiles[0]
+        .outer
+        .edges
+        .iter()
+        .chain(&r.profiles[0].holes[0].edges)
+        .map(|t| t.entity)
+        .collect();
+    assert!(!line_ids.contains(&r.bridges[0]));
+    let r = area("branched-in-plate");
+    assert_eq!(r.profiles.len(), 1);
+    assert_eq!(r.profiles[0].holes.len(), 2);
+    near(r.profiles[0].net_area, 30000.0);
+    assert!(r.bridges.is_empty());
 }
 
 #[test]

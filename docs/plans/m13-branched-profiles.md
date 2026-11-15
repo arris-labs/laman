@@ -103,7 +103,7 @@ an algorithm whose robustness or bound is established here.
   with a branched one. CHANGELOG `### Breaking`. `c3/shared-edge` and its
   digests are re-blessed in this commit, and the message says why.
   `tools/py-test.sh` passes.
-- [ ] Step 5 **[2]** — The C4 profile corpus (D3), solved, checked, then
+- [x] Step 5 **[2]** — The C4 profile corpus (D3), solved, checked, then
   extracted, every number from a closed form. Fixtures: shared wall, two
   60 × 60; window, a degree-4 join and four panes; tangent branch, an arc
   and a line leaving one join tangent, ordered by curvature, with two

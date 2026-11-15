@@ -1,0 +1,176 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 1,
+      "coordinate": "x",
+      "value": 200.0
+    },
+    {
+      "id": 1,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 2,
+      "coordinate": "x",
+      "value": 200.0
+    },
+    {
+      "id": 2,
+      "coordinate": "y",
+      "value": 200.0
+    },
+    {
+      "id": 3,
+      "coordinate": "x",
+      "value": 0.0
+    },
+    {
+      "id": 3,
+      "coordinate": "y",
+      "value": 200.0
+    },
+    {
+      "id": 9,
+      "coordinate": "x",
+      "value": 100.0
+    },
+    {
+      "id": 9,
+      "coordinate": "y",
+      "value": 50.0
+    },
+    {
+      "id": 10,
+      "coordinate": "x",
+      "value": 150.0
+    },
+    {
+      "id": 10,
+      "coordinate": "y",
+      "value": 50.0
+    },
+    {
+      "id": 11,
+      "coordinate": "x",
+      "value": 150.0
+    },
+    {
+      "id": 11,
+      "coordinate": "y",
+      "value": 150.0
+    },
+    {
+      "id": 12,
+      "coordinate": "x",
+      "value": 100.0
+    },
+    {
+      "id": 12,
+      "coordinate": "y",
+      "value": 150.0
+    },
+    {
+      "id": 13,
+      "coordinate": "x",
+      "value": 50.0
+    },
+    {
+      "id": 13,
+      "coordinate": "y",
+      "value": 150.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "profiles": {
+    "profiles": [
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 4,
+              "reversed": false
+            },
+            {
+              "entity": 5,
+              "reversed": false
+            },
+            {
+              "entity": 6,
+              "reversed": false
+            },
+            {
+              "entity": 7,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 40000.0
+          },
+          "joins": []
+        },
+        "holes": [
+          {
+            "edges": [
+              {
+                "entity": 14,
+                "reversed": true
+              },
+              {
+                "entity": 19,
+                "reversed": true
+              },
+              {
+                "entity": 18,
+                "reversed": true
+              },
+              {
+                "entity": 20,
+                "reversed": true
+              }
+            ],
+            "signed_area": {
+              "value": -5000.0
+            },
+            "joins": []
+          },
+          {
+            "edges": [
+              {
+                "entity": 15,
+                "reversed": true
+              },
+              {
+                "entity": 20,
+                "reversed": false
+              },
+              {
+                "entity": 17,
+                "reversed": true
+              },
+              {
+                "entity": 16,
+                "reversed": true
+              }
+            ],
+            "signed_area": {
+              "value": -5000.0
+            },
+            "joins": []
+          }
+        ],
+        "net_area": {
+          "value": 30000.0
+        }
+      }
+    ],
+    "open_chains": [],
+    "dangling": [],
+    "bridges": [],
+    "degenerate": [],
+    "unjoined": []
+  }
+}

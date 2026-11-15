@@ -1,0 +1,217 @@
+{
+  "status": "FullyConstrained",
+  "dof": 0,
+  "coordinates": [
+    {
+      "id": 1,
+      "coordinate": "x",
+      "value": 60.0
+    },
+    {
+      "id": 1,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 2,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 2,
+      "coordinate": "y",
+      "value": 0.0
+    },
+    {
+      "id": 3,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 3,
+      "coordinate": "y",
+      "value": 60.0
+    },
+    {
+      "id": 4,
+      "coordinate": "x",
+      "value": 120.0
+    },
+    {
+      "id": 4,
+      "coordinate": "y",
+      "value": 120.0
+    },
+    {
+      "id": 5,
+      "coordinate": "x",
+      "value": 60.0
+    },
+    {
+      "id": 5,
+      "coordinate": "y",
+      "value": 120.0
+    },
+    {
+      "id": 6,
+      "coordinate": "x",
+      "value": 0.0
+    },
+    {
+      "id": 6,
+      "coordinate": "y",
+      "value": 120.0
+    },
+    {
+      "id": 7,
+      "coordinate": "x",
+      "value": 0.0
+    },
+    {
+      "id": 7,
+      "coordinate": "y",
+      "value": 60.0
+    },
+    {
+      "id": 8,
+      "coordinate": "x",
+      "value": 60.0
+    },
+    {
+      "id": 8,
+      "coordinate": "y",
+      "value": 60.0
+    }
+  ],
+  "redundant": [],
+  "conflicts": [],
+  "profiles": {
+    "profiles": [
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 9,
+              "reversed": false
+            },
+            {
+              "entity": 17,
+              "reversed": false
+            },
+            {
+              "entity": 20,
+              "reversed": true
+            },
+            {
+              "entity": 16,
+              "reversed": false
+            }
+          ],
+          "signed_area": {
+            "value": 3600.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 3600.0
+        }
+      },
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 10,
+              "reversed": false
+            },
+            {
+              "entity": 11,
+              "reversed": false
+            },
+            {
+              "entity": 18,
+              "reversed": false
+            },
+            {
+              "entity": 17,
+              "reversed": true
+            }
+          ],
+          "signed_area": {
+            "value": 3600.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 3600.0
+        }
+      },
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 12,
+              "reversed": false
+            },
+            {
+              "entity": 13,
+              "reversed": false
+            },
+            {
+              "entity": 19,
+              "reversed": false
+            },
+            {
+              "entity": 18,
+              "reversed": true
+            }
+          ],
+          "signed_area": {
+            "value": 3600.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 3600.0
+        }
+      },
+      {
+        "outer": {
+          "edges": [
+            {
+              "entity": 14,
+              "reversed": false
+            },
+            {
+              "entity": 15,
+              "reversed": false
+            },
+            {
+              "entity": 20,
+              "reversed": false
+            },
+            {
+              "entity": 19,
+              "reversed": true
+            }
+          ],
+          "signed_area": {
+            "value": 3600.0
+          },
+          "joins": []
+        },
+        "holes": [],
+        "net_area": {
+          "value": 3600.0
+        }
+      }
+    ],
+    "open_chains": [],
+    "dangling": [],
+    "bridges": [],
+    "degenerate": [],
+    "unjoined": []
+  }
+}
