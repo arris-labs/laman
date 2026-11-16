@@ -1053,7 +1053,7 @@ nothing.
   natively inside manylinux2014 containers (glibc ≥ 2.17), macOS arm64
   and x86_64 use their native runners, and Windows uses x86_64. Separate
   clean runners install each artefact on Python 3.10 and run the same
-  corpus, all 81 digests (50 + 31), stubtest and strict mypy, and the Linux x86_64
+  corpus, all 125 digests (50 + 31 + 44), stubtest and strict mypy, and the Linux x86_64
   runner repeats it on Python 3.13, the newest interpreter; `auditwheel show`
   checks both Linux wheels against `manylinux_2_17`. The sdist is built
   and installed in isolation on a separate Linux runner, with the same

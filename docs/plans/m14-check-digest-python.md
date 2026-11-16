@@ -113,7 +113,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   property; skipped with a line here otherwise.
 - [x] Step 9 **[2]** — `laman-py` over D5: classes, stubs, docstrings,
   `py-test.sh` green.
-- [ ] Step 10 **[2]** — pytest: the C4 corpus (profiles and
+- [x] Step 10 **[2]** — pytest: the C4 corpus (profiles and
   intersections, every number), digests equal to the blessed ones, the
   checker's twins, 1e±300 bit for bit against Rust, a hypothesis property
   of crossing cutters.
