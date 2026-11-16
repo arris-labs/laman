@@ -73,6 +73,7 @@ fn every_directory_is_listed() {
     let mut on_disk: Vec<String> = std::fs::read_dir(dir(""))
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name != "digests.txt")
         .collect();
     on_disk.sort();
     let mut listed: Vec<&str> = FIXTURES.iter().chain(&PROFILE_FIXTURES).copied().collect();

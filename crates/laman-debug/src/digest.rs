@@ -19,13 +19,19 @@
 //! run's solution), the extracted [`Profiles`] and the profile check's report
 //! ([`of_profiles`], [`of_solved_profiles`]); [`of_run`] and [`of_solution`]
 //! are untouched by them, so no digest of a sketch without profiles moves.
+//! An intersection run is the same with the intersections found and their
+//! check's report ([`of_intersections`], [`of_solved_intersections`]).
 
 use crate::fixture::coordinate_name;
 use crate::json::sketch_to_string;
+use laman::model::intersection::{Intersections, MeetingKind};
 use laman::model::profile::{Loop, Profiles};
 use laman::model::{Coordinates, Sketch};
 use laman::solution::{ConstraintRef, EntityRef, FlipSubject, Origin, Solution};
-use laman_check::{Degeneracy, ProfileReport, ProfileViolation, Report, Source, Subject};
+use laman_check::{
+    Degeneracy, IntersectionReport, IntersectionViolation, ProfileReport, ProfileViolation, Report,
+    Source, Subject,
+};
 use sha2::{Digest as _, Sha256};
 use std::fmt;
 
@@ -297,6 +303,163 @@ pub fn of_solved_profiles(
     feed_solution(&mut b, sketch, solution, report);
     feed_profiles(&mut b, found, profile_report);
     b.finish()
+}
+
+/// The digest of an intersection run at given coordinates: the sketch, the
+/// coordinates in id order, what `intersections` found there (each pair,
+/// each meeting's kind, point and parameters, bit for bit) and the
+/// intersection check's report. Any difference in a covered bit changes it.
+///
+/// ```
+/// use laman::intersect::intersections;
+/// use laman::model::Sketch;
+/// use laman_check::check_intersections;
+/// use laman_debug::digest::of_intersections;
+///
+/// let mut sk = Sketch::new();
+/// let p = [(0.0, 0.0), (4.0, 4.0), (0.0, 4.0), (4.0, 0.0)]
+///     .map(|(x, y)| sk.point(x, y))
+///     .into_iter()
+///     .collect::<Result<Vec<_>, _>>()?;
+/// sk.line(p[0], p[1])?;
+/// sk.line(p[2], p[3])?;
+/// let values = sk.coordinates();
+/// let found = intersections(&sk, &values).unwrap_or_default();
+/// let report = check_intersections(&sk, &values, &found);
+/// assert_eq!(
+///     of_intersections(&sk, &values, &found, &report),
+///     of_intersections(&sk, &values, &found, &report)
+/// );
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_intersections(
+    sketch: &Sketch,
+    values: &Coordinates,
+    found: &Intersections,
+    report: &IntersectionReport,
+) -> Digest {
+    let mut b = Builder::new();
+    b.text(&sketch_to_string(sketch));
+    b.u64(len_of(values.len()));
+    for (&(id, c), &value) in values {
+        b.u32(id.0);
+        b.text(coordinate_name(c));
+        b.float(value);
+    }
+    feed_intersections(&mut b, found, report);
+    b.finish()
+}
+
+/// The digest of a solved intersection run: what [`of_solution`] covers
+/// (the sketch, the solution and the checker's `report`), then the
+/// intersections found at the solution and the intersection check's report.
+///
+/// ```
+/// use laman::intersect::intersections;
+/// use laman::model::Sketch;
+/// use laman::solution::SolverOptions;
+/// use laman_check::{check, check_intersections};
+/// use laman_debug::digest::of_solved_intersections;
+///
+/// let mut sk = Sketch::new();
+/// let a = sk.point_fixed(0.0, 0.0)?;
+/// let b = sk.point_fixed(4.0, 4.0)?;
+/// sk.line(a, b)?;
+/// let solution = sk.solve(&SolverOptions::default());
+/// let report = check(&sk, &solution.coordinates);
+/// let found = intersections(&sk, &solution.coordinates).unwrap_or_default();
+/// let checked = check_intersections(&sk, &solution.coordinates, &found);
+/// let d = of_solved_intersections(&sk, &solution, &report, &found, &checked);
+/// assert_eq!(d, of_solved_intersections(&sk, &solution, &report, &found, &checked));
+/// # Ok::<(), laman::model::ModelError>(())
+/// ```
+pub fn of_solved_intersections(
+    sketch: &Sketch,
+    solution: &Solution,
+    report: &Report,
+    found: &Intersections,
+    checked: &IntersectionReport,
+) -> Digest {
+    let mut b = Builder::new();
+    feed_solution(&mut b, sketch, solution, report);
+    feed_intersections(&mut b, found, checked);
+    b.finish()
+}
+
+fn feed_intersections(b: &mut Builder, found: &Intersections, report: &IntersectionReport) {
+    b.u64(len_of(found.pairs.len()));
+    for pair in &found.pairs {
+        b.u32(pair.first.0);
+        b.u32(pair.second.0);
+        b.u64(len_of(pair.meetings.len()));
+        for m in &pair.meetings {
+            match m.kind {
+                MeetingKind::Crossing => b.text("crossing"),
+                MeetingKind::Touch => b.text("touch"),
+                MeetingKind::Overlap {
+                    to,
+                    to_first,
+                    to_second,
+                } => {
+                    b.text("overlap");
+                    b.float(to[0]);
+                    b.float(to[1]);
+                    b.float(to_first);
+                    b.float(to_second);
+                }
+            }
+            b.float(m.at[0]);
+            b.float(m.at[1]);
+            b.float(m.on_first);
+            b.float(m.on_second);
+        }
+    }
+    b.u64(len_of(report.violations.len()));
+    for v in &report.violations {
+        let (name, first, second, meeting) = match v {
+            IntersectionViolation::OffCurve {
+                first,
+                second,
+                meeting,
+            } => ("off_curve", first, second, Some(meeting)),
+            IntersectionViolation::OutsideSweep {
+                first,
+                second,
+                meeting,
+            } => ("outside_sweep", first, second, Some(meeting)),
+            IntersectionViolation::Parameter {
+                first,
+                second,
+                meeting,
+            } => ("parameter", first, second, Some(meeting)),
+            IntersectionViolation::Kind {
+                first,
+                second,
+                meeting,
+            } => ("kind", first, second, Some(meeting)),
+            IntersectionViolation::AtJoin {
+                first,
+                second,
+                meeting,
+            } => ("at_join", first, second, Some(meeting)),
+            IntersectionViolation::Order { first, second } => ("order", first, second, None),
+            IntersectionViolation::Repeated { first, second } => ("repeated", first, second, None),
+            IntersectionViolation::Missed { first, second } => ("missed", first, second, None),
+            IntersectionViolation::NotACurve { entity } => ("not_a_curve", entity, entity, None),
+        };
+        b.text(name);
+        b.u32(first.0);
+        b.u32(second.0);
+        b.optional_text(meeting.map(|m| m.to_string()).as_deref());
+    }
+    b.u64(len_of(report.missing.len()));
+    for m in &report.missing {
+        b.u32(m.id.0);
+        match m.coordinate {
+            None => b.optional_text(None),
+            Some(c) => b.optional_text(Some(coordinate_name(c))),
+        }
+    }
 }
 
 fn feed_profiles(b: &mut Builder, found: &Profiles, report: &ProfileReport) {

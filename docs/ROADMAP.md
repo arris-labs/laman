@@ -31,7 +31,7 @@ Expected values come from a closed form or from how the sketch was built,
 never from laman's output (`.agents/rules/solver.md`). The digest is the
 exception: it lives apart, one `<name> <hex>` per line in
 `tests/fixtures/c1/digests.txt` (with the conflicting twins' best-effort
-violations in `violations.json`) and `tests/fixtures/c3/digests.txt`, read
+violations in `violations.json`) and `tests/fixtures/c3/digests.txt` and `tests/fixtures/c4/digests.txt`, read
 by `determinism.rs` and by pytest. It
 is a regression guard, blessed from the first green run, and
 its acceptance is equality across targets. Coordinates compare within

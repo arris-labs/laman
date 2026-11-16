@@ -768,10 +768,16 @@ over the sketch and the report at a fixture's expected coordinates;
 same bytes. A profile run adds the coordinates it was extracted at (or
 the solution), the extracted profiles and the profile check's report:
 `of_profiles` and `of_solved_profiles`, which leave the digests above
-unmoved. CI's `test` matrix runs the gate, including all 81 blessed
-digests (the 50 of the C1 corpus and drag, the 31 of the C3 profile runs in
-`tests/fixtures/c3/digests.txt`: each fixture at its expected coordinates
-and at each algorithm's solution, and the 3 by 3 slot grid), on Linux x86_64 (`ubuntu-latest`)
+unmoved; an intersection run adds the intersections found, every pair and
+meeting bit for bit, and the intersection check's report
+(`of_intersections`, `of_solved_intersections`). CI's `test` matrix runs
+the gate, including all 125 blessed digests (the 50 of the C1 corpus and
+drag, the 31 of the C3 profile runs in `tests/fixtures/c3/digests.txt`:
+each fixture at its expected coordinates and at each algorithm's
+solution, and the 3 by 3 slot grid, and the 44 of the C4 runs in
+`tests/fixtures/c4/digests.txt` under `c4-` names: the eight intersection
+and the six branched-core fixtures the same way, and the 2 by 2 cell
+grid's profiles and intersections), on Linux x86_64 (`ubuntu-latest`)
 and aarch64 (`ubuntu-24.04-arm`), macOS aarch64 (`macos-15`) and x86_64
 (`macos-15-intel`), and Windows x86_64 (`windows-latest`). Each compares
 against the same committed digests. The Linux-only `wasm` job also

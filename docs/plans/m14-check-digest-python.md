@@ -104,7 +104,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   areas merged, a bridge put in a loop, a hole inside a sibling. Each
   names its variant. The intersection corpus also runs scaled 1e-6 and
   1e6 and shifted (backlog, m12 review); the m12 property runs the check.
-- [ ] Step 6 **[1]** — digests (D3): C4 profiles and intersections,
+- [x] Step 6 **[1]** — digests (D3): C4 profiles and intersections,
   blessed, native and wasm32-wasip1 equal by `tools/digest-wasm.sh`.
 - [ ] Step 7 **[2]** — cost (D4): bench cells, `Classes::of` hoisted,
   ADR-0014 addendum with the worst of three runs at 500 entities.
