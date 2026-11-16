@@ -45,8 +45,10 @@ and on wasm32.
 contact joined by `coincident` solves to the coordinate tolerance
 (ADR-0015), and `laman::intersect::intersections` reports crossings,
 touches and overlaps (ADR-0016); M13 landed — `profiles` splits a branched
-core at its joins, bridges reported (ADR-0017). **Next:** M14, the
-checker's measure, digest and Python; edits follow as C5.
+core at its joins, bridges reported (ADR-0017); M14 landed — the checker
+measures intersections and re-derives the split (ADR-0018), digests equal
+on wasm32, `laman-py` over it. **Next:** `/close-cycle` for C4; edits
+follow as C5.
 
 ## Rules that are not derivable from the code
 

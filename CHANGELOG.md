@@ -39,7 +39,6 @@ release by release. Written in the commit that makes the change, under
   pruning and connectivity test puts elsewhere is `misclassified`; a loop
   that covers more than one bounded area of its piece is `not_one_area`;
   and a hole inside a sibling hole of another piece is a `containment`.
-
 - `laman_check::check_intersections(sketch, values, found)` re-measures an
   `Intersections` result, one built by hand included, by its own closed
   forms and independently of the solver: a meeting off either curve or
@@ -48,7 +47,6 @@ release by release. Written in the commit that makes the change, under
   shared join, and a crossing, touch or overlap the result missed are each
   named in `IntersectionReport::violations` by the curves' ids and the
   meeting's index; `is_clean` says none.
-
 - In Python, `laman.intersect.intersections(sketch, coordinates)` reports
   where lines, arcs and circles meet, as the frozen classes `Intersections`
   (with `along(id)`), `Intersection`, `Meeting`, `MeetingKind` and `Along`
