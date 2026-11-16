@@ -590,6 +590,10 @@ fn check(
     let base_id = *base_id.get_or_insert_with(|| build_base(&mut sk, t, &base));
 
     let found = intersections(&sk, &sk.coordinates()).unwrap();
+    // The checker's own measure agrees with every reported meeting and
+    // names no pair missed (ADR-0018).
+    let report = laman_check::check_intersections(&sk, &sk.coordinates(), &found);
+    prop_assert!(report.is_clean(), "{:#?}", report);
     let wanted: Vec<_> = built.iter().filter(|(_, w)| !w.is_empty()).collect();
     prop_assert_eq!(
         found.pairs.len(),

@@ -99,7 +99,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
 - [x] Step 4 **[2]** — `check_profiles` re-derives open, dangling and
   bridge edges, tests one bounded area per loop and sibling holes (D2);
   c3 and c4 profile corpora and `c4_profile_props` stay clean.
-- [ ] Step 5 **[2]** — broken twins for the C4 corpus: a meeting moved,
+- [x] Step 5 **[2]** — broken twins for the C4 corpus: a meeting moved,
   dropped, its kind or parameter changed, a pair dropped; two bounded
   areas merged, a bridge put in a loop, a hole inside a sibling. Each
   names its variant. The intersection corpus also runs scaled 1e-6 and
