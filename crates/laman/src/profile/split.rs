@@ -45,8 +45,9 @@ pub(crate) fn split(
     cores: &[Core],
 ) -> Result<Split, ProfileError> {
     let mut out = Split::default();
+    // One union-find for every core: `joins_of` only reads its classes.
+    let mut classes = Classes::of(sketch);
     for core in cores {
-        let mut classes = Classes::of(sketch);
         let bridged = bridges(&core.edges);
         let keep: Vec<usize> = (0..core.edges.len()).filter(|&i| !bridged[i]).collect();
         out.bridges.extend(

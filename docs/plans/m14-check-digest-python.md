@@ -106,7 +106,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   1e6 and shifted (backlog, m12 review); the m12 property runs the check.
 - [x] Step 6 **[1]** — digests (D3): C4 profiles and intersections,
   blessed, native and wasm32-wasip1 equal by `tools/digest-wasm.sh`.
-- [ ] Step 7 **[2]** — cost (D4): bench cells, `Classes::of` hoisted,
+- [x] Step 7 **[2]** — cost (D4): bench cells, `Classes::of` hoisted,
   ADR-0014 addendum with the worst of three runs at 500 entities.
 - [ ] Step 8 **[2]** — the sorted sweep, only if step 7 finds a cell past
   its number: results bit-equal to all pairs on the corpus and the
@@ -163,9 +163,10 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   held at 1e-300 by the module's own tests, the tolerance passed at the
   scale (`1e-9·s`), closed forms at 1e-300 to 1e300 shifted 1e4 sizes.
   `AtJoin` carries the meeting's index, like the other per-meeting variants.
-- ⚠ OPEN: whether intersections share extraction's 1.5 ms or get a
-  number of their own by ADR-0011's stop rule. Agent, step 7; the
-  roadmap's "inside ADR-0014's stop rule" is the rule, not the number.
+- *Settled* (step 7, ADR-0014 addendum): intersections share the 1.5 ms,
+  measured at 2.7 to 5.8 ms before any pruning, so step 8 builds the sweep.
+  Extraction itself measured 1.2 to 2.0 ms at 500 entities after M13's
+  split (0.1 to 1.5 before it): its number becomes 2.0 ms, recorded there.
 - ⚠ OPEN: C4 closes with regression/`below-floor-uncovered-edges` still
   ignored (geometry below `LENGTH_FLOOR`, not in C4's *Accept*). The
   human, before `/close-cycle`; this plan assumes yes.

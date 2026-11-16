@@ -45,3 +45,40 @@ was not needed) and nothing in extraction changes for the budget.
 - **A spatial index for containment**: the circle row would be linear in
   the loops; not built, since the quadratic case is 1.4 ms and the stop
   rule asks for no more.
+
+## Addendum: M14 measured extraction after the split, and intersections (2026-11-16)
+
+`bench_c2` gained the `cell_grid` family (61 and 493 entities, the shared
+walls and a slot hole per cell) and an `intersections` operation beside
+`profiles`; `Classes::of` is built once, not once per core. Worst samples
+in ms, worst of three runs, same machine as above, the cells at about 500
+entities:
+
+| cell | profiles before M13 | profiles now | intersections now |
+|---|---|---|---|
+| rectangles 498 | 0.122 | 1.165 | 4.688 |
+| slots 498 | 0.589 | 1.668 | 3.138 |
+| triangles 501 | 0.099 | 1.519 | 5.814 |
+| circles 498 | 1.468 | 1.973 | 2.708 |
+| cells 493 | | 1.623 | 3.837 |
+
+- **Profiles: the number is now 2.0 ms**, the worst of three rounded up
+  to the next 0.5 ms, by the stop rule above. M13's split costs: the
+  rectangle and triangle cells were a tenth of a millisecond before it
+  (the figures "before" were measured at the last commit of M12, with the
+  same bench). The split's bookkeeping is per edge and per join and grows
+  linearly with the entities (rectangles 0.17, 0.5 and 1.1 ms at 98, 248
+  and 498 entities); it is not the containment, whose worst cell, the
+  circle row, moved from 1.4 to 2.0. Nothing is changed for the budget:
+  2.0 ms is inside the 4 ms of a frame. This is a regression explained,
+  not a number widened to hide one: a cell past 2.0 ms is to be explained
+  again.
+- **Intersections share the 1.5 ms**, the number extraction had: the same
+  shape (a read of declarations and solved coordinates, no solve, once per
+  solved sketch), and the roadmap's "inside ADR-0014's stop rule" says a
+  number, not a second one. Measured above it, 5.8 ms at its worst: every
+  pair of non-construction curves is tried (125 000 at 500 entities, about
+  40 ns a pair), so the cost is quadratic. The pruning of D4 of
+  `plans/m14-check-digest-python` follows (a sweep over bounding boxes
+  widened by `L`, bit-equal to all pairs); its measurement is recorded
+  below when it lands, and only then does intersections' number stand.

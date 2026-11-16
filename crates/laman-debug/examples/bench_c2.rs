@@ -4,11 +4,12 @@
 //! exit failure. Triangle drags have no construction and are printed N/A.
 //! A cell is over budget when its worst sample is, and a bisected frame is
 //! measured per try (its time over `halvings + 1`).
+use laman::intersect::intersections;
 use laman::model::{Constraint, Sketch};
 use laman::profile::profiles;
 use laman::solution::{Algorithm, SolverOptions};
 use laman_debug::corpus::{
-    Case, bisecting_drag, rect_chain, refused_drag, slot_grid, triangle_strip,
+    Case, bisecting_drag, cell_grid, rect_chain, refused_drag, slot_grid, triangle_strip,
 };
 use std::io::{BufRead, Write};
 use std::process::{Child, Command, Stdio};
@@ -35,6 +36,11 @@ const OPERATIONS: [&str; 5] = ["static", "edit", "drag", "bisect", "bisect-deep"
 // a row of disjoint circles built for the purpose (family 3), the shape the
 // quadratic containment is worst on (ADR-0014).
 const CIRCLE_ROW: usize = 249;
+// The cell grid (family 4, M14): shared walls and a slot hole in each cell, 61
+// and 493 entities, the shape extraction and intersections meet in a
+// sketcher's plate.
+const CELL_GRIDS: [(usize, usize); 2] = [(2, 2), (6, 6)];
+const CELL_COUNTS: [usize; 2] = [61, 493];
 const COUNTS: [[usize; 3]; 3] = [[98, 248, 498], [98, 248, 498], [99, 249, 501]];
 
 type Error = Box<dyn std::error::Error>;
@@ -57,10 +63,21 @@ fn signal(message: &str) -> Result<(), Error> {
     Ok(())
 }
 
-/// Times `profiles` at the solved coordinates of a family (or the circle row).
-/// The solve is outside the timed operation.
-fn profiles_worker(family: usize, size: usize, samples: usize) -> Result<(), Error> {
-    let (sketch, values) = if family == FAMILIES.len() {
+/// Times `profiles` or `intersections` at the solved coordinates of a family
+/// (the circle row is family 3, the cell grid family 4). The solve is outside
+/// the timed operation.
+fn extraction_worker(
+    operation: &str,
+    family: usize,
+    size: usize,
+    samples: usize,
+) -> Result<(), Error> {
+    let (sketch, values) = if family == FAMILIES.len() + 1 {
+        let (rows, cols) = *CELL_GRIDS.get(size).ok_or("unknown cell grid")?;
+        let sketch = cell_grid(rows, cols)?.sketch;
+        let solved = sketch.solve(&SolverOptions::default());
+        (sketch, solved.coordinates)
+    } else if family == FAMILIES.len() {
         let mut sketch = Sketch::new();
         for i in 0..CIRCLE_ROW {
             let c = sketch.point(3.0 * i as f64, 0.0)?;
@@ -76,11 +93,15 @@ fn profiles_worker(family: usize, size: usize, samples: usize) -> Result<(), Err
     for _ in 0..samples {
         let start = Instant::now();
         signal("timing")?;
-        let found = std::hint::black_box(profiles(&sketch, &values));
+        let refused = if operation == "intersections" {
+            std::hint::black_box(intersections(&sketch, &values)).is_err()
+        } else {
+            std::hint::black_box(profiles(&sketch, &values)).is_err()
+        };
         let took = start.elapsed();
         signal(&format!("sample {} 1", took.as_nanos()))?;
-        if found.is_err() {
-            return Err("the profiles cell's extraction was refused".into());
+        if refused {
+            return Err("the cell's operation was refused".into());
         }
         if took > FIRST_LIMIT {
             break;
@@ -329,8 +350,8 @@ fn run() -> Result<(), Error> {
         if args.len() < 5 || args[0] != "--worker" {
             return Err("invalid worker arguments".into());
         }
-        if args[4] == "profiles" {
-            return profiles_worker(args[1].parse()?, args[2].parse()?, samples);
+        if args[4] == "profiles" || args[4] == "intersections" {
+            return extraction_worker(&args[4], args[1].parse()?, args[2].parse()?, samples);
         }
         let family: usize = args[1].parse()?;
         let size: usize = args[2].parse()?;
@@ -395,21 +416,26 @@ fn run() -> Result<(), Error> {
         }
     }
     cells.push((FAMILIES.len(), 2, "circles", 2 * CIRCLE_ROW));
-    for (family, size, name, entities) in cells {
-        let child = Command::new(&executable)
-            .args([
-                "--worker",
-                &family.to_string(),
-                &size.to_string(),
-                "-",
-                "profiles",
-            ])
-            .stdout(Stdio::piped())
-            .spawn()?;
-        println!(
-            "{name} {entities} profiles: {}",
-            monitor(child, WORKER_LIMIT, PROFILE_BUDGET)?
-        );
+    for (size, entities) in CELL_COUNTS.iter().enumerate() {
+        cells.push((FAMILIES.len() + 1, size, "cells", *entities));
+    }
+    for operation in ["profiles", "intersections"] {
+        for &(family, size, name, entities) in &cells {
+            let child = Command::new(&executable)
+                .args([
+                    "--worker",
+                    &family.to_string(),
+                    &size.to_string(),
+                    "-",
+                    operation,
+                ])
+                .stdout(Stdio::piped())
+                .spawn()?;
+            println!(
+                "{name} {entities} {operation}: {}",
+                monitor(child, WORKER_LIMIT, PROFILE_BUDGET)?
+            );
+        }
     }
     Ok(())
 }
