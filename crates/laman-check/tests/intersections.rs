@@ -54,14 +54,26 @@ fn a_closed_form_crossing_is_clean_at_every_scale() {
         // A twin moved by a tenth of the lines is named at the same scale.
         let mut twin = found.clone();
         twin.pairs[0].meetings[0].at = [2.4 * scale, 2.0 * scale];
-        // The parameters map back to the old point too, so it names both.
+        // It is off the curves, its parameters no longer map back to it, and
+        // the crossing that is really there is missed.
         assert_eq!(
-            violations(&sk, &twin)[0],
-            V::OffCurve {
-                first: a,
-                second: b,
-                meeting: 0
-            },
+            violations(&sk, &twin),
+            vec![
+                V::OffCurve {
+                    first: a,
+                    second: b,
+                    meeting: 0
+                },
+                V::Parameter {
+                    first: a,
+                    second: b,
+                    meeting: 0
+                },
+                V::Missed {
+                    first: a,
+                    second: b
+                }
+            ],
             "scale {scale}"
         );
     }

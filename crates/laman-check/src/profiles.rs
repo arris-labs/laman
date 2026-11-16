@@ -873,6 +873,9 @@ impl Split {
             .enumerate()
             .map(|(i, c)| (c, i))
             .collect();
+        // Every class looked up is a class of an edge's end, and `index` holds
+        // exactly those, so the fallback is never taken; it only keeps the
+        // lookup total without a panic on input data.
         let at = |c: EntityId| index.get(&c).copied().unwrap_or(0);
         let ends: Vec<[usize; 2]> = edges.iter().map(|(_, c)| c.map(at)).collect();
         let mut degree = vec![0usize; index.len()];

@@ -317,7 +317,7 @@ mod tests {
         #[test]
         fn pruned_pairs_equal_all_pairs(
             shapes in proptest::collection::vec(shape(), 1..24),
-            scale in prop::sample::select(vec![1e-3, 1.0, 1e6]),
+            scale in prop::sample::select(vec![1e-3, 1.0, 1e6, 1e300]),
             shift in prop::sample::select(vec![0.0, 1e4]),
         ) {
             let mut sk = Sketch::new();
@@ -341,6 +341,53 @@ mod tests {
                     }
                 }
             }
+            let values = sk.coordinates();
+            prop_assert_eq!(measure(&sk, &values, true), measure(&sk, &values, false));
+        }
+
+        /// Curves a few length tolerances from meeting, either side of the
+        /// sweep's margin: parallel lines, a line beside a circle and a line
+        /// ending short of another, the gap from a quarter to nine
+        /// tolerances. Pruning still changes no result.
+        #[test]
+        fn pruned_pairs_equal_all_pairs_at_the_margin(
+            gap in 0.25f64..9.0,
+            scale in prop::sample::select(vec![1e-3, 1.0, 1e6, 1e300]),
+            lean in -1.0f64..1.0,
+        ) {
+            let mut sk = Sketch::new();
+            let size = 10.0 * scale;
+            let eps = gap * crate::model::tolerance::length(size);
+            let mut pt = |x: f64, y: f64| sk.point(x, y).unwrap();
+            let (a, b) = (pt(0.0, 0.0), pt(size, 0.0));
+            let (c, d) = (pt(0.0, eps), pt(size, eps * (1.0 + lean)));
+            let (e, f) = (pt(2.0 * size, 0.0), pt(2.0 * size, size));
+            let (g, h) = (pt(2.0 * size - eps, size / 2.0), pt(3.0 * size, size / 2.0));
+            let m = pt(size / 2.0, -size - eps);
+            sk.line(a, b).unwrap();
+            sk.line(c, d).unwrap();
+            sk.line(e, f).unwrap();
+            sk.line(g, h).unwrap();
+            sk.circle(m, size).unwrap();
+            let values = sk.coordinates();
+            prop_assert_eq!(measure(&sk, &values, true), measure(&sk, &values, false));
+        }
+
+        /// Boxes that overflow to infinity (a circle at the edge of f64)
+        /// take the wild path: tried against every other curve.
+        #[test]
+        fn pruned_pairs_equal_all_pairs_with_non_finite_boxes(
+            big in prop::sample::select(vec![1e300, 1.7e308, f64::MAX]),
+            radius_big in prop::bool::ANY,
+        ) {
+            let mut sk = Sketch::new();
+            let o = sk.point(big, big).unwrap();
+            let q = sk.point(-big, 0.0).unwrap();
+            let r = sk.point(0.0, 1.0).unwrap();
+            let s2 = sk.point(1.0, 0.0).unwrap();
+            sk.circle(o, if radius_big { big } else { 1.0 }).unwrap();
+            sk.line(q, r).unwrap();
+            sk.line(r, s2).unwrap();
             let values = sk.coordinates();
             prop_assert_eq!(measure(&sk, &values, true), measure(&sk, &values, false));
         }

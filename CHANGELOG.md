@@ -40,6 +40,15 @@ release by release. Written in the commit that makes the change, under
   that covers more than one bounded area of its piece is `not_one_area`;
   and a hole inside a sibling hole of another piece is a `containment`.
 
+- `laman_check::check_intersections(sketch, values, found)` re-measures an
+  `Intersections` result, one built by hand included, by its own closed
+  forms and independently of the solver: a meeting off either curve or
+  outside an arc's sweep, parameters that do not map back to the point, a
+  wrong kind, a pair listed twice, a curve that is not one, a meeting at a
+  shared join, and a crossing, touch or overlap the result missed are each
+  named in `IntersectionReport::violations` by the curves' ids and the
+  meeting's index; `is_clean` says none.
+
 - In Python, `laman.intersect.intersections(sketch, coordinates)` reports
   where lines, arcs and circles meet, as the frozen classes `Intersections`
   (with `along(id)`), `Intersection`, `Meeting`, `MeetingKind` and `Along`
@@ -57,7 +66,6 @@ release by release. Written in the commit that makes the change, under
   `NotOneArea { first }`; a `match` on it without a wildcard fails to
   compile. Fix: handle both. In Python, `ProfileViolation.kind` can now be
   `"misclassified"` or `"not_one_area"`.
-
 - `laman::model::profile::Branched` and `Profiles::branched` are removed,
   and `Profiles::bridges: Vec<EntityId>` is added; a sketch that gave
   a branched core and no profile now gives its profiles. Fix: read
