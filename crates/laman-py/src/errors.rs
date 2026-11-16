@@ -1,5 +1,6 @@
 //! `laman::model::ModelError` as Python exceptions (`laman/_errors.py`).
 
+use laman::intersect::IntersectError;
 use laman::model::ModelError;
 use laman::profile::ProfileError;
 use pyo3::prelude::*;
@@ -154,6 +155,32 @@ pub fn profile_error(py: Python<'_>, e: &ProfileError) -> PyErr {
                 "ProfileNonFinite"
             }
             _ => "ProfileError",
+        };
+        let class = py.import("laman._errors")?.getattr(name)?;
+        Ok(PyErr::from_value(
+            class.call((e.to_string(),), Some(&fields))?,
+        ))
+    };
+    build().unwrap_or_else(|err| err)
+}
+
+/// The exception for an `IntersectError`, with the entity as an attribute. A
+/// variant this binding lacks (`IntersectError` is `#[non_exhaustive]`)
+/// reaches Python as the base `IntersectError` carrying the message.
+#[allow(clippy::wildcard_enum_match_arm)]
+pub fn intersect_error(py: Python<'_>, e: &IntersectError) -> PyErr {
+    let build = || -> PyResult<PyErr> {
+        let fields = PyDict::new(py);
+        let name = match e {
+            IntersectError::Missing { entity } => {
+                fields.set_item("entity", entity.0)?;
+                "IntersectMissing"
+            }
+            IntersectError::NonFinite { entity } => {
+                fields.set_item("entity", entity.0)?;
+                "IntersectNonFinite"
+            }
+            _ => "IntersectError",
         };
         let class = py.import("laman._errors")?.getattr(name)?;
         Ok(PyErr::from_value(

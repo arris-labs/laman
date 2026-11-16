@@ -4,8 +4,10 @@ stability promise.
 A digest is the SHA-256 (lower-case hex) over the bits of a run; equal runs
 have equal digests on every target. `text`, `svg` and `solution_text` print a
 sketch (and a solution's diagnostics) for reading. `digest_profiles` and
-`digest_solved_profiles` add the profiles and their check; `slot_grid(rows,
-cols)` is the corpus's slotted plate and its expected coordinates.
+`digest_solved_profiles` add the profiles and their check, and
+`digest_intersections` and `digest_solved_intersections` the intersections and
+theirs; `slot_grid(rows, cols)` is the corpus's slotted plate and its expected
+coordinates, `cell_grid(rows, cols)` its grid of cells with shared walls.
 
 >>> from laman import Sketch
 >>> from laman.check import check
@@ -20,10 +22,13 @@ True
 """
 
 from ._laman import (
+    cell_grid,
     digest_drag_step,
+    digest_intersections,
     digest_profiles,
     digest_run,
     digest_solution,
+    digest_solved_intersections,
     digest_solved_profiles,
     slot_grid,
     solution_text,
@@ -32,10 +37,13 @@ from ._laman import (
 )
 
 __all__ = [
+    "cell_grid",
     "digest_drag_step",
+    "digest_intersections",
     "digest_profiles",
     "digest_run",
     "digest_solution",
+    "digest_solved_intersections",
     "digest_solved_profiles",
     "slot_grid",
     "solution_text",

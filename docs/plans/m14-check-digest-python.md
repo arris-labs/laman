@@ -111,7 +111,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
 - [x] Step 8 **[2]** — the sorted sweep, only if step 7 finds a cell past
   its number: results bit-equal to all pairs on the corpus and the
   property; skipped with a line here otherwise.
-- [ ] Step 9 **[2]** — `laman-py` over D5: classes, stubs, docstrings,
+- [x] Step 9 **[2]** — `laman-py` over D5: classes, stubs, docstrings,
   `py-test.sh` green.
 - [ ] Step 10 **[2]** — pytest: the C4 corpus (profiles and
   intersections, every number), digests equal to the blessed ones, the

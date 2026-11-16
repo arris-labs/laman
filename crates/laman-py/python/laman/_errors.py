@@ -20,6 +20,9 @@ __all__ = [
     "IncompleteSolution",
     "InvalidPayload",
     "ModelError",
+    "IntersectError",
+    "IntersectMissing",
+    "IntersectNonFinite",
     "NoSuchParameter",
     "NonFinite",
     "ProfileError",
@@ -209,6 +212,31 @@ class ProfileNonFinite(ProfileError):
     entity: int
 
 
+class IntersectError(ValueError):
+    """Intersections could not be measured; the subclasses say why.
+
+    Refused only for a coordinate of a point or circle a curve uses; a sketch
+    whose curves meet nowhere is an `Intersections` value, never an error.
+    """
+
+    def __init__(self, message: str = "", **fields: object) -> None:
+        super().__init__(message)
+        for name, value in fields.items():
+            setattr(self, name, value)
+
+
+class IntersectMissing(IntersectError):
+    """The coordinates lack a coordinate of a point or circle a curve uses."""
+
+    entity: int
+
+
+class IntersectNonFinite(IntersectError):
+    """A coordinate of a point or circle a curve uses is not finite."""
+
+    entity: int
+
+
 # The variants are reached as `ModelError.Stale` and so on; `Entity` and
 # `Constraint` are Rust's names for the load failures.
 for _cls in (
@@ -240,3 +268,7 @@ del _cls
 # `ProfileError.Missing` and `ProfileError.NonFinite`, after `ModelError`.
 ProfileError.Missing = ProfileMissing  # type: ignore[attr-defined]
 ProfileError.NonFinite = ProfileNonFinite  # type: ignore[attr-defined]
+
+# `IntersectError.Missing` and `IntersectError.NonFinite`.
+IntersectError.Missing = IntersectMissing  # type: ignore[attr-defined]
+IntersectError.NonFinite = IntersectNonFinite  # type: ignore[attr-defined]

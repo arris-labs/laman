@@ -17,6 +17,9 @@ __all__ = [
     "IncompleteSolution",
     "InvalidPayload",
     "ModelError",
+    "IntersectError",
+    "IntersectMissing",
+    "IntersectNonFinite",
     "NoSuchParameter",
     "NonFinite",
     "ProfileError",
@@ -143,4 +146,15 @@ class ProfileMissing(ProfileError):
     entity: int
 
 class ProfileNonFinite(ProfileError):
+    entity: int
+
+class IntersectError(ValueError):
+    def __init__(self, message: str = "", **fields: object) -> None: ...
+    Missing: ClassVar[type[IntersectMissing]]
+    NonFinite: ClassVar[type[IntersectNonFinite]]
+
+class IntersectMissing(IntersectError):
+    entity: int
+
+class IntersectNonFinite(IntersectError):
     entity: int

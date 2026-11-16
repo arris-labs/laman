@@ -1,12 +1,16 @@
 //! Tooling, `laman.debug`: the digests of a run and the text and SVG dumps. Outside the API's stability
 //! promise.
 
-use crate::check::{CheckProfileReport, CheckReport};
+use crate::check::{CheckIntersectionReport, CheckProfileReport, CheckReport};
+use crate::intersect::PyIntersections;
 use crate::model::{Coordinates, Sketch};
 use crate::profile::PyProfiles;
 use crate::solve::Solution;
 use laman_debug::corpus;
-use laman_debug::digest::{of_drag_step, of_profiles, of_run, of_solution, of_solved_profiles};
+use laman_debug::digest::{
+    of_drag_step, of_intersections, of_profiles, of_run, of_solution, of_solved_intersections,
+    of_solved_profiles,
+};
 use laman_debug::dump;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -111,6 +115,59 @@ pub fn digest_solved_profiles(
 #[pyfunction]
 pub fn slot_grid(rows: usize, cols: usize) -> PyResult<(Sketch, Coordinates)> {
     let case = corpus::slot_grid(rows, cols).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let mut values = case.sketch.coordinates();
+    for (key, value) in &case.expected.coordinates {
+        values.insert(*key, *value);
+    }
+    Ok((Sketch { inner: case.sketch }, Coordinates { inner: values }))
+}
+
+/// The digest (hex) of an intersection run: the sketch, the coordinates, the
+/// intersections found at them and the intersection check's report.
+#[pyfunction]
+pub fn digest_intersections(
+    sketch: &Sketch,
+    coordinates: &Coordinates,
+    found: &PyIntersections,
+    report: &CheckIntersectionReport,
+) -> String {
+    of_intersections(
+        &sketch.inner,
+        &coordinates.inner,
+        &found.inner,
+        &report.inner,
+    )
+    .to_string()
+}
+
+/// The digest (hex) of a solved intersection run: what `digest_solution`
+/// covers, then the intersections found at the solution and the intersection
+/// check's report.
+#[pyfunction]
+pub fn digest_solved_intersections(
+    sketch: &Sketch,
+    solution: &Solution,
+    report: &CheckReport,
+    found: &PyIntersections,
+    checked: &CheckIntersectionReport,
+) -> String {
+    of_solved_intersections(
+        &sketch.inner,
+        &solution.inner,
+        &report.inner,
+        &found.inner,
+        &checked.inner,
+    )
+    .to_string()
+}
+
+/// The corpus's grid of `rows * cols` cells, each a rectangle with a slot
+/// hole and shared walls, and its expected coordinates (the sketch's own,
+/// overlaid with the closed-form ones). Raises `ValueError` for zero rows or
+/// columns or a count past the model's id range.
+#[pyfunction]
+pub fn cell_grid(rows: usize, cols: usize) -> PyResult<(Sketch, Coordinates)> {
+    let case = corpus::cell_grid(rows, cols).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let mut values = case.sketch.coordinates();
     for (key, value) in &case.expected.coordinates {
         values.insert(*key, *value);

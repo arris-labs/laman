@@ -11,6 +11,7 @@ mod check;
 mod debug;
 mod enums;
 mod errors;
+mod intersect;
 mod model;
 mod profile;
 mod solve;
@@ -102,6 +103,24 @@ fn _laman(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<profile::PyProfile>()?;
     m.add_class::<profile::PyUnjoined>()?;
     m.add_class::<profile::PyProfiles>()?;
+    m.add_class::<intersect::PyMeetingKind>()?;
+    m.add_class::<intersect::PyMeeting>()?;
+    m.add_class::<intersect::PyIntersection>()?;
+    m.add_class::<intersect::PyAlong>()?;
+    m.add_class::<intersect::PyIntersections>()?;
+    m.add_function(wrap_pyfunction!(intersect::intersections, m)?)?;
+    m.add(
+        "CheckIntersectionViolation",
+        m.py().get_type::<check::CheckIntersectionViolation>(),
+    )?;
+    m.add(
+        "CheckIntersectionReport",
+        m.py().get_type::<check::CheckIntersectionReport>(),
+    )?;
+    m.add_function(wrap_pyfunction!(check::check_intersections, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_intersections, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::digest_solved_intersections, m)?)?;
+    m.add_function(wrap_pyfunction!(debug::cell_grid, m)?)?;
     // `laman.check` and `laman.debug` re-export these under their own names.
     m.add("CheckReport", m.py().get_type::<check::CheckReport>())?;
     m.add("CheckViolation", m.py().get_type::<check::CheckViolation>())?;

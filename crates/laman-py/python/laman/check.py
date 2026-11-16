@@ -29,26 +29,51 @@ True
 >>> wrong = Profiles(profiles=[Profile(Loop(outer.edges, 13.0, outer.joins), [], 12.0)])
 >>> [(v.kind, v.measured, v.reported) for v in check_profiles(rect, rect.coordinates(), wrong).violations]
 [('area', 12.0, 13.0)]
+
+`check_intersections` re-measures what `laman.intersect.intersections`
+reported: each meeting, and each pair that should have been listed. Two lines
+cross at (2, 2); a value that moves the meeting is named:
+
+>>> from laman.check import check_intersections
+>>> from laman.intersect import Intersection, Intersections, Meeting, MeetingKind, intersections
+>>> x = laman.Sketch()
+>>> q = [x.point(*xy) for xy in [(0.0, 0.0), (4.0, 4.0), (0.0, 4.0), (4.0, 0.0)]]
+>>> _ = x.line(q[0], q[1]), x.line(q[2], q[3])
+>>> found = intersections(x, x.coordinates())
+>>> check_intersections(x, x.coordinates(), found).is_clean()
+True
+>>> moved = Meeting(MeetingKind.crossing(), (1.0, 1.0), 0.25, 0.25)
+>>> bad = Intersections([Intersection(found.pairs[0].first, found.pairs[0].second, [moved])])
+>>> [(v.kind, v.meeting) for v in check_intersections(x, x.coordinates(), bad).violations][:1]
+[('off_curve', 0)]
+>>> [v.kind for v in check_intersections(x, x.coordinates(), Intersections()).violations]
+['missed']
 """
 
 from ._laman import (
     CheckDegenerate as Degenerate,
+    CheckIntersectionReport as IntersectionReport,
+    CheckIntersectionViolation as IntersectionViolation,
     CheckMissing as Missing,
     CheckProfileReport as ProfileReport,
     CheckProfileViolation as ProfileViolation,
     CheckReport as Report,
     CheckViolation as Violation,
+    check_intersections,
     check_profiles,
     check_sketch as check,
 )
 
 __all__ = [
     "Degenerate",
+    "IntersectionReport",
+    "IntersectionViolation",
     "Missing",
     "ProfileReport",
     "ProfileViolation",
     "Report",
     "Violation",
     "check",
+    "check_intersections",
     "check_profiles",
 ]

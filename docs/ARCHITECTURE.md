@@ -1023,10 +1023,20 @@ nothing.
   built by hand in Python converts to Rust (a negative or oversized id
   raises `OverflowError`) and is re-measured like any other. Floats cross
   unchanged, `±f64::MAX`, `-0.0` and subnormals included.
+- `laman.intersect.intersections(sketch, coordinates) -> Intersections`,
+  with the frozen value classes `Intersections` (and `along(id)`),
+  `Intersection`, `Meeting`, `MeetingKind` (`crossing()`, `touch()`,
+  `overlap(to, to_first, to_second)`, read by `name`, `to`, `to_first`,
+  `to_second`) and `Along` under Rust's field names, holding the Rust value
+  like `Profiles`. A refusal is an `IntersectError` (`Missing`, `NonFinite`,
+  carrying `entity`). `laman.check.check_intersections(sketch, coordinates,
+  found) -> IntersectionReport` flattens `IntersectionViolation` by the same
+  rule (`kind: str`, then optional `first`, `second`, `meeting`, `entity`).
 - `laman.debug`: `text`, `svg`, `solution_text`, the digests (the profile
-  ones, `digest_profiles` and `digest_solved_profiles`, included) as hex
-  strings, and `slot_grid(rows, cols)`, the corpus's sketch with its
-  expected coordinates. Tooling, outside the stability promise (ADR-0007).
+  and intersection ones, `digest_profiles`, `digest_solved_profiles`,
+  `digest_intersections` and `digest_solved_intersections`, included) as hex
+  strings, and `slot_grid(rows, cols)` and `cell_grid(rows, cols)`, the
+  corpus's sketches with their expected coordinates. Tooling, outside the stability promise (ADR-0007).
 - The corpora (`tests/fixtures/c1/` and `c3/`, each with `digests.txt`) are
   run by pytest under both algorithms; the C3 run holds the slot grids to
   their closed forms and `f64`'s extremes bit for bit; `hypothesis` builds

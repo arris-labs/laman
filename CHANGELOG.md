@@ -40,6 +40,17 @@ release by release. Written in the commit that makes the change, under
   that covers more than one bounded area of its piece is `not_one_area`;
   and a hole inside a sibling hole of another piece is a `containment`.
 
+- In Python, `laman.intersect.intersections(sketch, coordinates)` reports
+  where lines, arcs and circles meet, as the frozen classes `Intersections`
+  (with `along(id)`), `Intersection`, `Meeting`, `MeetingKind` and `Along`
+  under Rust's field names; a missing or non-finite coordinate raises
+  `IntersectError` (`IntersectError.Missing`, `.NonFinite`) naming the
+  entity. `laman.check.check_intersections(sketch, coordinates, found)`
+  re-measures a result, one built by hand included: its
+  `IntersectionReport.violations` carry a `kind` (`off_curve`,
+  `outside_sweep`, `parameter`, `kind`, `order`, `not_a_curve`, `repeated`,
+  `missed`, `at_join`) and the ids and meeting index it is about.
+
 ### Breaking
 
 - `laman_check::ProfileViolation` gains `Misclassified { entity }` and

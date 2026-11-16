@@ -1,8 +1,9 @@
 //! The independent checker, `laman.check`.
 
+use crate::intersect::PyIntersections;
 use crate::model::{Coordinates, Sketch, coordinate_name_of};
 use crate::profile::PyProfiles;
-use laman_check::{Degeneracy, ProfileViolation, Source, Subject};
+use laman_check::{Degeneracy, IntersectionViolation, ProfileViolation, Source, Subject};
 use pyo3::prelude::*;
 
 /// One equation that does not hold at the checked coordinates.
@@ -291,5 +292,162 @@ pub fn check_profiles(
 ) -> CheckProfileReport {
     CheckProfileReport {
         inner: laman_check::check_profiles(&sketch.inner, &coordinates.inner, &profiles.inner),
+    }
+}
+
+/// One way a reported intersection disagrees with the checker's own measure.
+///
+/// `kind` is one of `off_curve`, `outside_sweep`, `parameter`, `kind`,
+/// `order`, `not_a_curve`, `repeated`, `missed`, `at_join`. Of the other
+/// fields, only those the kind carries are set: `first` and `second` for the
+/// pair, `meeting` for the meeting's index in it, `entity` for `not_a_curve`.
+#[pyclass(
+    frozen,
+    get_all,
+    name = "IntersectionViolation",
+    module = "laman.check"
+)]
+pub struct CheckIntersectionViolation {
+    /// What is wrong.
+    pub kind: String,
+    /// The pair's first id.
+    pub first: Option<u32>,
+    /// The pair's second id.
+    pub second: Option<u32>,
+    /// The meeting's index in the pair.
+    pub meeting: Option<usize>,
+    /// The entity, for `not_a_curve`.
+    pub entity: Option<u32>,
+}
+
+impl CheckIntersectionViolation {
+    fn of(
+        kind: &str,
+        first: Option<laman::model::EntityId>,
+        second: Option<laman::model::EntityId>,
+        meeting: Option<usize>,
+        entity: Option<laman::model::EntityId>,
+    ) -> Self {
+        Self {
+            kind: kind.to_owned(),
+            first: first.map(|e| e.0),
+            second: second.map(|e| e.0),
+            meeting,
+            entity: entity.map(|e| e.0),
+        }
+    }
+
+    fn from_rust(v: &IntersectionViolation) -> Self {
+        let in_meeting = |kind, first, second, meeting| {
+            Self::of(kind, Some(first), Some(second), Some(meeting), None)
+        };
+        let in_pair = |kind, first, second| Self::of(kind, Some(first), Some(second), None, None);
+        match *v {
+            IntersectionViolation::OffCurve {
+                first,
+                second,
+                meeting,
+            } => in_meeting("off_curve", first, second, meeting),
+            IntersectionViolation::OutsideSweep {
+                first,
+                second,
+                meeting,
+            } => in_meeting("outside_sweep", first, second, meeting),
+            IntersectionViolation::Parameter {
+                first,
+                second,
+                meeting,
+            } => in_meeting("parameter", first, second, meeting),
+            IntersectionViolation::Kind {
+                first,
+                second,
+                meeting,
+            } => in_meeting("kind", first, second, meeting),
+            IntersectionViolation::Order { first, second } => in_pair("order", first, second),
+            IntersectionViolation::NotACurve { entity } => {
+                Self::of("not_a_curve", None, None, None, Some(entity))
+            }
+            IntersectionViolation::Repeated { first, second } => in_pair("repeated", first, second),
+            IntersectionViolation::Missed { first, second } => in_pair("missed", first, second),
+            IntersectionViolation::AtJoin {
+                first,
+                second,
+                meeting,
+            } => in_meeting("at_join", first, second, meeting),
+        }
+    }
+}
+
+#[pymethods]
+impl CheckIntersectionViolation {
+    fn __repr__(&self) -> String {
+        let opt = |v: Option<u32>| v.map_or("None".to_owned(), |v| v.to_string());
+        format!(
+            "IntersectionViolation(kind={:?}, first={}, second={}, meeting={}, entity={})",
+            self.kind,
+            opt(self.first),
+            opt(self.second),
+            self.meeting.map_or("None".to_owned(), |v| v.to_string()),
+            opt(self.entity)
+        )
+    }
+}
+
+/// Everything off in a reported `Intersections` value.
+#[pyclass(frozen, name = "IntersectionReport", module = "laman.check")]
+pub struct CheckIntersectionReport {
+    pub inner: laman_check::IntersectionReport,
+}
+
+#[pymethods]
+impl CheckIntersectionReport {
+    /// What disagrees with the checker's own measure, in report order.
+    #[getter]
+    fn violations(&self) -> Vec<CheckIntersectionViolation> {
+        self.inner
+            .violations
+            .iter()
+            .map(CheckIntersectionViolation::from_rust)
+            .collect()
+    }
+
+    /// Parameters the coordinates lacked, or held non-finite.
+    #[getter]
+    fn missing(&self) -> Vec<CheckMissing> {
+        self.inner
+            .missing
+            .iter()
+            .map(|m| CheckMissing {
+                id: m.id.0,
+                coordinate: m.coordinate.map(|c| coordinate_name_of(c).to_owned()),
+            })
+            .collect()
+    }
+
+    /// True when nothing is violated or missing.
+    fn is_clean(&self) -> bool {
+        self.inner.is_clean()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "IntersectionReport(violations={}, missing={})",
+            self.inner.violations.len(),
+            self.inner.missing.len()
+        )
+    }
+}
+
+/// Re-measures a reported `Intersections` value at `coordinates`, sharing no
+/// code with `intersections`. Any value is accepted, one built by hand
+/// included.
+#[pyfunction]
+pub fn check_intersections(
+    sketch: &Sketch,
+    coordinates: &Coordinates,
+    found: &PyIntersections,
+) -> CheckIntersectionReport {
+    CheckIntersectionReport {
+        inner: laman_check::check_intersections(&sketch.inner, &coordinates.inner, &found.inner),
     }
 }
