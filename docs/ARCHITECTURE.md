@@ -873,7 +873,7 @@ parameters and order of `intersections()` against the construction, near
 The budgets are ROADMAP.md's: ≤ 1 ms for each C1 fixture and drag step;
 ≤ 4 ms for a one-dimension edit and a drag step at 500 entities, a bisected
 frame judged per try, the rectangle drag accepted at 6.0 ms (ADR-0011);
-≤ 2.0 ms for profile extraction at 500 entities, not a frame step
+≤ 1.5 ms for profile extraction at 500 entities, not a frame step
 (ADR-0014 and its M14 addendum), and 1.5 ms for intersections. The numbers below are one machine's (AMD Ryzen 9 7950X 16-Core
 Processor, Linux x86_64, 32 logical CPUs, release), measured 2026-11-07,
 the profile cells 2026-11-08.
@@ -905,8 +905,8 @@ solved coordinates and at a row of 249 disjoint circles built in the bench
 alone (the worst case of the quadratic containment); one cell a family and
 size, since extraction has no algorithm; an `intersections` operation and
 the `cell_grid` family run beside it. At 500 entities the worst of three
-runs of `profiles` is 2.0 ms (circles), 1.7 (slots), 1.6 (cells), 1.5
-(triangles), 1.2 (rectangles), inside the 2.0 ms of ADR-0014's addendum;
+runs of `profiles` is 1.4 ms (cells), 1.4 (triangles), 1.3 (circles), 1.2
+(rectangles), 0.6 (slots), inside the 1.5 ms of ADR-0014;
 `intersections` is 2.7 to 5.8 ms over every pair and 0.5 to 0.9 ms with the
 pruned pairs, inside its 1.5 ms.
 

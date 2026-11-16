@@ -280,8 +280,14 @@ pub fn profiles(sketch: &Sketch, values: &Coordinates) -> Result<Profiles, Profi
         let probe = cand.clone_edges();
         add(sketch, Some(probe), vec![cand])?;
     }
-    let tolerances = Tolerances::at(sketch, values);
-    let cut = split::split(sketch, values, &tolerances, &topo.cores)?;
+    // Only a branched core needs the split, and its tolerances and classes
+    // cost a pass over the whole sketch: not built for plain loops.
+    let cut = if topo.cores.is_empty() {
+        split::Split::default()
+    } else {
+        let tolerances = Tolerances::at(sketch, values);
+        split::split(sketch, values, &tolerances, &topo.cores)?
+    };
     for piece in cut.pieces {
         let mut bounded = Vec::with_capacity(piece.loops.len());
         let mut probe = None;

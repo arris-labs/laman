@@ -62,17 +62,26 @@ entities:
 | circles 498 | 1.468 | 1.973 | 2.708 |
 | cells 493 | | 1.623 | 3.837 |
 
-- **Profiles: the number is now 2.0 ms**, the worst of three rounded up
-  to the next 0.5 ms, by the stop rule above. M13's split costs: the
-  rectangle and triangle cells were a tenth of a millisecond before it
-  (the figures "before" were measured at the last commit of M12, with the
-  same bench). The split's bookkeeping is per edge and per join and grows
-  linearly with the entities (rectangles 0.17, 0.5 and 1.1 ms at 98, 248
-  and 498 entities); it is not the containment, whose worst cell, the
-  circle row, moved from 1.4 to 2.0. Nothing is changed for the budget:
-  2.0 ms is inside the 4 ms of a frame. This is a regression explained,
-  not a number widened to hide one: a cell past 2.0 ms is to be explained
-  again.
+- **Profiles: the number stays 1.5 ms.** The first reading of this table
+  (the step 7 commit) rounded the circle row's 1.973 ms up to 2.0 ms; the
+  stop rule asks for a profile before a number is accepted, and the profile
+  found something that could go. The circle row was 1.45 to 1.87 ms at the
+  last M12 commit (median 1.35 to 1.40) and 2.04 to 2.06 ms after M13
+  (median 1.9) in three runs of each. It has no branched core, yet M13's
+  `profiles` built `Tolerances::at` and `Classes::of`, each a pass over the
+  whole sketch, before the split looked at its (empty) cores: about 0.55 ms
+  of 1.77 in a perf profile of 1 500 calls. They are now built only when a
+  core exists; the row is 1.18 to 1.31 ms (median 1.2), as before M13.
+  Worst of three runs, ms: rectangles 1.220, slots 0.623, triangles 1.381,
+  circles 1.318, cells 1.395; all inside 1.5. The rest of the rise from the
+  "before" column is real work and not a cost to remove: before M13 a
+  branched core produced `Branched` and no profiles (the rectangle and
+  triangle cells did no extraction at all), and now each of its 100 to 166
+  profiles is measured and tested for containment, which is quadratic in
+  the profiles; the sizes show it, 98 to 498 entities (5.1 times) takes the
+  rectangles from 0.17 to 1.1 ms (6.5 times). `Classes::of` built once
+  instead of per core changes none of these cells. A cell past 1.5 ms is a
+  regression to be explained, not a number widened.
 - **Intersections share the 1.5 ms**, the number extraction had: the same
   shape (a read of declarations and solved coordinates, no solve, once per
   solved sketch), and the roadmap's "inside ADR-0014's stop rule" says a
