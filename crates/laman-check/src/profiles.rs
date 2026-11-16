@@ -200,12 +200,12 @@ pub fn check_profiles(sketch: &Sketch, values: &Coordinates, found: &Profiles) -
 /// The join classes of the sketch's points: the components of the graph of
 /// its `coincident` constraints (ADR-0012 D1), found by the checker's own
 /// union-find, the smallest id the representative.
-struct Classes {
+pub(crate) struct Classes {
     parent: BTreeMap<EntityId, EntityId>,
 }
 
 impl Classes {
-    fn of(sketch: &Sketch) -> Classes {
+    pub(crate) fn of(sketch: &Sketch) -> Classes {
         let mut classes = Classes {
             parent: BTreeMap::new(),
         };
@@ -220,7 +220,7 @@ impl Classes {
         classes
     }
 
-    fn find(&self, mut id: EntityId) -> EntityId {
+    pub(crate) fn find(&self, mut id: EntityId) -> EntityId {
         while let Some(&up) = self.parent.get(&id) {
             id = up;
         }

@@ -1,8 +1,13 @@
 //! `check_intersections` on values built by hand: closed-form meetings are
 //! clean, and each broken value names its variant (ADR-0018 D2, D3, D5).
+//! Completeness (D4) on the kernel's own results: clean as found, a dropped
+//! meeting or pair missed, at 1e-6 and 1e6 shifted far from the origin and at
+//! 1e300; at 1e-300 every curve is below the length floor and meets nothing.
 #![allow(clippy::unwrap_used)] // tests: a failing unwrap is the test failing (clippy.toml)
 
+use laman::intersect::intersections;
 use laman::model::intersection::{Intersection, Intersections, Meeting, MeetingKind};
+use laman::model::tolerance::Tolerances;
 use laman::model::{Coordinate, EntityId, Sketch};
 use laman_check::{IntersectionViolation as V, check_intersections};
 
@@ -189,17 +194,24 @@ fn an_overlap_is_read_by_its_stretch() {
         0.0,
     );
     assert_eq!(violations(&sk, &one(a, b, vec![overlap])), []);
-    // Read as a touch, a crossing, or with its far end's parameter wrong.
+    // Read as a touch or a crossing; with no overlap left, the shared
+    // stretch is missed too. Or with its far end's parameter wrong.
     for kind in [MeetingKind::Touch, MeetingKind::Crossing] {
         let mut twin = overlap;
         twin.kind = kind;
         assert_eq!(
             violations(&sk, &one(a, b, vec![twin])),
-            [V::Kind {
-                first: a,
-                second: b,
-                meeting: 0
-            }]
+            [
+                V::Kind {
+                    first: a,
+                    second: b,
+                    meeting: 0
+                },
+                V::Missed {
+                    first: a,
+                    second: b
+                }
+            ]
         );
     }
     let mut twin = overlap;
@@ -283,7 +295,7 @@ fn the_form_of_the_list_is_held() {
             second: a
         }]
     );
-    // An empty pair.
+    // An empty pair, which also leaves the crossing missed.
     let empty = Intersections {
         pairs: vec![Intersection {
             meetings: vec![],
@@ -292,10 +304,16 @@ fn the_form_of_the_list_is_held() {
     };
     assert_eq!(
         violations(&sk, &empty),
-        [V::Order {
-            first: a,
-            second: b
-        }]
+        [
+            V::Order {
+                first: a,
+                second: b
+            },
+            V::Missed {
+                first: a,
+                second: b
+            }
+        ]
     );
     // A pair twice, in either id order.
     let twice = Intersections {
@@ -342,19 +360,33 @@ fn a_pair_that_is_not_two_curves_is_named() {
     sk.set_construction(c, true).unwrap();
     let m = meeting(MeetingKind::Crossing, [2.0, 2.0], 0.5, 0.5);
     let pair = |first, second| one(first, second, vec![m]);
-    // A point, an unknown id, the same curve twice, a construction line.
+    // A point, an unknown id, the same curve twice, a construction line;
+    // each listing leaves the crossing of `a` and `b` missed.
+    let missed = V::Missed {
+        first: a,
+        second: b,
+    };
     assert_eq!(
         violations(&sk, &pair(p[0].id(), b)),
-        [V::NotACurve { entity: p[0].id() }]
+        [V::NotACurve { entity: p[0].id() }, missed.clone()]
     );
     assert_eq!(
         violations(&sk, &pair(a, EntityId(999))),
-        [V::NotACurve {
-            entity: EntityId(999)
-        }]
+        [
+            V::NotACurve {
+                entity: EntityId(999)
+            },
+            missed.clone()
+        ]
     );
-    assert_eq!(violations(&sk, &pair(a, a)), [V::NotACurve { entity: a }]);
-    assert_eq!(violations(&sk, &pair(a, c)), [V::NotACurve { entity: c }]);
+    assert_eq!(
+        violations(&sk, &pair(a, a)),
+        [V::NotACurve { entity: a }, missed.clone()]
+    );
+    assert_eq!(
+        violations(&sk, &pair(a, c)),
+        [V::NotACurve { entity: c }, missed]
+    );
     // A line shorter than a quarter of its tolerance.
     let mut tiny = Sketch::new();
     let (x, y, z, w) = (
@@ -400,4 +432,213 @@ fn nothing_panics_on_non_finite_or_huge_meetings() {
             }
         );
     }
+}
+
+/// A scale and a shift: a unit-construction point `v` is `s·(v + shift·(1, 0.7))`.
+#[derive(Debug, Clone, Copy)]
+struct At {
+    s: f64,
+    shift: f64,
+}
+
+impl At {
+    fn point(&self, sk: &mut Sketch, (x, y): (f64, f64)) -> laman::model::Point {
+        sk.point(self.s * (x + self.shift), self.s * (y + 0.7 * self.shift))
+            .unwrap()
+    }
+
+    fn line(&self, sk: &mut Sketch, a: (f64, f64), b: (f64, f64)) -> EntityId {
+        let (p, q) = (self.point(sk, a), self.point(sk, b));
+        sk.line(p, q).unwrap().id()
+    }
+
+    fn circle(&self, sk: &mut Sketch, c: (f64, f64), r: f64) -> EntityId {
+        let c = self.point(sk, c);
+        sk.circle(c, self.s * r).unwrap().id()
+    }
+}
+
+/// Pairs whose every meeting is a decided place (ADR-0018 D4): roots, a
+/// touch, an end crossing at an angle, shared stretches.
+fn decided(at: At) -> Vec<Sketch> {
+    let mut out = Vec::new();
+    let mut sk = Sketch::new();
+    at.line(&mut sk, (0.0, 0.0), (4.0, 4.0));
+    at.line(&mut sk, (0.0, 4.0), (4.0, 0.0));
+    out.push(sk);
+    // A line through a circle: two crossings.
+    let mut sk = Sketch::new();
+    at.line(&mut sk, (-5.0, 0.5), (5.0, 0.5));
+    at.circle(&mut sk, (0.0, 0.0), 3.0);
+    out.push(sk);
+    // Two circles crossing twice.
+    let mut sk = Sketch::new();
+    at.circle(&mut sk, (0.0, 0.0), 5.0);
+    at.circle(&mut sk, (6.0, 0.0), 5.0);
+    out.push(sk);
+    // A line touching a circle.
+    let mut sk = Sketch::new();
+    at.line(&mut sk, (-4.0, 0.0), (6.0, 0.0));
+    at.circle(&mut sk, (1.0, 2.0), 2.0);
+    out.push(sk);
+    // A T: the stem's end on the bar, which only the end rule finds.
+    let mut sk = Sketch::new();
+    at.line(&mut sk, (0.0, 0.0), (4.0, 0.0));
+    at.line(&mut sk, (1.5, 0.0), (2.5, 3.0));
+    out.push(sk);
+    // A half arc crossed once by a line.
+    let mut sk = Sketch::new();
+    let (c, s, e) = (
+        at.point(&mut sk, (0.0, 0.0)),
+        at.point(&mut sk, (3.0, 0.0)),
+        at.point(&mut sk, (-3.0, 0.0)),
+    );
+    sk.arc(c, s, e).unwrap();
+    at.line(&mut sk, (1.0, -5.0), (1.0, 5.0));
+    out.push(sk);
+    // Collinear lines sharing a stretch, and concentric circles of one radius.
+    let mut sk = Sketch::new();
+    at.line(&mut sk, (0.0, 0.0), (10.0, 0.0));
+    at.line(&mut sk, (6.0, 0.0), (14.0, 0.0));
+    out.push(sk);
+    let mut sk = Sketch::new();
+    at.circle(&mut sk, (1.0, -1.0), 3.0);
+    at.circle(&mut sk, (1.0, -1.0), 3.0);
+    out.push(sk);
+    out
+}
+
+#[test]
+fn a_dropped_meeting_or_pair_is_missed_at_every_scale() {
+    let scales = [
+        At { s: 1.0, shift: 0.0 },
+        At {
+            s: 1e-6,
+            shift: 1e3,
+        },
+        At {
+            s: 1e6,
+            shift: -1e3,
+        },
+        At {
+            s: 1e300,
+            shift: 300.0,
+        },
+    ];
+    for at in scales {
+        for (k, sk) in decided(at).iter().enumerate() {
+            let values = sk.coordinates();
+            let found = intersections(sk, &values).unwrap();
+            assert_eq!(found.pairs.len(), 1, "{at:?} sketch {k}: {found:?}");
+            let report = check_intersections(sk, &values, &found);
+            assert!(report.is_clean(), "{at:?} sketch {k}: {report:?}");
+            let pair = &found.pairs[0];
+            let missed = V::Missed {
+                first: pair.first,
+                second: pair.second,
+            };
+            let dropped = Intersections::default();
+            assert_eq!(
+                check_intersections(sk, &values, &dropped).violations,
+                std::slice::from_ref(&missed),
+                "{at:?} sketch {k}"
+            );
+            for m in 0..pair.meetings.len() {
+                let mut twin = found.clone();
+                twin.pairs[0].meetings.remove(m);
+                let named = check_intersections(sk, &values, &twin).violations;
+                assert!(
+                    named.contains(&missed),
+                    "{at:?} sketch {k} meeting {m}: {named:?}"
+                );
+            }
+        }
+    }
+}
+
+/// A line ending `short` length tolerances before a unit circle along its
+/// carrier, which meets the circle at (1, 0) at `angle` to its tangent.
+fn ending_short(angle: f64, short: f64) -> (Sketch, EntityId, EntityId) {
+    let build = |gap: f64| {
+        let d = (-libm::sin(angle), libm::cos(angle));
+        let mut sk = Sketch::new();
+        let c = sk.point(0.0, 0.0).unwrap();
+        let circle = sk.circle(c, 1.0).unwrap().id();
+        let p = sk.point(1.0 - 2.0 * d.0, -2.0 * d.1).unwrap();
+        let e = sk.point(1.0 - gap * d.0, -gap * d.1).unwrap();
+        let line = sk.line(p, e).unwrap().id();
+        (sk, circle, line)
+    };
+    let (sk, _, line) = build(0.0);
+    let l = Tolerances::at(&sk, &sk.coordinates()).entity(line);
+    build(short * l)
+}
+
+#[test]
+fn an_end_short_of_a_curve_is_never_missed_but_one_on_it_is() {
+    for angle in [0.01, 1.0, std::f64::consts::FRAC_PI_2] {
+        // The ADR's case: 1.1 L short along the carrier, within L of the
+        // circle at a shallow angle. The kernel reports nothing, rightly.
+        let (sk, _, _) = ending_short(angle, 1.1);
+        let found = intersections(&sk, &sk.coordinates()).unwrap();
+        assert!(found.pairs.is_empty(), "{angle}: {found:?}");
+        let report = check_intersections(&sk, &sk.coordinates(), &found);
+        assert!(report.is_clean(), "{angle}: {report:?}");
+        // On the circle: a crossing at the end, and missed when dropped.
+        let (sk, circle, line) = ending_short(angle, 0.0);
+        let found = intersections(&sk, &sk.coordinates()).unwrap();
+        assert_eq!(found.pairs.len(), 1, "{angle}");
+        assert!(check_intersections(&sk, &sk.coordinates(), &found).is_clean());
+        assert_eq!(
+            violations(&sk, &Intersections::default()),
+            [V::Missed {
+                first: circle,
+                second: line
+            }],
+            "{angle}"
+        );
+    }
+}
+
+#[test]
+fn a_crossing_at_a_join_is_named_and_a_join_is_never_missed() {
+    let mut sk = Sketch::new();
+    let p = [(0.0, 0.0), (4.0, 0.0), (4.0, 0.0), (4.0, 4.0)].map(|(x, y)| sk.point(x, y).unwrap());
+    let a = sk.line(p[0], p[1]).unwrap().id();
+    let b = sk.line(p[2], p[3]).unwrap().id();
+    sk.coincident(p[1], p[2]).unwrap();
+    let found = intersections(&sk, &sk.coordinates()).unwrap();
+    assert!(found.pairs.is_empty());
+    assert_eq!(violations(&sk, &found), []);
+    let corner = one(
+        a,
+        b,
+        vec![meeting(MeetingKind::Crossing, [4.0, 0.0], 1.0, 0.0)],
+    );
+    assert_eq!(
+        violations(&sk, &corner),
+        [V::AtJoin {
+            first: a,
+            second: b,
+            meeting: 0
+        }]
+    );
+}
+
+/// At 1e-300 the whole sketch is below `LENGTH_FLOOR` (ADR-0003): every curve
+/// is shorter than its tolerance, meets nothing, and nothing is missed. The
+/// measure itself is held at 1e-300 with the tolerance at that scale in the
+/// module's own tests, as the kernel's are.
+#[test]
+fn below_the_floor_every_curve_meets_nothing() {
+    let (sk, a, b, m) = cross_lines(1e-300);
+    let l = Tolerances::at(&sk, &sk.coordinates()).entity(a);
+    assert_eq!(l, laman::model::tolerance::LENGTH_FLOOR);
+    let found = intersections(&sk, &sk.coordinates()).unwrap();
+    assert!(found.pairs.is_empty());
+    assert!(check_intersections(&sk, &sk.coordinates(), &found).is_clean());
+    assert_eq!(
+        violations(&sk, &one(a, b, vec![m])),
+        [V::NotACurve { entity: a }, V::NotACurve { entity: b }]
+    );
 }

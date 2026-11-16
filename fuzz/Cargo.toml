@@ -51,3 +51,10 @@ path = "fuzz_targets/intersections_sketch.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "check_intersections_sketch"
+path = "fuzz_targets/check_intersections_sketch.rs"
+test = false
+doc = false
+bench = false

@@ -92,7 +92,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
 - [x] Step 2 **[2]** — `check_intersections`, per-meeting and per-pair
   tests (D1 less completeness): types, rustdoc example, closed-form tests
   on the C4 intersection corpus and hand-broken values.
-- [ ] Step 3 **[3]** — completeness: closest distance of line/arc/circle
+- [x] Step 3 **[3]** — completeness: closest distance of line/arc/circle
   pairs in the frame, the undecided band, `Missed` and `AtJoin`; held at
   1e±300 and at 1e-6/1e6 shifted far from the origin. Fuzz target
   `check_intersections_sketch`.
@@ -154,6 +154,15 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   Completeness is per place, not per pair: a closest distance within `L`
   is not a meeting at a shallow end (ADR-0018 Context), and a pair
   reported at all could still drop one of its meetings.
+- *Settled* (step 3): "held at 1e±300" is held as the kernel's own tests
+  hold it. At 1e300 (shifted 300 sizes) `check_intersections` runs on
+  `intersections()`'s result: clean, every dropped meeting or pair
+  `Missed`. At 1e-300 a sketch is below `LENGTH_FLOOR`, so through
+  `Tolerances::at` every curve is negligible: nothing is reported, nothing
+  missed, a listed pair is `NotACurve` (tested so). The measure itself is
+  held at 1e-300 by the module's own tests, the tolerance passed at the
+  scale (`1e-9·s`), closed forms at 1e-300 to 1e300 shifted 1e4 sizes.
+  `AtJoin` carries the meeting's index, like the other per-meeting variants.
 - ⚠ OPEN: whether intersections share extraction's 1.5 ms or get a
   number of their own by ADR-0011's stop rule. Agent, step 7; the
   roadmap's "inside ADR-0014's stop rule" is the rule, not the number.
