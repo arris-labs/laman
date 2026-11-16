@@ -33,8 +33,19 @@ release by release. Written in the commit that makes the change, under
   no loop. A branched core inside a plate gives the plate one hole per
   bounded area. In Python, `laman.profile.profiles` does the same and
   `laman.check.check_profiles` accepts an edge in two loops.
+- `laman_check::check_profiles` (and Python's `laman.check.check_profiles`)
+  now derives the split itself from the sketch's joins: an edge listed
+  among the open chains, dangling edges, bridges or loops that its own
+  pruning and connectivity test puts elsewhere is `misclassified`; a loop
+  that covers more than one bounded area of its piece is `not_one_area`;
+  and a hole inside a sibling hole of another piece is a `containment`.
 
 ### Breaking
+
+- `laman_check::ProfileViolation` gains `Misclassified { entity }` and
+  `NotOneArea { first }`; a `match` on it without a wildcard fails to
+  compile. Fix: handle both. In Python, `ProfileViolation.kind` can now be
+  `"misclassified"` or `"not_one_area"`.
 
 - `laman::model::profile::Branched` and `Profiles::branched` are removed,
   and `Profiles::bridges: Vec<EntityId>` is added; a sketch that gave

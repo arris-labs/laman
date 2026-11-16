@@ -394,6 +394,14 @@ fn feed_profiles(b: &mut Builder, found: &Profiles, report: &ProfileReport) {
                 b.text("containment");
                 first(b, f);
             }
+            ProfileViolation::Misclassified { entity } => {
+                b.text("misclassified");
+                b.u32(entity.0);
+            }
+            ProfileViolation::NotOneArea { first: f } => {
+                b.text("not_one_area");
+                first(b, f);
+            }
         }
     }
     b.u64(len_of(report.missing.len()));

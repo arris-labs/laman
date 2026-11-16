@@ -721,14 +721,19 @@ circle `πr²`), in a power-of-two frame. It names, by the loop's first edge
 id (`None` for an empty loop): `Area`, `Orientation`, `NetArea`,
 `NotChained`, `OpenJoin`, `ArcOffRadius`, `NotAnEdge`, `Repeated`,
 `Uncovered` and `Containment` (signed ray crossings of each hole's probe
-against its parent only, and of each outer probe against every other
+against its parent and its sibling holes of other pieces, and of each outer probe against every other
 profile's plate). A loop with an open join or an off-radius arc is named
 and its area not compared. An absent or non-finite coordinate leaves its
 loop unmeasured and listed in `missing`. Any `Profiles` value is an input:
 a stale id or an empty loop is a violation, never a panic. The
-classification of open, dangling and bridge edges is not re-derived: the
-check holds that each edge is listed at most once in each direction, a
-bridge in no loop, and every other edge once in some list.
+classification of open, dangling and bridge edges is re-derived (ADR-0018
+D7): its own pruning to the 2-core gives open and dangling edges, a
+union-find over the core's other edges gives bridges, and each listed
+class must equal the derived one (`Misclassified`). A loop must be one
+bounded area of its piece, the core less its bridges: no other edge of the
+piece has its probe strictly inside it (`NotOneArea`, undecided where the
+piece's curves cross), and a hole lies in none of its siblings of another
+piece (`Containment`). Each edge is listed at most once in each direction.
 
 Every test that solves runs the checker on the result; a fixture that
 expects violations lists them. The Python package exposes both operations

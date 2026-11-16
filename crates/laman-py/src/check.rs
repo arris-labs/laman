@@ -145,7 +145,7 @@ pub fn check_sketch(sketch: &Sketch, coordinates: &Coordinates) -> CheckReport {
 ///
 /// `kind` is one of `area`, `net_area`, `orientation`, `not_chained`,
 /// `open_join`, `arc_off_radius`, `not_an_edge`, `repeated`, `uncovered`,
-/// `containment`. Of the other fields, only those the kind carries are set.
+/// `containment`, `misclassified`, `not_one_area`. Of the other fields, only those the kind carries are set.
 #[pyclass(frozen, get_all, name = "ProfileViolation", module = "laman.check")]
 pub struct CheckProfileViolation {
     /// What is wrong.
@@ -154,7 +154,8 @@ pub struct CheckProfileViolation {
     /// `net_area`); `None` for a loop with no edge, and for the kinds about
     /// one edge.
     pub first: Option<u32>,
-    /// The edge, for `not_an_edge`, `repeated` and `uncovered`.
+    /// The edge, for `not_an_edge`, `repeated`, `uncovered` and
+    /// `misclassified`.
     pub entity: Option<u32>,
     /// The checker's measure, for `area` and `net_area`.
     pub measured: Option<f64>,
@@ -211,6 +212,10 @@ impl CheckProfileViolation {
             ProfileViolation::Repeated { entity } => Self::about_edge("repeated", *entity),
             ProfileViolation::Uncovered { entity } => Self::about_edge("uncovered", *entity),
             ProfileViolation::Containment { first } => Self::about_loop("containment", *first),
+            ProfileViolation::Misclassified { entity } => {
+                Self::about_edge("misclassified", *entity)
+            }
+            ProfileViolation::NotOneArea { first } => Self::about_loop("not_one_area", *first),
         }
     }
 }

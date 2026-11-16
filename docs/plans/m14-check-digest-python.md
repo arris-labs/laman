@@ -96,7 +96,7 @@ Grades (`.agents/tiers.md`): **[1]** routine; **[2]** careful; **[3]** unproven.
   pairs in the frame, the undecided band, `Missed` and `AtJoin`; held at
   1e±300 and at 1e-6/1e6 shifted far from the origin. Fuzz target
   `check_intersections_sketch`.
-- [ ] Step 4 **[2]** — `check_profiles` re-derives open, dangling and
+- [x] Step 4 **[2]** — `check_profiles` re-derives open, dangling and
   bridge edges, tests one bounded area per loop and sibling holes (D2);
   c3 and c4 profile corpora and `c4_profile_props` stay clean.
 - [ ] Step 5 **[2]** — broken twins for the C4 corpus: a meeting moved,

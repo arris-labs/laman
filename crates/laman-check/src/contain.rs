@@ -101,6 +101,27 @@ impl Seg {
         }
     }
 
+    /// The point a fraction `t` of the way along the piece as drawn (a
+    /// circle's from angle 0), `t` in [0, 1].
+    pub(crate) fn at(&self, t: f64) -> Xy {
+        match *self {
+            Seg::Line { from, to } => (from.0 + t * (to.0 - from.0), from.1 + t * (to.1 - from.1)),
+            Seg::Arc { c, s, e, .. } => {
+                let turn = t * sweep(c, s, e);
+                let (sin, cos) = (libm::sin(turn), libm::cos(turn));
+                let u = sub(s, c);
+                (c.0 + cos * u.0 - sin * u.1, c.1 + sin * u.0 + cos * u.1)
+            }
+            Seg::Circle { c, r, .. } => {
+                let turn = t * TAU;
+                (
+                    c.0 + r.abs() * libm::cos(turn),
+                    c.1 + r.abs() * libm::sin(turn),
+                )
+            }
+        }
+    }
+
     /// A point on the piece in the middle of its traversal.
     pub(crate) fn midpoint(&self) -> Xy {
         match *self {

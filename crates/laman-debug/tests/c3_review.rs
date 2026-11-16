@@ -199,6 +199,8 @@ enum Kind {
     Repeated,
     Uncovered,
     Containment,
+    Misclassified,
+    NotOneArea,
 }
 
 /// A violation's variant and the id it names: a loop's first edge, or the
@@ -217,6 +219,8 @@ fn kind(v: &ProfileViolation) -> Named {
         ProfileViolation::Repeated { entity } => (Kind::Repeated, Some(*entity)),
         ProfileViolation::Uncovered { entity } => (Kind::Uncovered, Some(*entity)),
         ProfileViolation::Containment { first } => (Kind::Containment, *first),
+        ProfileViolation::Misclassified { entity } => (Kind::Misclassified, Some(*entity)),
+        ProfileViolation::NotOneArea { first } => (Kind::NotOneArea, *first),
     }
 }
 
@@ -386,7 +390,9 @@ fn a_hole_moved_to_the_wrong_parent_is_named() {
     );
 
     // The island listed as a second hole of the plate: inside, but turning
-    // the wrong way for a hole, and subtracted from the plate's net.
+    // the wrong way for a hole, subtracted from the plate's net, and (the
+    // island lying inside the plate's own hole) inside a sibling hole of
+    // another piece (ADR-0018 D7).
     let mut t = twin("plate-island");
     let plate = first(&t.found.profiles[0].outer);
     let island = t.found.profiles.pop().unwrap().outer;
@@ -394,7 +400,11 @@ fn a_hole_moved_to_the_wrong_parent_is_named() {
     t.found.profiles[0].holes.push(island);
     assert_eq!(
         t.named(),
-        [(Kind::Orientation, named), (Kind::NetArea, plate)]
+        [
+            (Kind::Orientation, named),
+            (Kind::NetArea, plate),
+            (Kind::Containment, named),
+        ]
     );
 }
 
