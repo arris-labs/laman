@@ -82,3 +82,10 @@ entities:
   `plans/m14-check-digest-python` follows (a sweep over bounding boxes
   widened by `L`, bit-equal to all pairs); its measurement is recorded
   below when it lands, and only then does intersections' number stand.
+
+**The sweep landed** (`plans/m14-check-digest-python` step 8): boxes widened
+by four length tolerances, sorted by their left edge, bit-equal to all
+pairs. Worst samples in ms, worst of three runs: rectangles 0.636, slots
+0.781, triangles 0.599, circles 0.666, cells 0.888. **Intersections stand at
+1.5 ms**, the number extraction had; a cell past it is a regression to be
+explained, not a number to widen.

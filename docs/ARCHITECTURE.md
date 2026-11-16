@@ -681,6 +681,12 @@ nothing: an intersection joins nothing ([ADR-0012](adr/0012-profiles-join-by-dec
   tolerance of an end the two share by id or by join class is that join and
   is not reported; an overlap never is. An end lying on another curve is a
   crossing or a touch like any other, its parameter 0 or 1.
+- **Pruning.** Only pairs whose bounding boxes, each widened by
+  `SWEEP_MARGIN` (4) of its length tolerance, overlap reach the kernel: a
+  sweep over boxes sorted by their left edge, then their y extents. A curve
+  whose box has a non-finite side is tried against every other. The result is
+  bit-equal to trying every pair (held by a property test), in the same
+  order. At 500 entities it takes 0.5 to 0.9 ms, inside 1.5 ms (ADR-0014).
 - **Kernel.** `intersect::kernel` measures one pair in a frame translated
   to the first curve's origin and scaled by an exact power of two (the frame
   of profile extraction, `frame.rs`), so nothing overflows near 1e±300 and a
@@ -901,8 +907,8 @@ size, since extraction has no algorithm; an `intersections` operation and
 the `cell_grid` family run beside it. At 500 entities the worst of three
 runs of `profiles` is 2.0 ms (circles), 1.7 (slots), 1.6 (cells), 1.5
 (triangles), 1.2 (rectangles), inside the 2.0 ms of ADR-0014's addendum;
-`intersections` is 2.7 to 5.8 ms, past its 1.5 ms until the pruning of
-`plans/m14-check-digest-python` step 8.
+`intersections` is 2.7 to 5.8 ms over every pair and 0.5 to 0.9 ms with the
+pruned pairs, inside its 1.5 ms.
 
 Each position runs in a separate process with a 5 s wall limit, setup
 included. A completed first sample above 100 ms is not repeated; otherwise
