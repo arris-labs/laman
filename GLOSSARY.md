@@ -105,7 +105,7 @@ leaves nothing. Reported by id, never an error (ADR-0012).
 _Avoid_: unclosed loop
 
 **Dangling edge**:
-An edge pruned from a component that still has a loop: it hangs from the
+An edge pruned from a connected set of edges that still has a loop: it hangs from the
 loop at one end and is free at the other. Reported by id (ADR-0012).
 _Avoid_: spur, stub
 
@@ -417,8 +417,9 @@ _Avoid_: configuration, mode
 ## Verification
 
 **Checker**:
-`laman-check`: re-evaluates every constraint from solved coordinates with
-code that shares nothing with the solver's residuals.
+`laman-check`: re-evaluates every constraint from solved coordinates, and
+re-measures reported profiles and intersections, with code that shares
+nothing with the solver's residuals or with extraction and the kernel.
 _Avoid_: validator, verifier
 
 **Allowance**:
@@ -446,8 +447,9 @@ known analytically or by construction, committed under `tests/fixtures/`.
 _Avoid_: test case, sample
 
 **Digest**:
-A hash of a solution's bits, compared between native and wasm32 to hold
-determinism.
+A hash of a run's bits (the sketch, a solution, the checker's report, and
+for a profile or intersection run what was found), compared between native
+and wasm32 to hold determinism.
 _Avoid_: checksum, fingerprint
 
 **Equation**:

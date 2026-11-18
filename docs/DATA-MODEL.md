@@ -2,7 +2,8 @@
 
 What a sketch holds and what each part means as equations: entity
 parametrisations, every constraint's residuals and the DoF it removes,
-what profile extraction returns, what the diagnostics report, and the
+what profile extraction and intersection measuring return, what the
+diagnostics report, and the
 serde form. How the pieces are
 stored and solved is [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -117,7 +118,7 @@ stored with it (ARCHITECTURE.md §Branches).
 The result of `profile::profiles` over a sketch and coordinates; joins
 are declared, never measured (ADR-0012).
 
-- `Profiles { profiles, open_chains, dangling, branched, degenerate,
+- `Profiles { profiles, open_chains, dangling, bridges, degenerate,
   unjoined }`, every list ordered by smallest id and naming the caller's
   ids.
 - `Profile { outer, holes, net_area }`: the outer `Loop` is

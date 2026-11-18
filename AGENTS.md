@@ -41,14 +41,13 @@ open ends with declared joins (ADR-0012); `laman_check::check_profiles`
 measures by sectors (ADR-0013); extraction at 500 entities inside 1.5 ms
 (ADR-0014); profiles and their check in Python, 31 digests equal natively
 and on wasm32.
-**C4 under way** (shared edges and crossings): M12 landed — a tangent
-contact joined by `coincident` solves to the coordinate tolerance
-(ADR-0015), and `laman::intersect::intersections` reports crossings,
-touches and overlaps (ADR-0016); M13 landed — `profiles` splits a branched
-core at its joins, bridges reported (ADR-0017); M14 landed — the checker
-measures intersections and re-derives the split (ADR-0018), digests equal
-on wasm32, `laman-py` over it. **Next:** `/close-cycle` for C4; edits
-follow as C5.
+**C4 closed** (2026-11-18): `laman::intersect::intersections` reports crossings,
+touches and overlaps (ADR-0016), a tangent contact joined by `coincident`
+solves to the coordinate tolerance (ADR-0015), `profiles` splits a branched
+core at its joins (ADR-0017), the checker measures both (ADR-0018); digests
+equal on five runners and wasm32, `laman-py` over it. **Next:** C5 edits
+(split, trim, extend at an intersection), proposed in `docs/ROADMAP.md`;
+`/plan C5` once the human confirms it; the 0.4.0 release is due.
 
 ## Rules that are not derivable from the code
 

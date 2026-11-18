@@ -7,8 +7,8 @@ compresses to its status line (`/close-cycle`), and the next is appended
 below.
 
 Spine: **C1** M0 → M1 → M2 → M3 → M4 (the vertical slice), then **C2**
-(the sketcher gate), **C3** (profiles), then the later cycles one at a
-time.
+(the sketcher gate), **C3** (profiles), **C4** (shared edges and
+crossings), then the later cycles one at a time.
 
 ---
 
@@ -21,9 +21,11 @@ The unit of acceptance: a directory `tests/fixtures/<area>/<slug>/` with
 - `expected.json`: status, DoF, every free point's expected coordinates
   with the comparison tolerance, the redundant constraints and each
   conflict set **by tag**, and the expected flips (usually none); and, for
-  a C3 fixture, `profiles`: every list of the extraction by id, each loop's
-  edges in order with `reversed` and its joins, and each area (its
-  tolerance where it is not the default, relative `1e-9`);
+  a C3 or C4 profile fixture, `profiles`: every list of the extraction by
+  id, each loop's edges in order with `reversed` and its joins, and each
+  area (its tolerance where it is not the default, relative `1e-9`); for a
+  C4 intersection fixture, `intersections`: every pair by id, each meeting's
+  kind, point and parameter on both curves;
 - for a drag, `drag.json`: the dragged point, the targets in order, and the
   expected coordinates after chosen steps.
 
@@ -37,7 +39,7 @@ is a regression guard, blessed from the first green run, and
 its acceptance is equality across targets. Coordinates compare within
 `1e-9` of the sketch's size unless a fixture says otherwise. The test for
 a fixture loads it, solves, runs the checker, compares, and compares the
-digest; the C1 and C3 fixtures run from pytest too.
+digest; the C1, C3 and C4 fixtures run from pytest too.
 
 ---
 
@@ -223,14 +225,15 @@ a wall or a window split into panes, gives one profile per enclosed area.
 Where curves cross without a shared point, laman says where they cross and
 how. Both come from the solved coordinates, with no edit and no new solve.*
 
-The risk this cycle retires is read-only topology on solved geometry. A
-branched core has to split into its profiles, with edges at a join ordered
-by direction and then by curvature where two edges leave tangent. A crossing
-has to be found, classified and ordered the same way on every target. A
-tangent touch is a double root, so it is only as accurate as the solve that
-produced it, and it must be told apart from a crossing. Every later edit
-(split, trim, extend) is built on these three. Retiring them before any edit
-changes the sketch keeps a geometry bug from being mistaken for an edit bug.
+**Status: done 2026-11-18.** Retired the read-only topology risk: a branched
+core splits into its profiles, a crossing is found, classified and ordered
+the same bits on every target, and a tangent touch is told from a crossing
+because the double root is solved to the coordinate tolerance. ADRs 0015
+(contacts are recognized through join classes), 0016 (intersections are
+measured and classified, never joined), 0017 (a branched core splits at its
+joins) and 0018 (the checker measures intersections and re-derives the
+split); ADR-0002 and ADR-0012 amended. The numbers are in ARCHITECTURE.md
+§Frame budget. Known gaps are findings in `docs/BACKLOG.md`.
 
 - In: profiles of a branched core, joins still declared (ADR-0012 stands).
   At each join the edges are ordered by tangent direction, then by
@@ -264,19 +267,36 @@ changes the sketch keeps a geometry bug from being mistaken for an edit bug.
   reproduces every number. Extraction and intersections at 500 entities
   stay inside ADR-0014's stop rule.
 
-*Confirmed by the human with `/plan C4`: edits move to C5, which needs these
-intersections and branched profiles; mirror and offset wait for a consumer.
-Landed so far: M12 (the tangent double root through join classes, ADR-0015;
-`intersect::intersections`, ADR-0016); M13 (branched profiles split at
-their joins, ADR-0017); M14 (the checker's measure of intersections and of the split, ADR-0018; the digests; the cost; `laman-py`). C4 is ready for `/close-cycle`.*
+## C5 — edits
+
+*Goal: a sketch can be cut where curves cross and shortened or extended to
+a crossing, so a sketcher gets split, trim and extend from laman instead of
+rebuilding the sketch by hand. The result matches a hand-built sketch in
+DoF, profiles and bits.* (Proposed at C4's close; theme and in/out split
+are the human's call.)
+
+- In: split an edge at a C4 intersection, which declares the join
+  (ADR-0012, ADR-0016); trim and extend an edge to an intersection; re-point
+  a shared point. An ADR decides what each constraint on a split, trimmed or
+  removed piece becomes (moves, splits, drops, or is refused by id).
+  Edits are `Edit` operations, applied through `Sketch::apply`, with their
+  ids and refusals typed; the checker measures the result independently;
+  `laman-py` over them, with stubs; digests extended.
+- Out: mirror and offset (they wait for a consumer); ellipses and splines;
+  filling, meshing, booleans; a named consumer's fixtures; any change to
+  how a crossing is found or classified (C4).
+- Accept: fixtures by construction, every number from a closed form. A
+  split, a trim and an extend of a line, an arc and a circle, each equal to
+  the same sketch built by hand in DoF, profiles and bits; a constraint on a
+  piece that the ADR says is dropped, moved or refused, one fixture per
+  rule; a split at a touch and at an overlap refused or handled as the ADR
+  says; the shared-wall rectangles drawn crossing and then split give the
+  two 60 × 60 profiles; at 500 entities an edit stays inside the C2 budget;
+  digests equal natively and on wasm32-wasip1; pytest reproduces every
+  number.
 
 ## Later cycles, one line each, unordered
 
-- **Edits** (C5 when C4 closes): split at a C4 intersection, which
-  declares the join; trim and extend to one; re-point a shared point. An
-  ADR decides what each constraint on a split, trimmed or removed piece
-  becomes (moves, splits, drops, or is refused by id), and the result
-  matches a hand-built sketch in DoF, profiles and bits.
 - **Mirror and offset**, once a consumer asks. Mirror is copies plus
   `symmetric` and needs no new kind. A live offset needs `concentric` and a
   curve-to-curve distance, which are new kinds (DATA-MODEL.md §Not yet).

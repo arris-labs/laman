@@ -2,7 +2,7 @@
 
 How laman is put together: the crates and the rule between them, the
 sketch and its ids, what `solve` takes and returns, the drag session,
-profiles, where the checker sits, and the rules that keep every target's
+profiles, intersections, where the checker sits, and the rules that keep every target's
 bits the same.
 Entity parametrisations and constraint equations are in
 [DATA-MODEL.md](DATA-MODEL.md); the words are in
@@ -12,10 +12,10 @@ Entity parametrisations and constraint equations are in
 
 | Crate | Holds | Published | Depends on |
 |---|---|---|---|
-| `laman` | the sketch, entities, constraints and their residuals, the solver, diagnostics, drag sessions, profiles, `rigidity` | crates.io `laman` | `nalgebra`, `libm`, `thiserror`; `serde` behind the `serde` feature |
-| `laman-check` | the checker: every constraint re-evaluated from solved coordinates, and profiles re-measured | no (`publish = false`; publishing it is a line in `docs/BACKLOG.md`) | `laman`'s **model** only, `libm` |
+| `laman` | the sketch, entities, constraints and their residuals, the solver, diagnostics, drag sessions, profiles, intersections, `rigidity` | crates.io `laman` | `nalgebra`, `libm`, `thiserror`; `serde` behind the `serde` feature |
+| `laman-check` | the checker: every constraint re-evaluated from solved coordinates, and profiles and intersections re-measured | no (`publish = false`; publishing it is a line in `docs/BACKLOG.md`) | `laman`'s **model** only, `libm` |
 | `laman-debug` | text and SVG dumps, the fixture loader, `proptest` strategies, the generated corpus (`corpus`), the digests, benchmarks | no (`publish = false`) | `laman`, `laman-check`; `proptest` behind a default feature of the same name |
-| `laman-py` | the PyO3 binding, `laman`, `laman.profile`, `laman.check` and `laman.debug` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check`, `laman-debug` without `proptest` |
+| `laman-py` | the PyO3 binding, `laman`, `laman.profile`, `laman.intersect`, `laman.check` and `laman.debug` in Python | PyPI `laman`, never crates.io | `laman`, `laman-check`, `laman-debug` without `proptest` |
 
 `laman-debug` is a dev-dependency, except under `laman-py`, without its
 `proptest` feature (ADR-0007; `tools/check-layers.sh` refuses `proptest` in
@@ -40,7 +40,7 @@ it in this list:
 
 | Module | Holds |
 |---|---|
-| `model` | `Sketch`, ids, `Entity`, `Constraint` (descriptions, no maths), `Coordinates`, tags and payloads, `Tolerances`, the profile result types (`model::profile`), the serde form |
+| `model` | `Sketch`, ids, `Entity`, `Constraint` (descriptions, no maths), `Coordinates`, tags and payloads, `Tolerances`, the profile and intersection result types (`model::profile`, `model::intersection`), the serde form |
 | `values` | the `Values` trait a parameter's value is read through, over `Coordinates` and over `Dense`, the flat table a solve and the analysis hold (§Diagnose); it names only `residual`'s `Param` key |
 | `residual` | `equations(sketch, values, constraint)` and `intrinsic(sketch, values, entity)`: each an `Equation` (value, `Unit`, a degenerate flag, and its analytic gradient as terms keyed by `(EntityId, Coordinate)`, merged and sorted, at most 8) at any coordinates; total, no `Result` (DATA-MODEL.md §Constraints) |
 | `branch` | observations at coordinates (arc sweeps, circle radii, line-pair orientations) and the flips between two sets (§Branches) |
@@ -50,7 +50,9 @@ it in this list:
 | `diagnose` | rank, DoF per entity, free directions, redundant and conflicting sets |
 | `solution` | `Sketch::solve` and `apply`, `SolverOptions`, `Solution` and its `Diagnostics` (`Flip`, `Bisection` and their kin), the solution's serde form |
 | `drag` | `DragSession` |
+| `frame` | the translated, power-of-two-scaled frame that profile extraction and the intersection kernel measure in |
 | `profile` | `profiles(sketch, values)`: loops, holes and open ends from coordinates (§Profiles); its result types live in `model::profile` |
+| `intersect` | `intersections(sketch, values)`: where curves meet without a join (§Intersections); its result types live in `model::intersection` |
 | `rigidity` | the generic rigidity count (the 0.0.1 API); `stage` does not use it |
 | `reference` | behind the non-default `reference` feature, hidden and unbound: the whole path's solve and diagnosis and `downstream`, for laman's tests (§Solve) |
 
@@ -629,8 +631,8 @@ ProfileError>` reads any coordinates, a solution's included, and takes no
   joining `coincident` still closes its loop; the loop names it.
 - **Topology.** An edge is a non-construction line or arc, its ends being
   classes; a non-construction circle is a loop alone. Degree-1 classes are
-  pruned repeatedly in id order: a component pruned away is an open chain,
-  a pruned edge of a component that keeps a core is dangling. A core whose
+  pruned repeatedly in id order: a connected set of edges pruned away is an
+  open chain, a pruned edge of one that keeps a core is dangling. A core whose
   classes all have degree 2 is a loop, ordered from its smallest edge id;
   a core with a class of degree > 2 is branched and is split
   ([ADR-0017](adr/0017-a-branched-core-splits-at-its-joins.md)): its
@@ -741,9 +743,24 @@ piece has its probe strictly inside it (`NotOneArea`, undecided where the
 piece's curves cross), and a hole lies in none of its siblings of another
 piece (`Containment`). Each edge is listed at most once in each direction.
 
+`laman_check::check_intersections(&Sketch, &Coordinates, &Intersections)
+-> IntersectionReport` re-measures what `intersections` reported
+([ADR-0018](adr/0018-the-checker-re-measures-intersections-and-re-derives-the-split.md)):
+by its own distances to a line or a round, its own reading of a meeting's
+kind from a depth, and its own parameter mapped back to a point, each pair
+in a power-of-two frame. Every verdict is decided at the undecided band,
+`L/4` to `4L` about the pair's length tolerance `L`, never at the kernel's
+`L`. It names `OffCurve`, `OutsideSweep`, `Parameter`, `Kind`, `Order`,
+`NotACurve`, `Repeated`, `AtJoin` and, over every pair of the sketch's
+curves listed or not, `Missed`: a place the two curves decidedly meet that
+no reported meeting covers. An absent or non-finite coordinate is listed in
+`missing` and its pair left unchecked; any `Intersections` value is an
+input, never a panic.
+
 Every test that solves runs the checker on the result; a fixture that
-expects violations lists them. The Python package exposes both operations
-in `laman.check` (`check`, `check_profiles`).
+expects violations lists them. The Python package exposes the three
+operations in `laman.check` (`check`, `check_profiles`,
+`check_intersections`).
 
 ## Determinism
 
@@ -790,12 +807,12 @@ against the same committed digests. The Linux-only `wasm` job also
 compares native output with `wasm32-wasip1` under wasmtime
 (`tools/digest-wasm.sh`, compared sorted: the tests run in parallel).
 `laman-debug`'s `determinism.rs` reads the blessed digests, blessed only
-after `tests/c1.rs` (and, for the profile runs, `tests/c3.rs`) has checked
-the same solves. A change that moves a
+after `tests/c1.rs` (and, for the profile and intersection runs,
+`tests/c3.rs` and `tests/c4.rs`) has checked the same solves. A change that moves a
 solution's bits re-blesses them in the same commit, saying why
 (`.agents/review.md`).
 
-The **fuzzer** has five targets outside the workspace: `load_sketch` (any
+The **fuzzer** has six targets outside the workspace: `load_sketch` (any
 bytes are a sketch or a refusal), `solve_sketch` (any loadable sketch
 solves under both algorithms to a complete answer that applies back),
 `drag_sketch` (any loadable sketch, any point, any targets, raw `f64` bits
@@ -806,13 +823,15 @@ solution's coordinates; missing values refused, never a panic; then
 clean on the found wherever `check` is clean) and `intersections_sketch`
 (finite, repeatable, ordered intersections with parameters in range at a
 sketch's and a solution's coordinates; missing values refused, never a
-panic).
+panic) and `check_intersections_sketch` (`check_intersections` on the found
+and on mutated intersections, never a panic, the same report twice, and
+clean on the found wherever `check` is clean).
 `cargo run --release -p laman-debug --example bench` times the static C1
 fixtures and each step of fixture 4's drag against the 1 ms frame budget and
 names the machine.
 
-The `laman_debug::corpus` harness (in Python only its slot grid,
-`laman.debug.slot_grid`) builds C2 sketches with
+The `laman_debug::corpus` harness (in Python only its slot and cell grids,
+`laman.debug.slot_grid` and `laman.debug.cell_grid`) builds C2 sketches with
 closed-form coordinates, deterministic displaced guesses, dimension edits
 and drags. `Case` holds the static sketch and `Expected`, an `Edit` with
 its tag, replacement value, constructed answers and upstream `unmoved`
@@ -829,7 +848,11 @@ slot's vertical placement; a separate horizontal-placement dimension is
 removed for its drag. A triangle edit changes one middle skip-edge; the
 tail rotates rigidly about the preceding point by construction. Triangles
 have no constructed drag. The other two families have one-DoF drags with
-three targets. These generated cases do not replace the committed C1 fixtures.
+three targets. The cell grid (`cell_grid`, `13rc+2r+2c+1` entities) is
+`rows × cols` cells of 100 × 40 whose shared walls are single lines, a C1
+slot in each as a hole, every cell one profile of net area
+`4000 − (400 + 25π)`; its edit widens the last column by a tenth, and it has
+no drag. These generated cases do not replace the committed C1 fixtures.
 
 `tests/c2.rs` checks static, edited and dragged coordinates, status, DoF,
 empty redundant/conflict/flip diagnostics, semicircle sweeps and checker
@@ -867,6 +890,16 @@ disjoint and the arc's last two slots outside its sweep; rotated, scaled
 by 1e-6 to 1e6 and translated, it asserts the kinds, counts, points,
 parameters and order of `intersections()` against the construction, near
 1e300 included (near 1e-300 only finite output, ADR-0016 D2).
+`tests/c4.rs` solves each C4 fixture under both algorithms, holds it to the
+checker, and measures its intersections or extracts its profiles at the
+solution and at the expected coordinates against `expected.json`'s closed
+forms and both checkers; `tests/c4_twins.rs` breaks each closed-form result
+once and expects the named violation, and runs the intersection corpus
+scaled by 1e-6 and 1e6 and shifted. `tests/c4_profile_props.rs` builds
+random subdivisions of a rectangle (line and arc walls, joins of degree 4,
+tangent fillets, islands and blocks hung by bridges), rotated, scaled and
+translated, and asserts every profile, loop, area and bridge against the
+construction and `check_profiles`.
 
 ### Frame budget
 
@@ -876,7 +909,7 @@ frame judged per try, the rectangle drag accepted at 6.0 ms (ADR-0011);
 ≤ 1.5 ms for profile extraction at 500 entities, not a frame step
 (ADR-0014 and its M14 addendum), and 1.5 ms for intersections. The numbers below are one machine's (AMD Ryzen 9 7950X 16-Core
 Processor, Linux x86_64, 32 logical CPUs, release), measured 2026-11-07,
-the profile cells 2026-11-08.
+the profile and intersection cells 2026-11-16.
 
 **The C1 bench** (`bench`, median of 200 runs): the static bases and
 redundant twins take 0.02–0.04 ms (triangle), 0.06–0.13 ms (belt) and
@@ -912,7 +945,8 @@ pruned pairs, inside its 1.5 ms.
 
 Each position runs in a separate process with a 5 s wall limit, setup
 included. A completed first sample above 100 ms is not repeated; otherwise
-five samples are taken, which bounds the 62 workers to 310 s plus process
+five samples are taken, which bounds the 76 workers (52 solver cells, 12
+profile and 12 intersection cells) to 380 s plus process
 overhead, including operations that do not return. A cell is over budget
 when its worst sample is. An interrupted timed operation prints a lower
 bound, a setup that exhausts the limit gives no verdict, and the benchmark
@@ -989,7 +1023,7 @@ empty on wasm32.
 
 The `serde` feature (on by default) gives `Sketch` and `Solution` their
 serde forms; the checker's `Report` has none (`laman-debug`'s dumps render
-it), nor do `Profiles` and `ProfileReport`. The forms, their fields and their versioning are in DATA-MODEL.md §The
+it), nor do `Profiles`, `Intersections` and their reports. The forms, their fields and their versioning are in DATA-MODEL.md §The
 serde form.
 
 ## The Python binding
@@ -1037,9 +1071,9 @@ nothing.
   `digest_intersections` and `digest_solved_intersections`, included) as hex
   strings, and `slot_grid(rows, cols)` and `cell_grid(rows, cols)`, the
   corpus's sketches with their expected coordinates. Tooling, outside the stability promise (ADR-0007).
-- The corpora (`tests/fixtures/c1/` and `c3/`, each with `digests.txt`) are
-  run by pytest under both algorithms; the C3 run holds the slot grids to
-  their closed forms and `f64`'s extremes bit for bit; `hypothesis` builds
+- The corpora (`tests/fixtures/c1/`, `c3/` and `c4/`, each with
+  `digests.txt`) are run by pytest under both algorithms; the C3 run holds
+  the slot grids to their closed forms and `f64`'s extremes bit for bit; `hypothesis` builds
   Henneberg frameworks and solves them back, and plates with holes and
   islands, read back as profiles. CI's `python` job runs `tools/py-test.sh` (pytest,
   `mypy.stubtest` and strict mypy) once, on Ubuntu with Python 3.10: the
@@ -1070,14 +1104,16 @@ nothing.
 | `ModelError` | a mutation, a load or an `apply` that would make the sketch malformed or land a solution on a sketch it was not solved for | the ids involved and what was wrong |
 | `RigidityError` | `rigidity` given a bad bar | the bar index and point |
 | `ProfileError` | `profiles` given coordinates that miss a point or circle, or hold a non-finite value | the entity id |
+| `IntersectError` | `intersections` given coordinates that miss a point or circle a curve uses, or hold a non-finite value | the entity id |
 
 In Python every `ModelError` variant is a subclass of `laman.ModelError`
 (a `ValueError`), the ids as attributes, also reachable as
 `ModelError.<Variant>`; Rust's `Entity` and `Constraint` variants are
 `EntityError` and `ConstraintError`. `ProfileError` is a sibling
 `ValueError` with `ProfileError.Missing` and `ProfileError.NonFinite`, each
-carrying `entity`; a variant the binding lacks reaches Python as the base
-class. Bad JSON text is a plain `ValueError`.
+carrying `entity`; `laman.intersect.IntersectError` is another, with
+`IntersectError.Missing` and `.NonFinite`. A variant the binding lacks
+reaches Python as the base class. Bad JSON text is a plain `ValueError`.
 
 No other error type: solving, dragging and checking always return a
 value.

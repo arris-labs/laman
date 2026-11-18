@@ -11,7 +11,7 @@ diagnostics in the caller's own ids and tags (the exact remaining degrees
 of freedom, per entity, and the constraints to blame when a sketch cannot
 be satisfied); dragging that keeps the solution the user is on and returns
 the same bits on every platform; and every solve re-checkable by an
-independent verifier that shares no code with the solver. MIT OR
+independent checker that shares no code with the solver. MIT OR
 Apache-2.0.
 
 ## Status
@@ -19,7 +19,8 @@ Apache-2.0.
 Early. The sketch solver is being built in the open
 ([`SEED.md`](https://github.com/arris-labs/laman/blob/main/SEED.md) is the
 charter). In Python you can build a sketch, solve it, drag it, read every
-diagnostic, read its profiles and re-check them; the package also holds the
+diagnostic, read its profiles and where its curves cross, and re-check
+both; the package also holds the
 combinatorial core the project is named after, the **generic rigidity
 count of a bar framework** in the plane.
 
