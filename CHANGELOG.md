@@ -6,6 +6,8 @@ release by release. Written in the commit that makes the change, under
 
 ## Unreleased
 
+## 0.4.0 — 2026-11-18
+
 - A line tangent to a circle or arc whose end is joined by `coincident` to
   the arc's start or end, or to a point with an explicit `point_on_circle`
   on the circle (rather than sharing the point) now solves as accurately

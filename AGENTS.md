@@ -47,7 +47,7 @@ solves to the coordinate tolerance (ADR-0015), `profiles` splits a branched
 core at its joins (ADR-0017), the checker measures both (ADR-0018); digests
 equal on five runners and wasm32, `laman-py` over it. **Next:** C5 edits
 (split, trim, extend at an intersection), proposed in `docs/ROADMAP.md`;
-`/plan C5` once the human confirms it; the 0.4.0 release is due.
+`/plan C5` once the human confirms it; **0.4.0 published** (2026-11-18).
 
 ## Rules that are not derivable from the code
 
