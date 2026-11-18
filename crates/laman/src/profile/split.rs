@@ -179,8 +179,8 @@ fn rings(
 ) -> Result<Rings, ProfileError> {
     let mut at: BTreeMap<EntityId, Vec<(usize, usize)>> = BTreeMap::new();
     for &i in keep {
-        for end in 0..2 {
-            at.entry(edges[i].classes[end]).or_default().push((i, end));
+        for (end, &class) in edges[i].classes.iter().enumerate() {
+            at.entry(class).or_default().push((i, end));
         }
     }
     let mut out = Rings {
