@@ -27,8 +27,8 @@ const FIRST_LIMIT: Duration = Duration::from_millis(100);
 // Five samples give a median without making a baseline a prolonged load test.
 const RUNS: usize = 5;
 // Includes construction, initial solve/session opening, and all timed samples.
-// At most 62 workers (52 solver cells, 10 profile cells): the entire run takes
-// at most 310 s plus process overhead.
+// At most 76 workers (52 solver cells, 12 profile cells, 12 intersection
+// cells): the entire run takes at most 380 s plus process overhead.
 const WORKER_LIMIT: Duration = Duration::from_secs(5);
 const FAMILIES: [&str; 3] = ["rectangles", "slots", "triangles"];
 const OPERATIONS: [&str; 5] = ["static", "edit", "drag", "bisect", "bisect-deep"];
