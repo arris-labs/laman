@@ -149,8 +149,8 @@ pub(crate) fn topology(sketch: &Sketch) -> Topology {
     let mut incident: BTreeMap<EntityId, Vec<(usize, usize)>> = BTreeMap::new();
     let mut parts = Classes::default();
     for (i, e) in edges.iter().enumerate() {
-        for end in 0..2 {
-            incident.entry(e.classes[end]).or_default().push((i, end));
+        for (end, &class) in e.classes.iter().enumerate() {
+            incident.entry(class).or_default().push((i, end));
         }
         parts.union(e.classes[0], e.classes[1]);
     }
